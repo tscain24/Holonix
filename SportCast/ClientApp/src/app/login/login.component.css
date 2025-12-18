@@ -1,0 +1,306 @@
+:host {
+  --card-min-height: 520px;
+  display: block;
+  height: 100vh;
+  font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+  background: radial-gradient(circle at 20% 20%, #1e181a 0%, #0f0f12 35%, #070708 100%);
+  color: #e6e8ed;
+  overflow: hidden;
+}
+
+.shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px 40px;
+  min-height: 100%;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.card {
+  position: relative;
+  background: linear-gradient(135deg, rgba(18, 21, 27, 0.9), rgba(28, 33, 44, 0.85));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+  border-radius: 20px;
+  padding: 40px 34px;
+  width: 100%;
+  max-width: 780px;
+  min-height: var(--card-min-height);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+  z-index: 1;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: -40% 30% auto auto;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(255, 118, 118, 0.2), transparent 60%);
+  filter: blur(6px);
+  pointer-events: none;
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  inset: auto auto -40% -10%;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(255, 82, 82, 0.18), transparent 65%);
+  filter: blur(10px);
+  pointer-events: none;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+  margin-bottom: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.logo img {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+}
+
+h1 {
+  margin: 0 0 6px;
+  font-size: 30px;
+  color: #f4f6fb;
+  letter-spacing: 0.01em;
+  position: relative;
+  z-index: 1;
+}
+
+h1::after {
+  content: "";
+  display: block;
+  width: 56px;
+  height: 4px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff5a6a, #ffb347);
+}
+
+.muted {
+  margin: 0 0 24px;
+  color: #aab2c2;
+  position: relative;
+  z-index: 1;
+}
+
+form {
+  display: grid;
+  gap: 18px;
+  position: relative;
+  z-index: 1;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  color: #cfd6e3;
+}
+
+input {
+  padding: 13px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f6f8fb;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+input::placeholder {
+  color: #8f98ab;
+}
+
+input:focus {
+  border-color: #ff5a6a;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 2px rgba(255, 90, 106, 0.25);
+}
+
+button {
+  margin-top: 8px;
+  padding: 13px 16px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2b0f14, #54121a);
+  color: #f8e7e7;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  filter: grayscale(0.2);
+}
+
+button:not(:disabled):hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+button:not(:disabled):active {
+  transform: translateY(0);
+}
+
+.secondary-action {
+  margin-top: 14px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #ff5a6a;
+}
+
+.secondary-action a {
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.secondary-action a:hover {
+  text-decoration: underline;
+}
+
+.alert {
+  margin-top: 14px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.alert.error {
+  background: rgba(255, 99, 71, 0.14);
+  border: 1px solid rgba(255, 99, 71, 0.35);
+}
+
+.alert.success {
+  background: rgba(255, 186, 120, 0.12);
+  border: 1px solid rgba(255, 186, 120, 0.35);
+}
+
+.error {
+  color: #f5b0a0;
+  font-size: 12px;
+}
+
+/* Ambient orbitals behind the card */
+.ambient {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Floating orb field inspired by Eranova-style motion */
+.orb-field {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(18px);
+  opacity: 0.6;
+  mix-blend-mode: screen;
+}
+
+.orb-1 {
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 118, 118, 0.8), rgba(196, 32, 32, 0.25));
+  top: 8%;
+  left: 6%;
+  animation: float-a 8s ease-in-out infinite;
+}
+
+.orb-2 {
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle at 70% 40%, rgba(255, 160, 120, 0.75), rgba(200, 50, 50, 0.2));
+  bottom: -12%;
+  right: -8%;
+  animation: float-b 8s ease-in-out infinite;
+}
+
+.orb-3 {
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 140, 170, 0.7), rgba(90, 30, 40, 0.25));
+  top: 30%;
+  right: 28%;
+  animation: float-c 8s ease-in-out infinite;
+}
+
+@keyframes float-a {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate3d(20px, -18px, 0) scale(1.08);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.55;
+  }
+}
+
+@keyframes float-b {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translate3d(-30px, -12px, 0) scale(1.06);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.4;
+  }
+}
+
+@keyframes float-c {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.98);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate3d(12px, 18px, 0) scale(1.1);
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(0.98);
+    opacity: 0.5;
+  }
+}

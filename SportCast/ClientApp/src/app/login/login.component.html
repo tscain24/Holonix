@@ -1,0 +1,47 @@
+<div class="shell">
+  <div class="ambient" aria-hidden="true">
+    <div class="orb-field">
+      <span class="orb orb-1"></span>
+      <span class="orb orb-2"></span>
+      <span class="orb orb-3"></span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="logo">
+      <img src="assets/ESPN_wordmark.svg.png" alt="SportCast logo" />
+      <span>SportCast</span>
+    </div>
+    <h1>Welcome to Tcain's Sandbox!</h1>
+    <p class="muted">Sign in to continue</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <label>
+        Email
+        <input type="email" formControlName="email" placeholder="you@example.com" />
+        <span class="error" *ngIf="form.controls.email.touched && form.controls.email.invalid">
+          Enter a valid Email.
+        </span>
+      </label>
+
+      <label>
+        Password
+        <input type="password" formControlName="password" placeholder="********" />
+        <span class="error" *ngIf="form.controls.password.touched && form.controls.password.invalid">
+          Minimum 6 Characters.
+        </span>
+      </label>
+
+      <button type="submit" [disabled]="loading">
+        {{ loading ? 'Signing in...' : 'Sign in' }}
+      </button>
+    </form>
+
+    <div class="secondary-action">
+      <span>Need an account?</span>
+      <a routerLink="/register">Create one</a>
+    </div>
+
+    <div class="alert error" *ngIf="error">{{ error }}</div>
+    <div class="alert success" *ngIf="success">{{ success }}</div>
+  </div>
+</div>
