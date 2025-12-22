@@ -2,7 +2,7 @@
   --field-height: 52px;
   --card-min-height: 520px;
   display: block;
-  height: 100vh;
+  min-height: 100vh;
   font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
   background: radial-gradient(circle at 20% 20%, #1e181a 0%, #0f0f12 35%, #070708 100%);
   color: #e6e8ed;
@@ -14,13 +14,15 @@
   align-items: center;
   justify-content: center;
   padding: 32px 20px 40px;
-  min-height: 100%;
+  min-height: 100vh;
   position: relative;
   box-sizing: border-box;
 }
 
 .card {
   position: relative;
+  display: flex;
+  flex-direction: column;
   background: linear-gradient(135deg, rgba(18, 21, 27, 0.9), rgba(28, 33, 44, 0.85));
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 0 25px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
@@ -29,6 +31,7 @@
   width: 100%;
   max-width: 780px;
   min-height: var(--card-min-height);
+  max-height: calc(100vh - 72px);
   backdrop-filter: blur(10px);
   overflow: hidden;
   z-index: 1;
@@ -64,21 +67,21 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #ffffff;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   position: relative;
   z-index: 1;
 }
 
 .logo img {
-  height: 36px;
+  height: 30px;
   width: auto;
   object-fit: contain;
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
 }
 
 h1 {
-  margin: 0 0 6px;
-  font-size: 30px;
+  margin: 0 0 4px;
+  font-size: 26px;
   color: #f4f6fb;
   letter-spacing: 0.01em;
   position: relative;
@@ -88,9 +91,9 @@ h1 {
 h1::after {
   content: "";
   display: block;
-  width: 56px;
-  height: 4px;
-  margin-top: 10px;
+  width: 44px;
+  height: 3px;
+  margin-top: 8px;
   border-radius: 999px;
   background: linear-gradient(90deg, #ff5a6a, #ffb347);
 }
@@ -130,27 +133,118 @@ h1::after {
 }
 
 form {
-  display: grid;
-  gap: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   position: relative;
   z-index: 1;
   align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .two-col-form {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 20px;
-  row-gap: 18px;
   align-items: start;
 }
 
 .two-col-form .full-span {
+  width: 100%;
+}
+
+.form-fields .full-span {
   grid-column: 1 / -1;
 }
 
+.form-footer .full-span {
+  width: auto;
+  justify-self: center;
+}
+
+.form-footer button {
+  justify-self: center;
+}
+
+.form-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 20px;
+  row-gap: 18px;
+  align-items: start;
+  overflow-y: auto;
+  padding-right: 8px;
+  padding-bottom: 8px;
+  min-height: 0;
+  flex: 1 1 auto;
+  width: 100%;
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+.form-footer {
+  display: grid;
+  gap: 14px;
+  padding-top: 8px;
+  padding-bottom: 0;
+  border-top: none;
+  background: transparent;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  justify-items: center;
+  text-align: center;
+  width: 100%;
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+.form-fields::-webkit-scrollbar {
+  width: 10px;
+}
+
+.form-fields::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+}
+
+.form-fields::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  border: 2px solid rgba(18, 21, 27, 0.9);
+}
+
+.form-fields::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
 @media (max-width: 720px) {
-  .two-col-form {
+  .form-fields {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  :host {
+    --field-height: 48px;
+    --card-min-height: auto;
+  }
+
+  .shell {
+    padding: 24px 16px 32px;
+    align-items: flex-start;
+  }
+
+  .card {
+    padding: 28px 20px;
+    border-radius: 16px;
+    max-height: calc(100vh - 56px);
+  }
+
+  .logo img {
+    height: 30px;
+  }
+
+  h1 {
+    font-size: 26px;
   }
 }
 
@@ -159,6 +253,7 @@ label {
   gap: 8px;
   font-size: 14px;
   color: #cfd6e3;
+  width: 100%;
 }
 
 input {
@@ -190,6 +285,7 @@ input:focus {
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.02);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease, background 0.2s ease;
+  width: 100%;
 }
 
 .input-shell:hover {
@@ -214,7 +310,7 @@ input:focus {
 
 button {
   margin-top: 8px;
-  padding: 13px 16px;
+  padding: 15px 20px;
   border: none;
   border-radius: 12px;
   background: linear-gradient(135deg, #2b0f14, #54121a);
@@ -224,6 +320,7 @@ button {
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  min-width: 220px;
 }
 
 button:disabled {
@@ -250,6 +347,7 @@ button:not(:disabled):active {
   font-size: 13px;
   display: grid;
   gap: 6px;
+  width: 100%;
 }
 
 .form-note ul {
@@ -368,6 +466,12 @@ button:not(:disabled):active {
   justify-content: center;
   font-size: 14px;
   color: #ff5a6a;
+  text-align: center;
+  justify-self: center;
+}
+
+.form-footer .secondary-action {
+  margin-top: 0;
 }
 
 .secondary-action a {

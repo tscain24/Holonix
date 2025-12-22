@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "6LPjf7Arz3E=",
+  "dgSpecHash": "qJMJBKOtuT4=",
   "success": true,
-  "projectFilePath": "C:\\Users\\TylerCain\\source\\repos\\SportCast\\Sportcast\\server\\SportCast.Server.csproj",
+  "projectFilePath": "C:\\Users\\TylerCain\\source\\repos\\SportCast\\SportCast\\Server\\SportCast.Server.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\TylerCain\\.nuget\\packages\\microsoft.aspnetcore.openapi\\8.0.8\\microsoft.aspnetcore.openapi.8.0.8.nupkg.sha512",
     "C:\\Users\\TylerCain\\.nuget\\packages\\microsoft.extensions.apidescription.server\\6.0.5\\microsoft.extensions.apidescription.server.6.0.5.nupkg.sha512",

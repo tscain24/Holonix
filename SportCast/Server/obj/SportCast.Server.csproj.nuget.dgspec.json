@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\TylerCain\\source\\repos\\SportCast\\Sportcast\\server\\SportCast.Server.csproj": {}
+    "C:\\Users\\TylerCain\\source\\repos\\SportCast\\SportCast\\Server\\SportCast.Server.csproj": {}
   },
   "projects": {
-    "C:\\Users\\TylerCain\\source\\repos\\SportCast\\Sportcast\\server\\SportCast.Server.csproj": {
+    "C:\\Users\\TylerCain\\source\\repos\\SportCast\\SportCast\\Server\\SportCast.Server.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\TylerCain\\source\\repos\\SportCast\\Sportcast\\server\\SportCast.Server.csproj",
+        "projectUniqueName": "C:\\Users\\TylerCain\\source\\repos\\SportCast\\SportCast\\Server\\SportCast.Server.csproj",
         "projectName": "SportCast.Server",
-        "projectPath": "C:\\Users\\TylerCain\\source\\repos\\SportCast\\Sportcast\\server\\SportCast.Server.csproj",
+        "projectPath": "C:\\Users\\TylerCain\\source\\repos\\SportCast\\SportCast\\Server\\SportCast.Server.csproj",
         "packagesPath": "C:\\Users\\TylerCain\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\TylerCain\\source\\repos\\SportCast\\Sportcast\\server\\obj\\",
+        "outputPath": "C:\\Users\\TylerCain\\source\\repos\\SportCast\\SportCast\\Server\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
