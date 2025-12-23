@@ -210,6 +210,15 @@ button:not(:disabled):active {
   font-size: 12px;
 }
 
+:host ::ng-deep .mat-shell input:-webkit-autofill,
+:host ::ng-deep .mat-shell input:-webkit-autofill:hover,
+:host ::ng-deep .mat-shell input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f6f8fb;
+  caret-color: #f6f8fb;
+  box-shadow: 0 0 0 1000px rgba(20, 22, 28, 0.9) inset;
+  border-radius: 12px;
+}
+
 /* Ambient orbitals behind the card */
 .ambient {
   position: absolute;

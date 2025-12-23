@@ -51,7 +51,7 @@
               placeholder="mm/dd/yyyy"
               inputmode="numeric"
               maxlength="10"
-              (blur)="formatDobOnBlur($event)"
+              (input)="formatDobOnInput($event)"
               [attr.aria-label]="'Date of Birth'"
             />
             <mat-datepicker-toggle matSuffix [for]="picker">

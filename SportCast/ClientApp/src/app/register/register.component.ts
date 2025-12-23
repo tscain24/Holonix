@@ -30,28 +30,32 @@ export class RegisterComponent {
 
   constructor(private fb: FormBuilder, private auth: AuthService) {}
 
-  formatDobOnBlur(event: FocusEvent): void {
+  formatDobOnInput(event: Event): void {
     const input = event.target as HTMLInputElement;
-    const digits = input.value.replace(/\D/g, '');
-    if (digits.length !== 8) {
-      return;
+    const raw = input.value;
+    const selectionStart = input.selectionStart ?? raw.length;
+    const digitsBeforeCursor = raw.slice(0, selectionStart).replace(/\D/g, '').length;
+    const digits = raw.replace(/\D/g, '').slice(0, 8);
+
+    let formatted = '';
+    if (digits.length <= 2) {
+      formatted = digits;
+    } else if (digits.length <= 4) {
+      formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    } else {
+      formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
     }
 
-    const month = Number(digits.slice(0, 2));
-    const day = Number(digits.slice(2, 4));
-    const year = Number(digits.slice(4, 8));
-    const candidate = new Date(year, month - 1, day);
-    const isValid =
-      candidate.getFullYear() === year &&
-      candidate.getMonth() === month - 1 &&
-      candidate.getDate() === day;
-
-    if (!isValid) {
-      return;
+    if (formatted !== raw) {
+      input.value = formatted;
+      let caret = digitsBeforeCursor;
+      if (digitsBeforeCursor > 2 && digitsBeforeCursor <= 4) {
+        caret += 1;
+      } else if (digitsBeforeCursor > 4) {
+        caret += 2;
+      }
+      input.setSelectionRange(caret, caret);
     }
-
-    input.value = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-    this.form.controls.dateOfBirth.setValue(candidate);
   }
 
   submit(): void {

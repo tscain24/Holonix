@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SportCast.Server")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c83180185a0e5bf20261e9116fd5835c95606e26")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+be98da7a72f9bd19293e54911a19278104dbe371")]
 [assembly: System.Reflection.AssemblyProductAttribute("SportCast.Server")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SportCast.Server")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
