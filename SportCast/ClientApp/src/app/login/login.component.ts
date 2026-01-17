@@ -51,6 +51,7 @@ export class LoginComponent {
           duration: 3000,
           panelClass: ['snack-success'],
         });
+        this.router.navigate(['/home'], { state: { displayName: res.displayName } });
       },
       error: (err) => {
         this.loading = false;

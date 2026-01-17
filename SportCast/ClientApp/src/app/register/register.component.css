@@ -1,6 +1,8 @@
 ﻿:host {
   --field-height: 46px;
   --card-min-height: 480px;
+  --field-bg: #1b1e26;
+  --field-bg-focus: #232734;
   display: block;
   min-height: 100vh;
   font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
@@ -202,7 +204,7 @@ form {
 }
 
 .form-fields::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--field-bg);
   border-radius: 999px;
 }
 
@@ -272,7 +274,7 @@ input::placeholder {
 
 input:focus {
   border-color: #ff5a6a;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--field-bg-focus);
   box-shadow: 0 0 0 2px rgba(255, 90, 106, 0.25);
 }
 
@@ -395,8 +397,11 @@ input:focus {
 :host ::ng-deep .mat-shell input.mat-mdc-input-element:-webkit-autofill:focus {
   -webkit-text-fill-color: #f6f8fb !important;
   caret-color: #f6f8fb !important;
-  background-color: transparent !important;
-  box-shadow: 0 0 0 1000px transparent inset !important;
+  background-color: var(--field-bg) !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--field-bg) inset !important;
+  box-shadow: 0 0 0 1000px var(--field-bg) inset !important;
+  -webkit-background-clip: padding-box !important;
+  background-clip: padding-box !important;
   border-radius: 12px;
   transition: background-color 9999s ease-out 0s;
 }
@@ -404,6 +409,46 @@ input:focus {
 :host ::ng-deep .mat-shell input.mat-mdc-input-element {
   border: none;
   background: transparent;
+  box-shadow: none;
+}
+
+:host ::ng-deep .mat-shell {
+  --mdc-filled-text-field-container-color: var(--field-bg);
+  --mdc-filled-text-field-focus-container-color: var(--field-bg-focus);
+}
+
+:host ::ng-deep .mat-shell .mdc-text-field--filled {
+  background-color: var(--field-bg);
+  border-radius: 12px;
+}
+
+:host ::ng-deep .mat-shell .mdc-text-field--filled.mdc-text-field--focused {
+  background-color: var(--field-bg-focus);
+}
+
+:host ::ng-deep .mat-shell .mdc-text-field--filled::before,
+:host ::ng-deep .mat-shell .mdc-text-field--filled::after,
+:host ::ng-deep .mat-shell .mat-mdc-form-field-focus-overlay {
+  background-color: transparent;
+  opacity: 0;
+}
+
+:host ::ng-deep .mat-shell .mdc-text-field__input:-webkit-autofill,
+:host ::ng-deep .mat-shell .mdc-text-field__input:-webkit-autofill:hover,
+:host ::ng-deep .mat-shell .mdc-text-field__input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f6f8fb !important;
+  caret-color: #f6f8fb !important;
+  background-color: var(--field-bg) !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--field-bg) inset !important;
+  box-shadow: 0 0 0 1000px var(--field-bg) inset !important;
+  -webkit-background-clip: padding-box !important;
+  background-clip: padding-box !important;
+  filter: none !important;
+  outline: none !important;
+}
+
+:host ::ng-deep .mat-shell .mdc-text-field--filled:has(.mdc-text-field__input:-webkit-autofill) {
+  background-color: var(--field-bg);
   box-shadow: none;
 }
 :host ::ng-deep .mat-shell {
