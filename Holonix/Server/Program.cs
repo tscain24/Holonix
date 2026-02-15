@@ -8,9 +8,21 @@ using Holonix.Server.Domain.Entities;
 using Holonix.Server.Infrastructure.Configuration;
 using Holonix.Server.Infrastructure.Data;
 using Holonix.Server.Infrastructure.Services;
+using System.Runtime.InteropServices;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+{
+    var azureCliPath = @"C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin";
+    var currentPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+    if (Directory.Exists(azureCliPath) &&
+        !currentPath.Contains(azureCliPath, StringComparison.OrdinalIgnoreCase))
+    {
+        Environment.SetEnvironmentVariable("PATH", $"{azureCliPath};{currentPath}");
+    }
+}
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 

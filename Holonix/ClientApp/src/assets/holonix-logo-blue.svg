@@ -1,0 +1,7 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="White H monogram hex logo">
+  <!-- Hex -->
+  <path d="M256 40 430 140v232L256 472 82 372V140z" fill="none" stroke="#2563EB" stroke-width="28" stroke-linejoin="round"></path>
+
+  <!-- H -->
+  <path d="M180 160v192M332 160v192M180 256h152" fill="none" stroke="#2563EB" stroke-width="44" stroke-linecap="round"></path>
+</svg>
