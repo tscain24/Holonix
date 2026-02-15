@@ -1,0 +1,129 @@
+﻿<div class="shell">
+  <div class="ambient" aria-hidden="true">
+    <div class="orb-field">
+      <span class="orb orb-1"></span>
+      <span class="orb orb-2"></span>
+      <span class="orb orb-3"></span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="logo">
+      <img src="assets/ESPN_wordmark.svg.png" alt="Holonix logo" />
+      <span>Holonix</span>
+    </div>
+    <h1>Create your account</h1>
+    <p class="muted">Join the sandbox and start exploring</p>
+
+    <div class="guide">
+      <span class="muted">Tell us about you</span>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="two-col-form">
+      <div class="form-fields">
+        <label>
+          <span class="label-text">First Name<span class="required">*</span></span>
+          <mat-form-field class="mat-shell" appearance="fill">
+            <input matInput type="text" formControlName="firstname" placeholder="Jane" />
+          </mat-form-field>
+          <span class="error" *ngIf="form.controls.firstname.touched && form.controls.firstname.invalid">
+            Enter at least 2 characters.
+          </span>
+        </label>
+
+        <label>
+          <span class="label-text">Last Name<span class="required">*</span></span>
+          <mat-form-field class="mat-shell" appearance="fill">
+            <input matInput type="text" formControlName="lastname" placeholder="Doe" />
+          </mat-form-field>
+          <span class="error" *ngIf="form.controls.lastname.touched && form.controls.lastname.invalid">
+            Enter at least 2 characters.
+          </span>
+        </label>
+
+        <label class="full-span">
+          <span class="label-text">Date of Birth<span class="required">*</span></span>
+          <mat-form-field class="mat-shell" appearance="fill">
+            <input
+              matInput
+              [matDatepicker]="picker"
+              formControlName="dateOfBirth"
+              [max]="maxDate"
+              placeholder="mm/dd/yyyy"
+              inputmode="numeric"
+              maxlength="10"
+              (input)="formatDobOnInput($event)"
+              [attr.aria-label]="'Date of Birth'"
+            />
+            <mat-datepicker-toggle matSuffix [for]="picker">
+              <mat-icon>keyboard_arrow_down</mat-icon>
+            </mat-datepicker-toggle>
+            <mat-datepicker #picker></mat-datepicker>
+          </mat-form-field>
+          <span class="error" *ngIf="form.controls.dateOfBirth.touched && form.controls.dateOfBirth.invalid">
+            <ng-container *ngIf="form.controls.dateOfBirth.errors?.['minAge']; else dobInvalid">
+              You must be at least 13 years old.
+            </ng-container>
+            <ng-template #dobInvalid>Enter a valid date.</ng-template>
+          </span>
+        </label>
+
+        <label>
+          <span class="label-text">Email<span class="required">*</span></span>
+          <mat-form-field class="mat-shell" appearance="fill">
+            <input matInput type="email" formControlName="email" placeholder="you@example.com" />
+          </mat-form-field>
+          <span class="error" *ngIf="form.controls.email.touched && form.controls.email.invalid">
+            Enter a valid Email.
+          </span>
+        </label>
+
+        <label>
+          <span class="label-text">Password<span class="required">*</span></span>
+          <mat-form-field class="mat-shell" appearance="fill">
+            <input
+              matInput
+              [type]="showPassword ? 'text' : 'password'"
+              formControlName="password"
+              placeholder="********"
+            />
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              class="eye-toggle"
+              (click)="showPassword = !showPassword"
+              [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+            >
+              <mat-icon>{{ showPassword ? 'visibility' : 'visibility_off' }}</mat-icon>
+            </button>
+          </mat-form-field>
+          <span class="error" *ngIf="form.controls.password.touched && form.controls.password.invalid">
+            Use 8+ chars with upper, lower, and a number.
+          </span>
+        </label>
+
+        <div class="form-note full-span">
+          <span class="pill soft">Tips</span>
+          <ul>
+            <li>For your password, use 6+ characters with a mix of letters and numbers.</li>
+            <li>Use your birth date (cannot be in the future).</li>
+            <li>This account lets you access the Holonix sandbox.</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="form-footer">
+        <button type="submit" [disabled]="loading || form.invalid">
+          {{ loading ? 'Creating account...' : 'Create Account' }}
+        </button>
+
+        <div class="secondary-action">
+          <span>Already have an account?</span>
+          <a routerLink="/login">Sign in</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+

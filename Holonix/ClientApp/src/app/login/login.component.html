@@ -1,0 +1,64 @@
+﻿<div class="shell">
+  <div class="ambient" aria-hidden="true">
+    <div class="orb-field">
+      <span class="orb orb-1"></span>
+      <span class="orb orb-2"></span>
+      <span class="orb orb-3"></span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="logo">
+      <img src="assets/ESPN_wordmark.svg.png" alt="Holonix logo" />
+      <span>Holonix</span>
+    </div>
+    <h1>Welcome to Tcain's Sandbox!</h1>
+    <p class="muted">Sign in to continue</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <label>
+        <span class="label-text">Email<span class="required">*</span></span>
+        <mat-form-field class="mat-shell" appearance="fill">
+          <input matInput type="email" formControlName="email" placeholder="you@example.com" />
+        </mat-form-field>
+        <span class="error" *ngIf="form.controls.email.touched && form.controls.email.invalid">
+          Enter a valid Email.
+        </span>
+      </label>
+
+      <label>
+        <span class="label-text">Password<span class="required">*</span></span>
+        <mat-form-field class="mat-shell" appearance="fill">
+          <input
+            matInput
+            [type]="showPassword ? 'text' : 'password'"
+            formControlName="password"
+            placeholder="********"
+          />
+          <button
+            mat-icon-button
+            matSuffix
+            type="button"
+            class="eye-toggle"
+            (click)="showPassword = !showPassword"
+            [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+          >
+            <mat-icon>{{ showPassword ? 'visibility' : 'visibility_off' }}</mat-icon>
+          </button>
+        </mat-form-field>
+        <span class="error" *ngIf="form.controls.password.touched && form.controls.password.invalid">
+          Minimum 6 Characters.
+        </span>
+      </label>
+
+      <button type="submit" [disabled]="loading">
+        {{ loading ? 'Signing in...' : 'Sign in' }}
+      </button>
+    </form>
+
+    <div class="secondary-action">
+      <span>Need an account?</span>
+      <a routerLink="/register">Create one</a>
+    </div>
+  </div>
+</div>
+

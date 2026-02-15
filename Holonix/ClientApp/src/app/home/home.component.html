@@ -1,0 +1,110 @@
+﻿<div class="shell home-shell">
+  <div class="ambient" aria-hidden="true">
+    <div class="orb-field">
+      <span class="orb orb-1"></span>
+      <span class="orb orb-2"></span>
+      <span class="orb orb-3"></span>
+    </div>
+  </div>
+
+  <nav class="top-nav">
+    <div class="logo home-logo">
+      <img src="assets/ESPN_wordmark.svg.png" alt="Holonix logo" />
+      <span>Holonix</span>
+    </div>
+    <div class="nav-links">
+      <span class="nav-item active">Home</span>
+      <span class="nav-item">Scores</span>
+      <span class="nav-item">Draft</span>
+      <span class="nav-item">Profile</span>
+    </div>
+    <div class="profile-menu">
+      <button class="nav-user" type="button" (click)="toggleProfileMenu($event)">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span>{{ displayName || 'Signed in' }}</span>
+        <mat-icon class="chevron" aria-hidden="true">{{ profileOpen ? 'expand_less' : 'expand_more' }}</mat-icon>
+      </button>
+      <div class="menu-panel" *ngIf="profileOpen" (click)="$event.stopPropagation()">
+        <button type="button" class="menu-item" (click)="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <section class="hero-grid">
+    <div class="hero-card">
+      <h1>Welcome, {{ firstName || 'there' }}! Enjoy exploring</h1>
+      <p class="muted">
+        Your sandbox is ready. Build a draft board, follow live matchups, and tune the feed to your favorites.
+      </p>
+      <div class="hero-actions">
+        <button class="primary">Start a draft</button>
+        <button class="ghost">Customize teams</button>
+      </div>
+    </div>
+    <div class="hero-panel">
+      <div class="hero-panel-header">
+        <span class="pill">Today's pulse</span>
+        <span class="muted">Live</span>
+      </div>
+      <div class="score-stack">
+        <div class="score-row">
+          <div class="team">
+            <span class="team-tag">ATL</span>
+            <span>Hawks</span>
+          </div>
+          <span class="score">157</span>
+        </div>
+        <div class="score-row">
+          <div class="team">
+            <span class="team-tag">MIA</span>
+            <span>Heat</span>
+          </div>
+          <span class="score">101</span>
+        </div>
+        <div class="score-divider"></div>
+        <div class="mini-stat">
+          <span class="muted">Momentum</span>
+          <strong>Hawks +100</strong>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="info-strip">
+    <div class="strip-card">
+      <span class="label">Active leagues</span>
+      <strong>2</strong>
+    </div>
+    <div class="strip-card">
+      <span class="label">Watchlist teams</span>
+      <strong>5</strong>
+    </div>
+    <div class="strip-card">
+      <span class="label">Draft boards</span>
+      <strong>1</strong>
+    </div>
+    <div class="strip-card highlight">
+      <span class="label">Next game</span>
+      <strong>Tonight 7:30 PM</strong>
+    </div>
+  </section>
+
+  <section class="action-grid">
+    <div class="action-card">
+      <h3>Build your lineup</h3>
+      <p class="muted">Rank players, set sleepers, and lock your weekly picks.</p>
+      <button class="ghost">Open lineup</button>
+    </div>
+    <div class="action-card">
+      <h3>Track matchups</h3>
+      <p class="muted">Keep tabs on live scores, odds movement, and alerts.</p>
+      <button class="ghost">View matchups</button>
+    </div>
+    <div class="action-card">
+      <h3>Explore highlights</h3>
+      <p class="muted">Curate a feed that fits your favorite teams and leagues.</p>
+      <button class="ghost">Open feed</button>
+    </div>
+  </section>
+</div>
+

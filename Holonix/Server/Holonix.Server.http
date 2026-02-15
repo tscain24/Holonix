@@ -1,0 +1,7 @@
+﻿@Holonix.Server_HostAddress = http://localhost:5237
+
+GET {{Holonix.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
