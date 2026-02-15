@@ -3,7 +3,7 @@
   display: block;
   height: 100vh;
   font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
-  background: radial-gradient(circle at 20% 20%, #1e181a 0%, #0f0f12 35%, #070708 100%);
+  background: radial-gradient(circle at 20% 20%, #0d1b3d 0%, #0a1430 35%, #061024 100%);
   color: #e6e8ed;
   overflow: hidden;
 }
@@ -39,7 +39,7 @@
   inset: -40% 30% auto auto;
   width: 260px;
   height: 260px;
-  background: radial-gradient(circle, rgba(255, 118, 118, 0.2), transparent 60%);
+  background: radial-gradient(circle, rgba(47, 109, 246, 0.22), transparent 60%);
   filter: blur(6px);
   pointer-events: none;
 }
@@ -50,7 +50,7 @@
   inset: auto auto -40% -10%;
   width: 320px;
   height: 320px;
-  background: radial-gradient(circle, rgba(255, 82, 82, 0.18), transparent 65%);
+  background: radial-gradient(circle, rgba(242, 193, 78, 0.20), transparent 65%);
   filter: blur(10px);
   pointer-events: none;
 }
@@ -91,7 +91,7 @@ h1::after {
   height: 3px;
   margin-top: 8px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #ff5a6a, #ffb347);
+  background: linear-gradient(90deg, #2f6df6, #f2c14e);
 }
 
 .muted {
@@ -130,9 +130,9 @@ input::placeholder {
 }
 
 input:focus {
-  border-color: #ff5a6a;
+  border-color: #2f6df6;
   background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 2px rgba(255, 90, 106, 0.25);
+  box-shadow: 0 0 0 2px rgba(47, 109, 246, 0.25);
 }
 
 form > button {
@@ -140,7 +140,7 @@ form > button {
   padding: 13px 16px;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, #2b0f14, #54121a);
+  background: linear-gradient(135deg, #123a8a, #1f57c3);
   color: #f8e7e7;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -173,7 +173,7 @@ form > button:not(:disabled):active {
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  color: #ff5a6a;
+  color: #2f6df6;
 }
 
 .secondary-action a {
@@ -196,8 +196,8 @@ form > button:not(:disabled):active {
 }
 
 .alert.error {
-  background: rgba(255, 99, 71, 0.14);
-  border: 1px solid rgba(255, 99, 71, 0.35);
+  background: rgba(242, 193, 78, 0.14);
+  border: 1px solid rgba(242, 193, 78, 0.35);
 }
 
 .alert.success {
@@ -206,7 +206,7 @@ form > button:not(:disabled):active {
 }
 
 .error {
-  color: #f5b0a0;
+  color: #f8e1a6;
   font-size: 12px;
 }
 
@@ -230,7 +230,7 @@ form > button:not(:disabled):active {
   box-shadow: none;
 }
 :host ::ng-deep .mat-shell {
-  --mdc-icon-button-icon-color: #ffb7c0;
+  --mdc-icon-button-icon-color: #f2c14e;
 }
 
 :host ::ng-deep .mat-shell .mat-mdc-icon-button {
@@ -238,8 +238,8 @@ form > button:not(:disabled):active {
 }
 
 :host ::ng-deep .mat-shell .eye-toggle {
-  color: #ffb7c0;
-  --mdc-icon-button-icon-color: #ffb7c0;
+  color: #f2c14e;
+  --mdc-icon-button-icon-color: #f2c14e;
 }
 
 :host ::ng-deep .mat-shell .mat-mdc-form-field-icon-suffix {
@@ -282,7 +282,7 @@ form > button:not(:disabled):active {
 .orb-1 {
   width: 140px;
   height: 140px;
-  background: radial-gradient(circle at 30% 30%, rgba(255, 118, 118, 0.8), rgba(196, 32, 32, 0.25));
+  background: radial-gradient(circle at 30% 30%, rgba(47, 109, 246, 0.78), rgba(20, 59, 155, 0.24));
   top: 8%;
   left: 6%;
   animation: float-a 8s ease-in-out infinite;
@@ -291,7 +291,7 @@ form > button:not(:disabled):active {
 .orb-2 {
   width: 200px;
   height: 200px;
-  background: radial-gradient(circle at 70% 40%, rgba(255, 160, 120, 0.75), rgba(200, 50, 50, 0.2));
+  background: radial-gradient(circle at 70% 40%, rgba(242, 193, 78, 0.72), rgba(161, 122, 27, 0.22));
   bottom: -12%;
   right: -8%;
   animation: float-b 8s ease-in-out infinite;
@@ -300,7 +300,7 @@ form > button:not(:disabled):active {
 .orb-3 {
   width: 120px;
   height: 120px;
-  background: radial-gradient(circle at 50% 50%, rgba(255, 140, 170, 0.7), rgba(90, 30, 40, 0.25));
+  background: radial-gradient(circle at 50% 50%, rgba(95, 157, 255, 0.70), rgba(17, 45, 112, 0.28));
   top: 30%;
   right: 28%;
   animation: float-c 8s ease-in-out infinite;
@@ -350,6 +350,8 @@ form > button:not(:disabled):active {
     opacity: 0.5;
   }
 }
+
+
 
 
 

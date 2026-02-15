@@ -1,8 +1,8 @@
-:host {
+﻿:host {
   display: block;
   min-height: 100vh;
   font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
-  background: radial-gradient(circle at 20% 20%, #1e181a 0%, #0f0f12 35%, #070708 100%);
+  background: radial-gradient(circle at 20% 20%, #0d1b3d 0%, #0a1430 35%, #061024 100%);
   color: #e6e8ed;
   overflow: hidden;
 }
@@ -61,8 +61,8 @@
 }
 
 .nav-item.active {
-  color: #f7b9c2;
-  background: rgba(255, 90, 106, 0.16);
+  color: #f2c14e;
+  background: rgba(47, 109, 246, 0.16);
 }
 
 .profile-menu {
@@ -126,14 +126,14 @@
 }
 
 .menu-item:hover {
-  background: rgba(255, 90, 106, 0.16);
+  background: rgba(47, 109, 246, 0.16);
 }
 
 .status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #2ea85e;
+  background:#2f6df6;
   box-shadow: 0 0 12px rgba(46, 168, 94, 0.8);
 }
 
@@ -175,7 +175,7 @@
   height: 3px;
   margin-top: 10px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #ff5a6a, #ffb347);
+  background: linear-gradient(90deg, #2f6df6, #f2c14e);
 }
 
 .muted {
@@ -193,7 +193,7 @@
   padding: 12px 18px;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, #2b0f14, #54121a);
+  background: linear-gradient(135deg, #123a8a, #1f57c3);
   color: #f8e7e7;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -228,8 +228,8 @@
   align-items: center;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255, 90, 106, 0.12);
-  color: #ffb7c0;
+  background: rgba(47, 109, 246, 0.12);
+  color: #f2c14e;
   font-weight: 700;
   font-size: 12px;
   letter-spacing: 0.02em;
@@ -301,7 +301,7 @@
 }
 
 .strip-card.highlight {
-  border-color: rgba(255, 90, 106, 0.4);
+  border-color: rgba(47, 109, 246, 0.4);
   background: linear-gradient(135deg, rgba(34, 12, 18, 0.9), rgba(63, 17, 24, 0.85));
 }
 
@@ -382,7 +382,7 @@
 .orb-1 {
   width: 140px;
   height: 140px;
-  background: radial-gradient(circle at 30% 30%, rgba(255, 118, 118, 0.8), rgba(196, 32, 32, 0.25));
+  background: radial-gradient(circle at 30% 30%, rgba(47, 109, 246, 0.78), rgba(20, 59, 155, 0.24));
   top: 8%;
   left: 6%;
   animation: float-a 12s ease-in-out infinite;
@@ -391,7 +391,7 @@
 .orb-2 {
   width: 200px;
   height: 200px;
-  background: radial-gradient(circle at 70% 40%, rgba(255, 160, 120, 0.75), rgba(200, 50, 50, 0.2));
+  background: radial-gradient(circle at 70% 40%, rgba(242, 193, 78, 0.72), rgba(161, 122, 27, 0.22));
   bottom: -12%;
   right: -8%;
   animation: float-b 14s ease-in-out infinite;
@@ -400,7 +400,7 @@
 .orb-3 {
   width: 120px;
   height: 120px;
-  background: radial-gradient(circle at 50% 50%, rgba(255, 140, 170, 0.7), rgba(90, 30, 40, 0.25));
+  background: radial-gradient(circle at 50% 50%, rgba(95, 157, 255, 0.70), rgba(17, 45, 112, 0.28));
   top: 30%;
   right: 28%;
   animation: float-c 10s ease-in-out infinite;
@@ -476,3 +476,5 @@
     font-size: 26px;
   }
 }
+
+

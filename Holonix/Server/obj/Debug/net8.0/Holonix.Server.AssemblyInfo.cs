@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Holonix.Server")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d336e5b91940a397813930ba49d10126bcddeda4")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5ff3824fce88019e3119e7cab5f317c8967f19b6")]
 [assembly: System.Reflection.AssemblyProductAttribute("Holonix.Server")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Holonix.Server")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
