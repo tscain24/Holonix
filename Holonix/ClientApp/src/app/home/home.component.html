@@ -7,20 +7,40 @@
 
     <nav class="top-links" aria-label="Primary"></nav>
 
-    <div class="auth-actions">
+    <div class="auth-actions" *ngIf="!isLoggedIn">
       <a class="auth-link secondary" routerLink="/register">Sign up</a>
       <a class="auth-link primary" routerLink="/login">Log in</a>
     </div>
+
+    <div class="auth-actions auth-actions-logged-in" *ngIf="isLoggedIn">
+      <span class="welcome-prefix">Welcome,</span>
+      <button type="button" class="welcome-name-btn" (click)="toggleUserMenu($event)">
+        {{ displayName }}
+        <span class="welcome-caret" aria-hidden="true">&#9662;</span>
+      </button>
+
+      <div class="user-menu" *ngIf="isUserMenuOpen">
+        <button type="button" class="user-menu-item" (click)="viewProfile()">View Profile</button>
+        <button type="button" class="user-menu-item danger" (click)="signOut()">Sign Out</button>
+      </div>
+    </div>
   </header>
-  <section class="guest-search" *ngIf="!isLoggedIn" aria-label="Guest search">
+
+  <app-home-summary *ngIf="isLoggedIn" [firstName]="firstName"></app-home-summary>
+
+  <section class="guest-search" [class.member-search]="isLoggedIn" aria-label="Service search">
     <div class="guest-search-panel">
-      <span class="guest-search-kicker">Holonix Match</span>
-      <h2>Find trusted local businesses for what you need.</h2>
+      <span class="guest-search-kicker">{{ isLoggedIn ? 'Find Your Next Service' : 'Holonix Match' }}</span>
+      <h2>
+        {{ isLoggedIn
+          ? 'Search trusted local pros and book with confidence.'
+          : 'Find trusted local businesses for what you need.' }}
+      </h2>
       <div class="guest-search-row">
         <input
           id="guestServiceInput"
           type="search"
-          placeholder="Search Businesses/Services"
+          placeholder="What service do you need?"
           aria-label="Service"
         />
         <div class="guest-search-location">
@@ -31,7 +51,7 @@
             placeholder="City or ZIP" 
           aria-label="Location" />
         </div>
-        <button type="button" aria-label="Search">Search</button>
+        <button type="button" aria-label="Search">{{ isLoggedIn ? 'Find Pros' : 'Search' }}</button>
       </div>
     </div>
   </section>

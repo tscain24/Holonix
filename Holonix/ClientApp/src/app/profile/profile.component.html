@@ -1,0 +1,53 @@
+<section class="profile-shell" aria-label="User profile">
+  <header class="profile-header">
+    <div class="profile-avatar">{{ initials }}</div>
+    <div class="profile-title">
+      <p class="profile-kicker">My Profile</p>
+      <h1>{{ displayName }}</h1>
+      <p>Manage your basic account information.</p>
+    </div>
+  </header>
+
+  <div class="profile-grid">
+    <article class="profile-card">
+      <h2>Account Details</h2>
+      <dl class="profile-fields">
+        <div class="field-row">
+          <dt>First Name</dt>
+          <dd>{{ firstName }}</dd>
+        </div>
+        <div class="field-row">
+          <dt>Last Name</dt>
+          <dd>{{ lastName || 'Not provided' }}</dd>
+        </div>
+        <div class="field-row">
+          <dt>Email</dt>
+          <dd>{{ email || 'Not available' }}</dd>
+        </div>
+        <div class="field-row">
+          <dt>User ID</dt>
+          <dd>{{ userId || 'Not available' }}</dd>
+        </div>
+      </dl>
+    </article>
+
+    <article class="profile-card">
+      <h2>Session</h2>
+      <dl class="profile-fields">
+        <div class="field-row">
+          <dt>Token Expires</dt>
+          <dd>{{ tokenExpiresAt || 'Not available' }}</dd>
+        </div>
+        <div class="field-row">
+          <dt>Status</dt>
+          <dd>Signed in</dd>
+        </div>
+      </dl>
+    </article>
+  </div>
+
+  <div class="profile-actions">
+    <button type="button" class="btn btn-secondary" (click)="goHome()">Back to Home</button>
+    <button type="button" class="btn btn-primary" (click)="signOut()">Sign Out</button>
+  </div>
+</section>

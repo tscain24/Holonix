@@ -1,0 +1,58 @@
+<section class="summary-shell" aria-label="Holonix six month summary">
+  <div class="summary-hero">
+    <div class="summary-heading">
+      <p class="summary-kicker">Your Holonix Journey</p>
+      <h2>Welcome, {{ firstName }}!</h2>
+      <p class="summary-subtitle">Here is how you have discovered and booked trusted local help over the last 6 months.</p>
+    </div>
+
+    <div class="summary-highlight">
+      <span class="highlight-label">Booking Confidence</span>
+      <strong class="highlight-value">{{ bookingRate }}%</strong>
+      <span class="highlight-note">searches that led to bookings</span>
+    </div>
+  </div>
+
+  <div class="summary-kpis">
+    <article class="kpi-card">
+      <span class="kpi-label">Searches Started</span>
+      <strong class="kpi-value">{{ totalSearches }}</strong>
+      <span class="kpi-meta">Avg {{ avgMonthlySearches }}/month</span>
+    </article>
+
+    <article class="kpi-card">
+      <span class="kpi-label">Pros Contacted</span>
+      <strong class="kpi-value">{{ totalLeads }}</strong>
+      <span class="kpi-meta">Providers you reached out to</span>
+    </article>
+
+    <article class="kpi-card">
+      <span class="kpi-label">Services Booked</span>
+      <strong class="kpi-value">{{ totalBookings }}</strong>
+      <span class="kpi-meta">Completed through Holonix</span>
+    </article>
+
+    <article class="kpi-card">
+      <span class="kpi-label">Favorites Saved</span>
+      <strong class="kpi-value">{{ totalSaves }}</strong>
+      <span class="kpi-meta">Trusted options to revisit</span>
+    </article>
+  </div>
+
+  <section class="summary-trend">
+    <div class="trend-head">
+      <h3>Your Activity Trend</h3>
+      <span class="trend-pill">Last 6 Months</span>
+    </div>
+
+    <div class="trend-bars" aria-label="Monthly usage chart">
+      <div class="bar-column" *ngFor="let month of usageMonths">
+        <span class="bar-score">{{ activityValue(month) }}</span>
+        <div class="bar-track">
+          <span class="bar-fill" [style.height.%]="activityPercent(month)"></span>
+        </div>
+        <span class="bar-month">{{ month.month }}</span>
+      </div>
+    </div>
+  </section>
+</section>

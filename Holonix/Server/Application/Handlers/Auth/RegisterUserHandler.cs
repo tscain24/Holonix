@@ -1,5 +1,8 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Holonix.Server.Application.Interfaces;
 using Holonix.Server.Application.Results;
 using Holonix.Server.Contracts.Auth;
@@ -10,10 +13,12 @@ namespace Holonix.Server.Application.Handlers.Auth;
 public sealed class RegisterUserHandler : IRegisterUserHandler
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ILogger<RegisterUserHandler> _logger;
 
-    public RegisterUserHandler(UserManager<ApplicationUser> userManager)
+    public RegisterUserHandler(UserManager<ApplicationUser> userManager, ILogger<RegisterUserHandler> logger)
     {
         _userManager = userManager;
+        _logger = logger;
     }
 
     public async Task<HandlerResult<RegisterResponse>> HandleAsync(RegisterRequest request, CancellationToken cancellationToken)
@@ -39,7 +44,26 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
             dateOfBirth = parsedDob;
         }
 
-        var existingUser = await _userManager.FindByEmailAsync(request.Email);
+        ApplicationUser? existingUser;
+        try
+        {
+            existingUser = await _userManager.FindByEmailAsync(request.Email);
+        }
+        catch (SqlException ex)
+        {
+            _logger.LogError(ex, "Database unavailable while checking for existing email during registration.");
+            return HandlerResult<RegisterResponse>.Fail(
+                StatusCodes.Status503ServiceUnavailable,
+                "Registration is temporarily unavailable. Please try again in a moment.");
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database update error while checking for existing email during registration.");
+            return HandlerResult<RegisterResponse>.Fail(
+                StatusCodes.Status503ServiceUnavailable,
+                "Registration is temporarily unavailable. Please try again in a moment.");
+        }
+
         if (existingUser is not null)
         {
             return HandlerResult<RegisterResponse>.Fail(StatusCodes.Status409Conflict, "Email already in use.");
@@ -54,7 +78,26 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
             DateOfBirth = dateOfBirth,
         };
 
-        var result = await _userManager.CreateAsync(user, request.Password);
+        IdentityResult result;
+        try
+        {
+            result = await _userManager.CreateAsync(user, request.Password);
+        }
+        catch (SqlException ex)
+        {
+            _logger.LogError(ex, "Database unavailable while creating user during registration.");
+            return HandlerResult<RegisterResponse>.Fail(
+                StatusCodes.Status503ServiceUnavailable,
+                "Registration is temporarily unavailable. Please try again in a moment.");
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database update error while creating user during registration.");
+            return HandlerResult<RegisterResponse>.Fail(
+                StatusCodes.Status503ServiceUnavailable,
+                "Registration is temporarily unavailable. Please try again in a moment.");
+        }
+
         if (!result.Succeeded)
         {
             var errors = result.Errors.Select(e => e.Description).ToArray();
@@ -65,4 +108,3 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
         return HandlerResult<RegisterResponse>.Ok(response);
     }
 }
-
