@@ -47,6 +47,8 @@ export class LoginComponent {
     this.auth.login(payload).subscribe({
       next: (res) => {
         this.loading = false;
+        localStorage.setItem('holonix_token', res.token);
+        localStorage.setItem('holonix_display_name', res.displayName);
         this.snackBar.open(`Signed in as ${res.displayName}.`, 'Close', {
           duration: 3000,
           panelClass: ['snack-success'],

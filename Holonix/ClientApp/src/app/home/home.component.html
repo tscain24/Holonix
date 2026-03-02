@@ -1,4 +1,4 @@
-﻿<div class="uber-home-shell">
+<div class="uber-home-shell">
   <header class="top-nav">
     <div class="brand-mark">
       <img src="assets/holonix-logo-blue.svg" alt="Holonix logo" />
@@ -12,31 +12,164 @@
       <a class="auth-link primary" routerLink="/login">Log in</a>
     </div>
   </header>
+  <section class="guest-search" *ngIf="!isLoggedIn" aria-label="Guest search">
+    <div class="guest-search-panel">
+      <span class="guest-search-kicker">Holonix Match</span>
+      <h2>Find trusted local businesses for what you need.</h2>
+      <div class="guest-search-row">
+        <input
+          id="guestServiceInput"
+          type="search"
+          placeholder="Search Businesses/Services"
+          aria-label="Service"
+        />
+        <div class="guest-search-location">
+          <span class="location-glyph" aria-hidden="true"></span>
+          <input 
+            id="guestLocationInput" 
+            type="text" 
+            placeholder="City or ZIP" 
+          aria-label="Location" />
+        </div>
+        <button type="button" aria-label="Search">Search</button>
+      </div>
+    </div>
+  </section>
 
   <main class="hero-shell" aria-label="Home layout">
-    <section class="left-rail" aria-label="Action panel">
-      <div class="skeleton skeleton-title"></div>
-      <div class="skeleton skeleton-subtitle"></div>
+    <section class="right-stage" aria-label="Service sections">
+      <div class="service-sections">
+        <div class="service-header">
+          <span class="service-eyebrow">Featured Local Services</span>
+          <h2>Services near Woodstock, Georgia</h2>
+        </div>
 
-      <div class="input-stack">
-        <div class="skeleton skeleton-input"></div>
-        <div class="skeleton skeleton-input"></div>
-        <div class="skeleton skeleton-input short"></div>
+        <article class="service-section">
+          <div class="section-top">
+            <div class="section-copy">
+              <h3>Lawn Mowing</h3>
+              <p>Find local pros for one-time and recurring lawn care.</p>
+            </div>
+            <button type="button" class="section-arrow-btn" aria-label="Lawn Mowing section">
+              <span aria-hidden="true">&rarr;</span>
+            </button>
+          </div>
+          <div class="company-row" aria-label="Lawn mowing companies">
+            <div class="company-card">
+              <div class="company-logo">GH</div>
+              <div class="company-meta">
+                <strong>Green Horizon</strong>
+                <span>$49 and up</span>
+              </div>
+            </div>
+            <div class="company-card">
+              <div class="company-logo">LM</div>
+              <div class="company-meta">
+                <strong>Leaf & Mow Co.</strong>
+                <span>$55 and up</span>
+              </div>
+            </div>
+            <div class="company-card">
+              <div class="company-logo">YT</div>
+              <div class="company-meta">
+                <strong>YardTech Crew</strong>
+                <span>$60 and up</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="service-section">
+          <div class="section-top">
+            <div class="section-copy">
+              <h3>Personal Training</h3>
+              <p>Connect with local trainers to help take your fitness to the next level.</p>
+            </div>
+            <button type="button" class="section-arrow-btn" aria-label="Personal Training section">
+              <span aria-hidden="true">&rarr;</span>
+            </button>
+          </div>
+          <div class="company-row" aria-label="Interior painting companies">
+            <div class="company-card">
+              <div class="company-logo">PA</div>
+              <div class="company-meta">
+                <strong>Prime Athletics</strong>
+                <span>From $45/hour</span>
+              </div>
+            </div>
+            <div class="company-card">
+              <div class="company-logo">WPT</div>
+              <div class="company-meta">
+                <strong>Woodstock Personal Training</strong>
+                <span>From $70/hr</span>
+              </div>
+            </div>
+            <div class="company-card">
+              <div class="company-logo">FT</div>
+              <div class="company-meta">
+                <strong>Freshcore Training</strong>
+                <span>From $60/hr</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="service-section">
+          <div class="section-top">
+            <div class="section-copy">
+              <h3>Interior Cleaning</h3>
+              <p>Book trusted cleaners for routine or deep cleaning sessions.</p>
+            </div>
+            <button type="button" class="section-arrow-btn" aria-label="Interior Cleaning section">
+              <span aria-hidden="true">&rarr;</span>
+            </button>
+          </div>
+          <div class="company-row" aria-label="Interior cleaning companies">
+            <div class="company-card">
+              <div class="company-logo">SP</div>
+              <div class="company-meta">
+                <strong>SparklePoint</strong>
+                <span>From $89/visit</span>
+              </div>
+            </div>
+            <div class="company-card">
+              <div class="company-logo">NC</div>
+              <div class="company-meta">
+                <strong>NeatNest Cleaners</strong>
+                <span>From $95/visit</span>
+              </div>
+            </div>
+            <div class="company-card">
+              <div class="company-logo">DP</div>
+              <div class="company-meta">
+                <strong>DeepPure Home</strong>
+                <span>From $120/visit</span>
+              </div>
+            </div>
+          </div>
+        </article>
       </div>
-
-      <div class="cta-row">
-        <div class="skeleton skeleton-btn"></div>
-        <div class="skeleton skeleton-link"></div>
-      </div>
-    </section>
-
-    <section class="right-stage" aria-label="Map panel">
-      <div class="stage-grid"></div>
-      <div class="stage-pulse pulse-1"></div>
-      <div class="stage-pulse pulse-2"></div>
-      <div class="stage-pulse pulse-3"></div>
     </section>
   </main>
+
+  <section class="business-cta" aria-label="Start business on Holonix">
+    <div class="business-media" aria-hidden="true">
+      <img src="assets/home construction business.jpg" alt="Home construction business owner working in a woodshop" class="business-photo" />
+    </div>
+
+    <div class="business-cta-copy">
+      <span class="business-eyebrow">HOLONIX BUSINESS</span>
+      <h2>Build Strong, Build Whole</h2>
+      <p>
+        Build your own local service business on your schedule. Get discovered by nearby customers and manage your work
+        with Holonix.
+      </p>
+      <div class="business-cta-actions">
+        <a routerLink="/register" class="business-btn primary">Get started</a>
+        <a routerLink="/login" class="business-btn secondary">Already have an account? Sign in</a>
+      </div>
+    </div>
+  </section>
 </div>
 
 
