@@ -39,7 +39,8 @@ public sealed class LoginUserHandler : ILoginUserHandler
 
         var token = _tokenService.CreateToken(user);
         var displayName = $"{user.FirstName} {user.LastName}".Trim();
-        return HandlerResult<AuthResponse>.Ok(new AuthResponse(user.Id, displayName, token));
+        return HandlerResult<AuthResponse>.Ok(
+            new AuthResponse(user.Id, displayName, token, user.ProfileImageBase64));
     }
 }
 

@@ -10,6 +10,8 @@ export class HomeComponent {
   isLoggedIn = false;
   displayName = '';
   firstName = 'User';
+  userInitials = 'U';
+  profileImageDataUrl = '';
   isUserMenuOpen = false;
 
   constructor(private router: Router, private elementRef: ElementRef<HTMLElement>) {}
@@ -17,9 +19,17 @@ export class HomeComponent {
   ngOnInit(): void {
     const token = localStorage.getItem('holonix_token');
     const savedDisplayName = localStorage.getItem('holonix_display_name') ?? '';
+    const savedProfileImage = localStorage.getItem('holonix_profile_image_base64') ?? '';
     this.isLoggedIn = !!token;
     this.displayName = savedDisplayName.trim() || 'User';
     this.firstName = this.displayName.split(' ')[0] || 'User';
+    const parts = this.displayName.split(' ').filter(Boolean);
+    const firstInitial = parts[0]?.charAt(0) ?? 'U';
+    const lastInitial = parts[1]?.charAt(0) ?? '';
+    this.userInitials = `${firstInitial}${lastInitial}`.toUpperCase();
+    this.profileImageDataUrl = savedProfileImage
+      ? `data:image/*;base64,${savedProfileImage.trim()}`
+      : '';
   }
 
   toggleUserMenu(event: MouseEvent): void {
@@ -35,6 +45,7 @@ export class HomeComponent {
   signOut(): void {
     localStorage.removeItem('holonix_token');
     localStorage.removeItem('holonix_display_name');
+    localStorage.removeItem('holonix_profile_image_base64');
     this.isLoggedIn = false;
     this.displayName = '';
     this.isUserMenuOpen = false;

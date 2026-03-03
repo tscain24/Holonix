@@ -1,53 +1,190 @@
-<section class="profile-shell" aria-label="User profile">
-  <header class="profile-header">
-    <div class="profile-avatar">{{ initials }}</div>
-    <div class="profile-title">
-      <p class="profile-kicker">My Profile</p>
-      <h1>{{ displayName }}</h1>
-      <p>Manage your basic account information.</p>
+<section class="profile-page" aria-label="User profile">
+  <header class="top-nav">
+    <div class="brand-mark brand-button" (click)="goHome()" role="button" tabindex="0" aria-label="Go to home">
+      <img src="assets/holonix-logo-blue.svg" alt="Holonix logo" />
+      <span>Holonix</span>
+    </div>
+
+    <nav class="top-links" aria-label="Primary"></nav>
+
+    <div class="auth-actions auth-actions-logged-in">
+      <button type="button" class="profile-menu-trigger" (click)="toggleUserMenu($event)" aria-label="Open profile menu">
+        <img
+          *ngIf="profileImageDataUrl"
+          [src]="profileImageDataUrl"
+          alt="Profile picture"
+          class="profile-menu-image"
+        />
+        <span *ngIf="!profileImageDataUrl" class="profile-menu-initials">{{ initials }}</span>
+        <span class="profile-menu-name">{{ displayName }}</span>
+        <span class="profile-menu-caret" aria-hidden="true">&#9662;</span>
+      </button>
+
+      <div class="user-menu" *ngIf="isUserMenuOpen">
+        <button type="button" class="user-menu-item" (click)="viewProfile()">View Profile</button>
+        <button type="button" class="user-menu-item danger" (click)="signOut()">Sign Out</button>
+      </div>
     </div>
   </header>
 
-  <div class="profile-grid">
-    <article class="profile-card">
-      <h2>Account Details</h2>
-      <dl class="profile-fields">
-        <div class="field-row">
-          <dt>First Name</dt>
-          <dd>{{ firstName }}</dd>
-        </div>
-        <div class="field-row">
-          <dt>Last Name</dt>
-          <dd>{{ lastName || 'Not provided' }}</dd>
-        </div>
-        <div class="field-row">
-          <dt>Email</dt>
-          <dd>{{ email || 'Not available' }}</dd>
-        </div>
-        <div class="field-row">
-          <dt>User ID</dt>
-          <dd>{{ userId || 'Not available' }}</dd>
-        </div>
-      </dl>
-    </article>
+  <div class="profile-shell">
+    <div class="profile-back-row">
+      <button type="button" class="back-btn" (click)="goHome()" aria-label="Go back to home">
+        <span aria-hidden="true">&larr;</span>
+        Back
+      </button>
+    </div>
 
-    <article class="profile-card">
-      <h2>Session</h2>
-      <dl class="profile-fields">
-        <div class="field-row">
-          <dt>Token Expires</dt>
-          <dd>{{ tokenExpiresAt || 'Not available' }}</dd>
+    <header class="profile-header">
+      <div class="profile-avatar-wrap">
+        <div class="profile-avatar" *ngIf="!profileImageDataUrl">{{ initials }}</div>
+        <img
+          *ngIf="profileImageDataUrl"
+          [src]="profileImageDataUrl"
+          alt="Profile picture"
+          class="profile-avatar-image"
+        />
+        <label class="avatar-upload-btn">
+          Change Photo
+          <input type="file" accept="image/*" [disabled]="uploadingImage" (change)="onProfileImageSelected($event)" />
+        </label>
+      </div>
+      <div class="profile-title">
+        <p class="profile-kicker">My Profile</p>
+        <h1>{{ displayName }}</h1>
+        <p>Manage your basic account information.</p>
+      </div>
+    </header>
+
+    <div class="profile-grid">
+      <article class="profile-card">
+        <h2>Account Details</h2>
+        <dl class="profile-fields">
+          <div class="field-row">
+            <dt>First Name</dt>
+            <dd>
+              <ng-container *ngIf="isEditProfileMode; else firstNameReadOnly">
+                <input
+                  type="text"
+                  class="profile-input"
+                  [value]="editableFirstName"
+                  (input)="onFirstNameInput($event)"
+                />
+              </ng-container>
+              <ng-template #firstNameReadOnly>{{ editableFirstName || 'Not available' }}</ng-template>
+            </dd>
+          </div>
+          <div class="field-row">
+            <dt>Last Name</dt>
+            <dd>
+              <ng-container *ngIf="isEditProfileMode; else lastNameReadOnly">
+                <input
+                  type="text"
+                  class="profile-input"
+                  [value]="editableLastName"
+                  (input)="onLastNameInput($event)"
+                />
+              </ng-container>
+              <ng-template #lastNameReadOnly>{{ editableLastName || 'Not available' }}</ng-template>
+            </dd>
+          </div>
+          <div class="field-row">
+            <dt>Birthday</dt>
+            <dd>
+              <ng-container *ngIf="isEditProfileMode; else birthdayReadOnly">
+                <input
+                  type="text"
+                  class="profile-input"
+                  [value]="editableDateOfBirthDisplay"
+                  placeholder="mm/dd/yyyy"
+                  inputmode="numeric"
+                  maxlength="10"
+                  aria-label="Birthday"
+                  (input)="onDateOfBirthInput($event)"
+                />
+              </ng-container>
+              <ng-template #birthdayReadOnly>{{ editableDateOfBirthDisplay || 'Not available' }}</ng-template>
+            </dd>
+          </div>
+          <div class="field-row">
+            <dt>Email</dt>
+            <dd>{{ email || 'Not available' }}</dd>
+          </div>
+        </dl>
+
+        <div class="profile-inline-actions">
+          <ng-container *ngIf="!isEditProfileMode; else editActions">
+            <button type="button" class="btn btn-secondary" [disabled]="savingProfile" (click)="enterEditProfileMode()">
+              Edit Profile
+            </button>
+          </ng-container>
+          <ng-template #editActions>
+            <button type="button" class="btn btn-secondary" [disabled]="savingProfile" (click)="cancelEditProfile()">
+              Cancel
+            </button>
+            <button type="button" class="btn btn-primary" [disabled]="savingProfile" (click)="saveProfileChanges()">
+              {{ savingProfile ? 'Saving...' : 'Save Profile' }}
+            </button>
+          </ng-template>
         </div>
-        <div class="field-row">
-          <dt>Status</dt>
-          <dd>Signed in</dd>
-        </div>
-      </dl>
-    </article>
+      </article>
+
+      <article class="profile-card">
+        <h2>Session</h2>
+        <dl class="profile-fields">
+          <div class="field-row">
+            <dt>Token Expires</dt>
+            <dd>{{ tokenExpiresAt || 'Not available' }}</dd>
+          </div>
+          <div class="field-row">
+            <dt>Status</dt>
+            <dd>Signed in</dd>
+          </div>
+        </dl>
+      </article>
+    </div>
+
+    <div class="profile-actions">
+      <button type="button" class="btn btn-primary" (click)="signOut()">Sign Out</button>
+    </div>
   </div>
 
-  <div class="profile-actions">
-    <button type="button" class="btn btn-secondary" (click)="goHome()">Back to Home</button>
-    <button type="button" class="btn btn-primary" (click)="signOut()">Sign Out</button>
+  <div class="profile-image-modal-overlay" *ngIf="isProfileImageModalOpen">
+    <div class="profile-image-modal" role="dialog" aria-modal="true" aria-label="Profile image preview">
+      <h2>Preview Profile Picture</h2>
+      <p>Review how your new profile image will appear, then click submit.</p>
+
+      <div class="profile-image-preview-frame">
+        <div
+          class="profile-image-preview-viewport"
+          (mousedown)="startPreviewImageDrag($event)"
+          (mousemove)="onPreviewImageDrag($event)"
+          (mouseleave)="endPreviewImageDrag()"
+          (touchstart)="startPreviewImageDrag($event)"
+          (touchmove)="onPreviewImageDrag($event)"
+          (touchend)="endPreviewImageDrag()"
+        >
+          <img
+            [src]="pendingProfileImageDataUrl"
+            alt="Profile image preview"
+            class="profile-image-preview-draggable"
+            [style.width.px]="pendingImageRenderedWidth"
+            [style.height.px]="pendingImageRenderedHeight"
+            [style.transform]="getPreviewImageTransform()"
+          />
+        </div>
+      </div>
+
+      <p class="profile-image-drag-hint">{{ getPreviewHint() }}</p>
+
+      <div class="profile-image-modal-actions">
+        <button type="button" class="btn btn-secondary" [disabled]="uploadingImage" (click)="cancelProfileImagePreview()">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" [disabled]="uploadingImage" (click)="submitProfileImagePreview()">
+          {{ uploadingImage ? 'Submitting...' : 'Submit' }}
+        </button>
+      </div>
+    </div>
   </div>
 </section>

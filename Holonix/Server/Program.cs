@@ -82,9 +82,19 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("ClientApp", policy =>
     {
-        policy.WithOrigins("http://localhost:4200", "https://localhost:4200")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        policy
+            .SetIsOriginAllowed(origin =>
+            {
+                if (!Uri.TryCreate(origin, UriKind.Absolute, out var parsed))
+                {
+                    return false;
+                }
+
+                return string.Equals(parsed.Host, "localhost", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(parsed.Host, "127.0.0.1", StringComparison.OrdinalIgnoreCase);
+            })
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 

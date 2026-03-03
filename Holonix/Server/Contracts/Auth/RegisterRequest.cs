@@ -1,4 +1,9 @@
-﻿namespace Holonix.Server.Contracts.Auth;
+namespace Holonix.Server.Contracts.Auth;
 
-public record RegisterRequest(string FirstName, string LastName, string DateOfBirth, string Email, string Password);
-
+public record RegisterRequest(
+    string FirstName,
+    string LastName,
+    string DateOfBirth,
+    string Email,
+    string Password,
+    string? ProfileImageBase64);

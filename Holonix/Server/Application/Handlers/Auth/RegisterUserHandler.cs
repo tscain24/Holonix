@@ -76,6 +76,7 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
             FirstName = request.FirstName.Trim(),
             LastName = request.LastName.Trim(),
             DateOfBirth = dateOfBirth,
+            ProfileImageBase64 = NormalizeBase64Image(request.ProfileImageBase64),
         };
 
         IdentityResult result;
@@ -104,7 +105,26 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
             return HandlerResult<RegisterResponse>.Fail(StatusCodes.Status400BadRequest, errors);
         }
 
-        var response = new RegisterResponse(user.FirstName, user.LastName, user.Email ?? string.Empty);
+        var response = new RegisterResponse(
+            user.FirstName,
+            user.LastName,
+            user.Email ?? string.Empty,
+            user.ProfileImageBase64);
         return HandlerResult<RegisterResponse>.Ok(response);
+    }
+
+    private static string? NormalizeBase64Image(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        var marker = "base64,";
+        var markerIndex = trimmed.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        return markerIndex >= 0
+            ? trimmed[(markerIndex + marker.Length)..]
+            : trimmed;
     }
 }

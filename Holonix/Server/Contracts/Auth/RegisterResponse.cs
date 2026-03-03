@@ -1,4 +1,3 @@
-﻿namespace Holonix.Server.Contracts.Auth;
+namespace Holonix.Server.Contracts.Auth;
 
-public record RegisterResponse(string FirstName, string LastName, string Email);
-
+public record RegisterResponse(string FirstName, string LastName, string Email, string? ProfileImageBase64);

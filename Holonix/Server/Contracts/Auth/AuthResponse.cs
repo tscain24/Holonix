@@ -1,4 +1,3 @@
-﻿namespace Holonix.Server.Contracts.Auth;
+namespace Holonix.Server.Contracts.Auth;
 
-public record AuthResponse(string UserId, string DisplayName, string Token);
-
+public record AuthResponse(string UserId, string DisplayName, string Token, string? ProfileImageBase64);

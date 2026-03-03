@@ -7,5 +7,6 @@ public class ApplicationUser : IdentityUser
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public DateOnly? DateOfBirth { get; set; }
+    public string? ProfileImageBase64 { get; set; }
 }
 

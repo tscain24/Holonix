@@ -49,6 +49,11 @@ export class LoginComponent {
         this.loading = false;
         localStorage.setItem('holonix_token', res.token);
         localStorage.setItem('holonix_display_name', res.displayName);
+        if (res.profileImageBase64) {
+          localStorage.setItem('holonix_profile_image_base64', res.profileImageBase64);
+        } else {
+          localStorage.removeItem('holonix_profile_image_base64');
+        }
         this.snackBar.open(`Signed in as ${res.displayName}.`, 'Close', {
           duration: 3000,
           panelClass: ['snack-success'],

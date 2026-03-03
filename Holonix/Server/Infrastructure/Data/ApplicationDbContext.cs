@@ -26,6 +26,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasKey(user => user.Id);
             entity.Property(user => user.Id)
                 .HasColumnName("UsersId");
+            entity.Property(user => user.ProfileImageBase64)
+                .HasColumnType("nvarchar(max)");
         });
 
         builder.Entity<IdentityRole>(entity =>
