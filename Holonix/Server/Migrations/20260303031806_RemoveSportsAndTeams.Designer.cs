@@ -4,6 +4,7 @@ using Holonix.Server.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Holonix.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260303031806_RemoveSportsAndTeams")]
+    partial class RemoveSportsAndTeams
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -131,10 +134,15 @@ namespace Holonix.Server.Migrations
                     b.Property<decimal>("OwnerJobPercentage")
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<int>("ServiceId")
+                        .HasColumnType("int");
+
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");
 
                     b.HasKey("BusinessId");
+
+                    b.HasIndex("ServiceId");
 
                     b.ToTable("Business", "business");
                 });
@@ -178,30 +186,7 @@ namespace Holonix.Server.Migrations
 
                     b.HasKey("ServiceId");
 
-                    b.ToTable("BusineessService", "business");
-                });
-
-            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessToService", b =>
-                {
-                    b.Property<long>("BusinessToServiceId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("BusinessToServiceId"));
-
-                    b.Property<int>("BusinessId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ServiceId")
-                        .HasColumnType("int");
-
-                    b.HasKey("BusinessToServiceId");
-
-                    b.HasIndex("BusinessId");
-
-                    b.HasIndex("ServiceId");
-
-                    b.ToTable("BusinessToService", "business");
+                    b.ToTable("Service", "Service");
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessUser", b =>
@@ -670,21 +655,13 @@ namespace Holonix.Server.Migrations
                     b.ToTable("UserTokens", "authentication");
                 });
 
-            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessToService", b =>
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.Business", b =>
                 {
-                    b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
-                        .WithMany()
-                        .HasForeignKey("BusinessId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("Holonix.Server.Domain.Entities.BusinessService", "Service")
                         .WithMany()
                         .HasForeignKey("ServiceId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("Business");
 
                     b.Navigation("Service");
                 });
