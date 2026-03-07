@@ -201,6 +201,7 @@
   box-shadow: 0 16px 34px rgba(15, 23, 42, 0.14);
   display: flex;
   align-items: center;
+  justify-content: center;
   min-height: clamp(340px, 42vw, 500px);
   animation: liftIn 0.38s ease-out;
 }
@@ -215,6 +216,7 @@
 
 .guest-search-panel {
   width: min(780px, 96%);
+  margin: 0 auto;
   padding: clamp(18px, 2.5vw, 30px);
   border-radius: 14px;
   border: 1px solid rgba(147, 197, 253, 0.35);
@@ -222,6 +224,8 @@
   backdrop-filter: blur(4px);
   display: grid;
   gap: 14px;
+  justify-items: center;
+  text-align: center;
 }
 
 .guest-search-kicker {
@@ -245,6 +249,7 @@
   grid-template-columns: 1fr 220px auto;
   align-items: center;
   gap: 10px;
+  width: min(100%, 700px);
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(203, 213, 225, 0.8);
   border-radius: 999px;

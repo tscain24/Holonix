@@ -77,7 +77,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<BusinessService>(entity =>
         {
-            entity.ToTable("BusineessService", "business");
+            entity.ToTable("BusinessService", "business");
             entity.HasKey(x => x.ServiceId);
             entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
         });

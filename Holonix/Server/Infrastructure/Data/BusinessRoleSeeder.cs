@@ -6,27 +6,43 @@ namespace Holonix.Server.Infrastructure.Data;
 public static class BusinessRoleSeeder
 {
     private const string OwnerRoleName = "Owner";
+    private const string EmployeeRoleName = "Employee";
     private const long OwnerHierarchyNumber = 1000;
+    private const long EmployeeHierarchyNumber = 500;
 
     public static async Task SeedAsync(IServiceProvider services, CancellationToken cancellationToken = default)
     {
         await using var scope = services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        var ownerRoleExists = await dbContext.BusinessRoles
+        var existingRoleNames = await dbContext.BusinessRoles
             .AsNoTracking()
-            .AnyAsync(role => role.Name == OwnerRoleName, cancellationToken);
+            .Select(role => role.Name)
+            .ToListAsync(cancellationToken);
 
-        if (ownerRoleExists)
+        if (existingRoleNames.Contains(OwnerRoleName, StringComparer.OrdinalIgnoreCase) &&
+            existingRoleNames.Contains(EmployeeRoleName, StringComparer.OrdinalIgnoreCase))
         {
             return;
         }
 
-        dbContext.BusinessRoles.Add(new BusinessRole
+        if (!existingRoleNames.Contains(OwnerRoleName, StringComparer.OrdinalIgnoreCase))
         {
-            Name = OwnerRoleName,
-            HierarchyNumber = OwnerHierarchyNumber,
-        });
+            dbContext.BusinessRoles.Add(new BusinessRole
+            {
+                Name = OwnerRoleName,
+                HierarchyNumber = OwnerHierarchyNumber,
+            });
+        }
+
+        if (!existingRoleNames.Contains(EmployeeRoleName, StringComparer.OrdinalIgnoreCase))
+        {
+            dbContext.BusinessRoles.Add(new BusinessRole
+            {
+                Name = EmployeeRoleName,
+                HierarchyNumber = EmployeeHierarchyNumber,
+            });
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
