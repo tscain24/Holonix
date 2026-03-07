@@ -8,39 +8,89 @@
 
   <div class="create-business-shell">
     <aside class="create-business-intro">
-      <p class="intro-kicker">Holonix Business</p>
-      <h1>Launch a business profile that feels established from day one.</h1>
-      <p class="intro-copy">
-        Set up the core details customers need to discover your business, trust your presence, and find you locally.
-      </p>
+      <div class="intro-main">
+        <p class="intro-kicker">Holonix Business</p>
+        <h1>Turn your skills into a local business customers can find, trust, and book.</h1>
+        <p class="intro-copy">
+          Build a strong presence in your community with a business profile that showcases what you offer and helps nearby customers discover you with confidence.
+        </p>
 
-      <div class="intro-points">
-        <div class="intro-point">
-          <strong>Local presence</strong>
-          <span>Your address details will support location-based discovery and mapping.</span>
+        <div class="intro-support">
+          <div class="intro-support-item">
+            <span class="intro-support-dot" aria-hidden="true"></span>
+            <div>
+              <strong>Build trust from the first glance</strong>
+              <span>Present your business with a clear identity, real location, and services customers immediately understand.</span>
+            </div>
+          </div>
+          <div class="intro-support-item">
+            <span class="intro-support-dot" aria-hidden="true"></span>
+            <div>
+              <strong>Get discovered for the right work</strong>
+              <span>Select the services you want to lead with so your business is positioned around what you do best.</span>
+            </div>
+          </div>
+          <div class="intro-support-item">
+            <span class="intro-support-dot" aria-hidden="true"></span>
+            <div>
+              <strong>Grow your local presence</strong>
+              <span>Your address helps anchor your business in the community and supports future map-based discovery.</span>
+            </div>
+          </div>
+          <div class="intro-support-item">
+            <span class="intro-support-dot" aria-hidden="true"></span>
+            <div>
+              <strong>Earn stronger leads over time</strong>
+              <span>Better reviews and more completed jobs can build momentum and help your business attract stronger leads across the community.</span>
+            </div>
+          </div>
         </div>
-        <div class="intro-point">
-          <strong>Professional profile</strong>
-          <span>Start with a clean business identity before services, scheduling, and team setup.</span>
+      </div>
+
+      <div class="intro-bottom">
+        <div class="intro-quote">
+          <strong>Your next customer is already searching nearby.</strong>
+          <span>Holonix helps your business look established, searchable, and ready to serve.</span>
         </div>
-        <div class="intro-point">
-          <strong>Built to grow</strong>
-          <span>This is the foundation for owners, employees, and future business management features.</span>
+
+        <div class="intro-feature-grid">
+          <div class="intro-feature-card">
+            <span class="feature-title">Community Presence</span>
+            <span class="feature-copy">Create a profile that feels rooted in the area you serve.</span>
+          </div>
+          <div class="intro-feature-card">
+            <span class="feature-title">Service Clarity</span>
+            <span class="feature-copy">Lead with the work customers are already looking for.</span>
+          </div>
+          <div class="intro-feature-card">
+            <span class="feature-title">Growth Ready</span>
+            <span class="feature-copy">Start simple now and build toward team, scheduling, and more.</span>
+          </div>
+          <div class="intro-feature-card">
+            <span class="feature-title">Lead Momentum</span>
+            <span class="feature-copy">More trust, more completed work, and stronger reviews can improve the quality of leads you receive.</span>
+          </div>
         </div>
       </div>
     </aside>
 
     <form class="create-business-card" [formGroup]="businessForm" (ngSubmit)="submit()">
       <div class="card-heading">
-        <p class="card-kicker">Create Business</p>
-        <h2>Business details</h2>
+        <div class="card-heading-top">
+          <p class="card-kicker">Create Business</p>
+          <span class="card-step">Step 1 of 3</span>
+        </div>
+        <h2>Business Details</h2>
         <p>Enter the basics for your business profile. We will use this address for future geocoding.</p>
       </div>
 
       <div class="form-grid">
         <label class="field field-span-2">
-          <span>Business Name</span>
+          <span>Business Name <strong aria-hidden="true">*</strong></span>
           <input type="text" formControlName="name" placeholder="North Ridge Home Services" />
+          <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.name.invalid">
+            Business name is required.
+          </small>
         </label>
 
         <label class="field field-span-2">
@@ -52,9 +102,57 @@
           ></textarea>
         </label>
 
+        <div class="field field-span-2">
+          <span>Services <strong aria-hidden="true">*</strong></span>
+          <div class="service-picker" [class.service-picker-invalid]="submitAttempted && selectedServices.length === 0">
+            <div class="selected-service-list" *ngIf="selectedServices.length > 0">
+              <button
+                *ngFor="let service of selectedServices"
+                type="button"
+                class="selected-service-chip"
+                (click)="removeService(service.serviceId)"
+              >
+                {{ service.name }}
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+
+            <input
+              type="text"
+              [value]="serviceSearch"
+              placeholder="Search services and add one or more"
+              (input)="onServiceSearchInput($event)"
+              (focus)="openServiceDropdown()"
+              (blur)="closeServiceDropdown()"
+            />
+
+            <div class="service-dropdown" *ngIf="serviceDropdownOpen">
+              <div class="service-dropdown-state" *ngIf="loadingServices">Loading services...</div>
+              <button
+                *ngFor="let service of filteredServices"
+                type="button"
+                class="service-option"
+                (mousedown)="selectService(service)"
+              >
+                {{ service.name }}
+              </button>
+              <div class="service-dropdown-state" *ngIf="!loadingServices && filteredServices.length === 0">
+                No matching services found.
+              </div>
+            </div>
+          </div>
+          <small class="field-note">Choose at least one service your business will offer at launch.</small>
+          <small class="field-note field-error" *ngIf="submitAttempted && selectedServices.length === 0">
+            Select at least one service.
+          </small>
+        </div>
+
         <label class="field field-span-2">
-          <span>Address 1</span>
+          <span>Address 1 <strong aria-hidden="true">*</strong></span>
           <input type="text" formControlName="address1" placeholder="123 Main Street" />
+          <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.address1.invalid">
+            Address 1 is required.
+          </small>
         </label>
 
         <label class="field field-span-2">
@@ -63,28 +161,40 @@
         </label>
 
         <label class="field">
-          <span>City</span>
+          <span>City <strong aria-hidden="true">*</strong></span>
           <input type="text" formControlName="city" placeholder="Woodstock" />
+          <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.city.invalid">
+            City is required.
+          </small>
         </label>
 
         <label class="field">
-          <span>State</span>
+          <span>State <strong aria-hidden="true">*</strong></span>
           <input type="text" formControlName="state" placeholder="Georgia" />
+          <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.state.invalid">
+            State is required.
+          </small>
         </label>
 
         <label class="field">
-          <span>ZIP Code</span>
+          <span>ZIP Code <strong aria-hidden="true">*</strong></span>
           <input type="text" formControlName="zipCode" placeholder="30188" />
+          <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.zipCode.invalid">
+            ZIP code is required.
+          </small>
         </label>
 
         <label class="field">
-          <span>Country</span>
+          <span>Country <strong aria-hidden="true">*</strong></span>
           <input type="text" formControlName="country" placeholder="United States" />
+          <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.country.invalid">
+            Country is required.
+          </small>
         </label>
       </div>
 
       <div class="form-footer">
-        <p>Your business location will be stored and geocoded on save, not while you type.</p>
+        <p>Your business location will be stored and geocoded on save, and you must select at least one service.</p>
         <button type="submit" class="submit-btn">Continue</button>
       </div>
     </form>

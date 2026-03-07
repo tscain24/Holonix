@@ -54,12 +54,20 @@
 .create-business-intro {
   padding: 28px;
   background:
-    radial-gradient(340px 180px at 100% 0%, rgba(96, 165, 250, 0.2), rgba(96, 165, 250, 0)),
-    linear-gradient(150deg, #0f2f66 0%, #123d85 50%, #1d4ed8 100%);
+    radial-gradient(280px 180px at 100% 0%, rgba(125, 211, 252, 0.14), rgba(125, 211, 252, 0)),
+    radial-gradient(260px 180px at 0% 100%, rgba(250, 204, 21, 0.12), rgba(250, 204, 21, 0)),
+    linear-gradient(160deg, #0e2f66 0%, #12397d 52%, #1949bf 100%);
   color: #ffffff;
   display: grid;
-  gap: 18px;
+  grid-template-rows: auto 1fr;
+  gap: 24px;
   min-height: 100%;
+  align-content: start;
+}
+
+.intro-main {
+  display: grid;
+  gap: 18px;
 }
 
 .intro-kicker,
@@ -77,41 +85,112 @@
 
 .create-business-intro h1 {
   margin: 0;
-  font-size: clamp(30px, 3vw, 46px);
-  line-height: 1.04;
-  max-width: 12ch;
+  font-size: clamp(28px, 2.6vw, 38px);
+  line-height: 1.08;
+  max-width: none;
 }
 
 .intro-copy {
   margin: 0;
   color: #dbeafe;
   font-size: 15px;
-  line-height: 1.7;
-  max-width: 42ch;
+  line-height: 1.65;
+  max-width: none;
 }
 
-.intro-points {
+.intro-support {
   display: grid;
   gap: 12px;
+  margin-top: 2px;
 }
 
-.intro-point {
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(191, 219, 254, 0.28);
-  background: rgba(255, 255, 255, 0.08);
+.intro-bottom {
   display: grid;
-  gap: 4px;
+  align-content: end;
+  gap: 14px;
 }
 
-.intro-point strong {
+.intro-support-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(191, 219, 254, 0.18);
+  background: rgba(2, 6, 23, 0.12);
+}
+
+.intro-support-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fde68a, #facc15);
+  box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.12);
+}
+
+.intro-support-item strong {
+  display: block;
+  margin-bottom: 4px;
   font-size: 14px;
   font-weight: 800;
 }
 
-.intro-point span {
+.intro-support-item span:last-child {
   color: #dbeafe;
   font-size: 13px;
+  line-height: 1.5;
+}
+
+.intro-quote {
+  margin-top: 2px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(191, 219, 254, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  display: grid;
+  gap: 6px;
+}
+
+.intro-quote strong {
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.intro-quote span {
+  color: #dbeafe;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.intro-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.intro-feature-card {
+  min-height: 120px;
+  border-radius: 18px;
+  border: 1px solid rgba(191, 219, 254, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 16px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.feature-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.feature-copy {
+  color: #dbeafe;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -128,8 +207,31 @@
   gap: 8px;
 }
 
+.card-heading-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .card-kicker {
   color: #2563eb;
+}
+
+.card-step {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  background: #eef4ff;
+  border: 1px solid #cfe0f6;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .card-heading h2 {
@@ -166,6 +268,11 @@
   color: #456284;
 }
 
+.field span strong {
+  color: #dc2626;
+  font-weight: 800;
+}
+
 .field input,
 .field textarea {
   width: 100%;
@@ -180,6 +287,16 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
+.field-note {
+  color: #647b9d;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.field-error {
+  color: #b91c1c;
+}
+
 .field textarea {
   resize: vertical;
   min-height: 110px;
@@ -191,6 +308,100 @@
   border-color: #2563eb;
   background: #ffffff;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.service-picker {
+  position: relative;
+  border-radius: 14px;
+  border: 1px solid #cfdbed;
+  background: #f9fbff;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.service-picker:focus-within {
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.service-picker-invalid {
+  border-color: #f0b4b4;
+}
+
+.service-picker input {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  min-height: 24px;
+  box-shadow: none;
+}
+
+.service-picker input:focus {
+  box-shadow: none;
+}
+
+.selected-service-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.selected-service-chip {
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid #bfd1ee;
+  background: #eef4ff;
+  color: #1d4ed8;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.service-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  border-radius: 16px;
+  border: 1px solid #cfdbed;
+  background: #ffffff;
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.service-option {
+  min-height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.service-option:hover {
+  background: #f4f8ff;
+}
+
+.service-dropdown-state {
+  padding: 12px;
+  color: #647b9d;
+  font-size: 13px;
 }
 
 .form-footer {
@@ -232,9 +443,17 @@
   .create-business-shell {
     grid-template-columns: 1fr;
   }
+
+  .create-business-intro h1 {
+    max-width: none;
+  }
 }
 
 @media (max-width: 640px) {
+  .intro-feature-grid {
+    grid-template-columns: 1fr;
+  }
+
   .form-grid {
     grid-template-columns: 1fr;
   }
@@ -250,5 +469,10 @@
 
   .submit-btn {
     width: 100%;
+  }
+
+  .card-heading-top {
+    align-items: start;
+    flex-direction: column;
   }
 }

@@ -1,0 +1,256 @@
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (41ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT [b].[Name]
+      FROM [business].[BusinessRole] AS [b]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (56ms) [Parameters=[@p0='?' (DbType = Int64), @p1='?' (Size = 200)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      INSERT INTO [business].[BusinessRole] ([HierarchyNumber], [Name])
+      OUTPUT INSERTED.[BusinessRoleId]
+      VALUES (@p0, @p1);
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (21ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT [b].[ServiceId], [b].[InactiveDate], [b].[Name]
+      FROM [business].[BusinessService] AS [b]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (22ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT DISTINCT [b].[ServiceId]
+      FROM [business].[BusinessToService] AS [b]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (26ms) [Parameters=[@p0='?' (DbType = DateTime2), @p1='?' (Size = 200), @p2='?' (DbType = DateTime2), @p3='?' (Size = 200), @p4='?' (DbType = DateTime2), @p5='?' (Size = 200), @p6='?' (DbType = DateTime2), @p7='?' (Size = 200), @p8='?' (DbType = DateTime2), @p9='?' (Size = 200), @p10='?' (DbType = DateTime2), @p11='?' (Size = 200), @p12='?' (DbType = DateTime2), @p13='?' (Size = 200), @p14='?' (DbType = DateTime2), @p15='?' (Size = 200), @p16='?' (DbType = DateTime2), @p17='?' (Size = 200), @p18='?' (DbType = DateTime2), @p19='?' (Size = 200), @p20='?' (DbType = DateTime2), @p21='?' (Size = 200), @p22='?' (DbType = DateTime2), @p23='?' (Size = 200), @p24='?' (DbType = DateTime2), @p25='?' (Size = 200), @p26='?' (DbType = DateTime2), @p27='?' (Size = 200), @p28='?' (DbType = DateTime2), @p29='?' (Size = 200), @p30='?' (DbType = DateTime2), @p31='?' (Size = 200), @p32='?' (DbType = DateTime2), @p33='?' (Size = 200), @p34='?' (DbType = DateTime2), @p35='?' (Size = 200), @p36='?' (DbType = DateTime2), @p37='?' (Size = 200), @p38='?' (DbType = DateTime2), @p39='?' (Size = 200), @p40='?' (DbType = DateTime2), @p41='?' (Size = 200), @p42='?' (DbType = DateTime2), @p43='?' (Size = 200), @p44='?' (DbType = DateTime2), @p45='?' (Size = 200), @p46='?' (DbType = DateTime2), @p47='?' (Size = 200), @p48='?' (DbType = DateTime2), @p49='?' (Size = 200), @p50='?' (DbType = DateTime2), @p51='?' (Size = 200), @p52='?' (DbType = DateTime2), @p53='?' (Size = 200), @p54='?' (DbType = DateTime2), @p55='?' (Size = 200), @p56='?' (DbType = DateTime2), @p57='?' (Size = 200), @p58='?' (DbType = DateTime2), @p59='?' (Size = 200), @p60='?' (DbType = DateTime2), @p61='?' (Size = 200), @p62='?' (DbType = DateTime2), @p63='?' (Size = 200), @p64='?' (DbType = DateTime2), @p65='?' (Size = 200), @p66='?' (DbType = DateTime2), @p67='?' (Size = 200), @p68='?' (DbType = DateTime2), @p69='?' (Size = 200), @p70='?' (DbType = DateTime2), @p71='?' (Size = 200), @p72='?' (DbType = DateTime2), @p73='?' (Size = 200), @p74='?' (DbType = DateTime2), @p75='?' (Size = 200), @p76='?' (DbType = DateTime2), @p77='?' (Size = 200), @p78='?' (DbType = DateTime2), @p79='?' (Size = 200), @p80='?' (DbType = DateTime2), @p81='?' (Size = 200), @p82='?' (DbType = DateTime2), @p83='?' (Size = 200)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      MERGE [business].[BusinessService] USING (
+      VALUES (@p0, @p1, 0),
+      (@p2, @p3, 1),
+      (@p4, @p5, 2),
+      (@p6, @p7, 3),
+      (@p8, @p9, 4),
+      (@p10, @p11, 5),
+      (@p12, @p13, 6),
+      (@p14, @p15, 7),
+      (@p16, @p17, 8),
+      (@p18, @p19, 9),
+      (@p20, @p21, 10),
+      (@p22, @p23, 11),
+      (@p24, @p25, 12),
+      (@p26, @p27, 13),
+      (@p28, @p29, 14),
+      (@p30, @p31, 15),
+      (@p32, @p33, 16),
+      (@p34, @p35, 17),
+      (@p36, @p37, 18),
+      (@p38, @p39, 19),
+      (@p40, @p41, 20),
+      (@p42, @p43, 21),
+      (@p44, @p45, 22),
+      (@p46, @p47, 23),
+      (@p48, @p49, 24),
+      (@p50, @p51, 25),
+      (@p52, @p53, 26),
+      (@p54, @p55, 27),
+      (@p56, @p57, 28),
+      (@p58, @p59, 29),
+      (@p60, @p61, 30),
+      (@p62, @p63, 31),
+      (@p64, @p65, 32),
+      (@p66, @p67, 33),
+      (@p68, @p69, 34),
+      (@p70, @p71, 35),
+      (@p72, @p73, 36),
+      (@p74, @p75, 37),
+      (@p76, @p77, 38),
+      (@p78, @p79, 39),
+      (@p80, @p81, 40),
+      (@p82, @p83, 41)) AS i ([InactiveDate], [Name], _Position) ON 1=0
+      WHEN NOT MATCHED THEN
+      INSERT ([InactiveDate], [Name])
+      VALUES (i.[InactiveDate], i.[Name])
+      OUTPUT INSERTED.[ServiceId], i._Position;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (18ms) [Parameters=[@p0='?' (DbType = DateTime2), @p1='?' (Size = 200), @p2='?' (DbType = DateTime2), @p3='?' (Size = 200), @p4='?' (DbType = DateTime2), @p5='?' (Size = 200), @p6='?' (DbType = DateTime2), @p7='?' (Size = 200), @p8='?' (DbType = DateTime2), @p9='?' (Size = 200), @p10='?' (DbType = DateTime2), @p11='?' (Size = 200), @p12='?' (DbType = DateTime2), @p13='?' (Size = 200), @p14='?' (DbType = DateTime2), @p15='?' (Size = 200), @p16='?' (DbType = DateTime2), @p17='?' (Size = 200), @p18='?' (DbType = DateTime2), @p19='?' (Size = 200), @p20='?' (DbType = DateTime2), @p21='?' (Size = 200), @p22='?' (DbType = DateTime2), @p23='?' (Size = 200), @p24='?' (DbType = DateTime2), @p25='?' (Size = 200), @p26='?' (DbType = DateTime2), @p27='?' (Size = 200), @p28='?' (DbType = DateTime2), @p29='?' (Size = 200), @p30='?' (DbType = DateTime2), @p31='?' (Size = 200), @p32='?' (DbType = DateTime2), @p33='?' (Size = 200), @p34='?' (DbType = DateTime2), @p35='?' (Size = 200), @p36='?' (DbType = DateTime2), @p37='?' (Size = 200), @p38='?' (DbType = DateTime2), @p39='?' (Size = 200), @p40='?' (DbType = DateTime2), @p41='?' (Size = 200), @p42='?' (DbType = DateTime2), @p43='?' (Size = 200), @p44='?' (DbType = DateTime2), @p45='?' (Size = 200), @p46='?' (DbType = DateTime2), @p47='?' (Size = 200), @p48='?' (DbType = DateTime2), @p49='?' (Size = 200), @p50='?' (DbType = DateTime2), @p51='?' (Size = 200), @p52='?' (DbType = DateTime2), @p53='?' (Size = 200), @p54='?' (DbType = DateTime2), @p55='?' (Size = 200), @p56='?' (DbType = DateTime2), @p57='?' (Size = 200), @p58='?' (DbType = DateTime2), @p59='?' (Size = 200), @p60='?' (DbType = DateTime2), @p61='?' (Size = 200), @p62='?' (DbType = DateTime2), @p63='?' (Size = 200), @p64='?' (DbType = DateTime2), @p65='?' (Size = 200), @p66='?' (DbType = DateTime2), @p67='?' (Size = 200), @p68='?' (DbType = DateTime2), @p69='?' (Size = 200), @p70='?' (DbType = DateTime2), @p71='?' (Size = 200), @p72='?' (DbType = DateTime2), @p73='?' (Size = 200), @p74='?' (DbType = DateTime2), @p75='?' (Size = 200), @p76='?' (DbType = DateTime2), @p77='?' (Size = 200), @p78='?' (DbType = DateTime2), @p79='?' (Size = 200), @p80='?' (DbType = DateTime2), @p81='?' (Size = 200), @p82='?' (DbType = DateTime2), @p83='?' (Size = 200)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      MERGE [business].[BusinessService] USING (
+      VALUES (@p0, @p1, 0),
+      (@p2, @p3, 1),
+      (@p4, @p5, 2),
+      (@p6, @p7, 3),
+      (@p8, @p9, 4),
+      (@p10, @p11, 5),
+      (@p12, @p13, 6),
+      (@p14, @p15, 7),
+      (@p16, @p17, 8),
+      (@p18, @p19, 9),
+      (@p20, @p21, 10),
+      (@p22, @p23, 11),
+      (@p24, @p25, 12),
+      (@p26, @p27, 13),
+      (@p28, @p29, 14),
+      (@p30, @p31, 15),
+      (@p32, @p33, 16),
+      (@p34, @p35, 17),
+      (@p36, @p37, 18),
+      (@p38, @p39, 19),
+      (@p40, @p41, 20),
+      (@p42, @p43, 21),
+      (@p44, @p45, 22),
+      (@p46, @p47, 23),
+      (@p48, @p49, 24),
+      (@p50, @p51, 25),
+      (@p52, @p53, 26),
+      (@p54, @p55, 27),
+      (@p56, @p57, 28),
+      (@p58, @p59, 29),
+      (@p60, @p61, 30),
+      (@p62, @p63, 31),
+      (@p64, @p65, 32),
+      (@p66, @p67, 33),
+      (@p68, @p69, 34),
+      (@p70, @p71, 35),
+      (@p72, @p73, 36),
+      (@p74, @p75, 37),
+      (@p76, @p77, 38),
+      (@p78, @p79, 39),
+      (@p80, @p81, 40),
+      (@p82, @p83, 41)) AS i ([InactiveDate], [Name], _Position) ON 1=0
+      WHEN NOT MATCHED THEN
+      INSERT ([InactiveDate], [Name])
+      VALUES (i.[InactiveDate], i.[Name])
+      OUTPUT INSERTED.[ServiceId], i._Position;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (18ms) [Parameters=[@p0='?' (DbType = DateTime2), @p1='?' (Size = 200), @p2='?' (DbType = DateTime2), @p3='?' (Size = 200), @p4='?' (DbType = DateTime2), @p5='?' (Size = 200), @p6='?' (DbType = DateTime2), @p7='?' (Size = 200), @p8='?' (DbType = DateTime2), @p9='?' (Size = 200), @p10='?' (DbType = DateTime2), @p11='?' (Size = 200), @p12='?' (DbType = DateTime2), @p13='?' (Size = 200), @p14='?' (DbType = DateTime2), @p15='?' (Size = 200), @p16='?' (DbType = DateTime2), @p17='?' (Size = 200), @p18='?' (DbType = DateTime2), @p19='?' (Size = 200), @p20='?' (DbType = DateTime2), @p21='?' (Size = 200), @p22='?' (DbType = DateTime2), @p23='?' (Size = 200), @p24='?' (DbType = DateTime2), @p25='?' (Size = 200), @p26='?' (DbType = DateTime2), @p27='?' (Size = 200), @p28='?' (DbType = DateTime2), @p29='?' (Size = 200), @p30='?' (DbType = DateTime2), @p31='?' (Size = 200), @p32='?' (DbType = DateTime2), @p33='?' (Size = 200), @p34='?' (DbType = DateTime2), @p35='?' (Size = 200), @p36='?' (DbType = DateTime2), @p37='?' (Size = 200), @p38='?' (DbType = DateTime2), @p39='?' (Size = 200), @p40='?' (DbType = DateTime2), @p41='?' (Size = 200), @p42='?' (DbType = DateTime2), @p43='?' (Size = 200), @p44='?' (DbType = DateTime2), @p45='?' (Size = 200), @p46='?' (DbType = DateTime2), @p47='?' (Size = 200), @p48='?' (DbType = DateTime2), @p49='?' (Size = 200), @p50='?' (DbType = DateTime2), @p51='?' (Size = 200), @p52='?' (DbType = DateTime2), @p53='?' (Size = 200), @p54='?' (DbType = DateTime2), @p55='?' (Size = 200), @p56='?' (DbType = DateTime2), @p57='?' (Size = 200), @p58='?' (DbType = DateTime2), @p59='?' (Size = 200), @p60='?' (DbType = DateTime2), @p61='?' (Size = 200), @p62='?' (DbType = DateTime2), @p63='?' (Size = 200), @p64='?' (DbType = DateTime2), @p65='?' (Size = 200), @p66='?' (DbType = DateTime2), @p67='?' (Size = 200), @p68='?' (DbType = DateTime2), @p69='?' (Size = 200), @p70='?' (DbType = DateTime2), @p71='?' (Size = 200), @p72='?' (DbType = DateTime2), @p73='?' (Size = 200), @p74='?' (DbType = DateTime2), @p75='?' (Size = 200), @p76='?' (DbType = DateTime2), @p77='?' (Size = 200), @p78='?' (DbType = DateTime2), @p79='?' (Size = 200), @p80='?' (DbType = DateTime2), @p81='?' (Size = 200), @p82='?' (DbType = DateTime2), @p83='?' (Size = 200)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      MERGE [business].[BusinessService] USING (
+      VALUES (@p0, @p1, 0),
+      (@p2, @p3, 1),
+      (@p4, @p5, 2),
+      (@p6, @p7, 3),
+      (@p8, @p9, 4),
+      (@p10, @p11, 5),
+      (@p12, @p13, 6),
+      (@p14, @p15, 7),
+      (@p16, @p17, 8),
+      (@p18, @p19, 9),
+      (@p20, @p21, 10),
+      (@p22, @p23, 11),
+      (@p24, @p25, 12),
+      (@p26, @p27, 13),
+      (@p28, @p29, 14),
+      (@p30, @p31, 15),
+      (@p32, @p33, 16),
+      (@p34, @p35, 17),
+      (@p36, @p37, 18),
+      (@p38, @p39, 19),
+      (@p40, @p41, 20),
+      (@p42, @p43, 21),
+      (@p44, @p45, 22),
+      (@p46, @p47, 23),
+      (@p48, @p49, 24),
+      (@p50, @p51, 25),
+      (@p52, @p53, 26),
+      (@p54, @p55, 27),
+      (@p56, @p57, 28),
+      (@p58, @p59, 29),
+      (@p60, @p61, 30),
+      (@p62, @p63, 31),
+      (@p64, @p65, 32),
+      (@p66, @p67, 33),
+      (@p68, @p69, 34),
+      (@p70, @p71, 35),
+      (@p72, @p73, 36),
+      (@p74, @p75, 37),
+      (@p76, @p77, 38),
+      (@p78, @p79, 39),
+      (@p80, @p81, 40),
+      (@p82, @p83, 41)) AS i ([InactiveDate], [Name], _Position) ON 1=0
+      WHEN NOT MATCHED THEN
+      INSERT ([InactiveDate], [Name])
+      VALUES (i.[InactiveDate], i.[Name])
+      OUTPUT INSERTED.[ServiceId], i._Position;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (19ms) [Parameters=[@p0='?' (DbType = DateTime2), @p1='?' (Size = 200), @p2='?' (DbType = DateTime2), @p3='?' (Size = 200), @p4='?' (DbType = DateTime2), @p5='?' (Size = 200), @p6='?' (DbType = DateTime2), @p7='?' (Size = 200), @p8='?' (DbType = DateTime2), @p9='?' (Size = 200), @p10='?' (DbType = DateTime2), @p11='?' (Size = 200), @p12='?' (DbType = DateTime2), @p13='?' (Size = 200), @p14='?' (DbType = DateTime2), @p15='?' (Size = 200), @p16='?' (DbType = DateTime2), @p17='?' (Size = 200), @p18='?' (DbType = DateTime2), @p19='?' (Size = 200), @p20='?' (DbType = DateTime2), @p21='?' (Size = 200), @p22='?' (DbType = DateTime2), @p23='?' (Size = 200), @p24='?' (DbType = DateTime2), @p25='?' (Size = 200), @p26='?' (DbType = DateTime2), @p27='?' (Size = 200), @p28='?' (DbType = DateTime2), @p29='?' (Size = 200), @p30='?' (DbType = DateTime2), @p31='?' (Size = 200), @p32='?' (DbType = DateTime2), @p33='?' (Size = 200), @p34='?' (DbType = DateTime2), @p35='?' (Size = 200), @p36='?' (DbType = DateTime2), @p37='?' (Size = 200), @p38='?' (DbType = DateTime2), @p39='?' (Size = 200), @p40='?' (DbType = DateTime2), @p41='?' (Size = 200), @p42='?' (DbType = DateTime2), @p43='?' (Size = 200), @p44='?' (DbType = DateTime2), @p45='?' (Size = 200), @p46='?' (DbType = DateTime2), @p47='?' (Size = 200), @p48='?' (DbType = DateTime2), @p49='?' (Size = 200), @p50='?' (DbType = DateTime2), @p51='?' (Size = 200), @p52='?' (DbType = DateTime2), @p53='?' (Size = 200), @p54='?' (DbType = DateTime2), @p55='?' (Size = 200), @p56='?' (DbType = DateTime2), @p57='?' (Size = 200), @p58='?' (DbType = DateTime2), @p59='?' (Size = 200), @p60='?' (DbType = DateTime2), @p61='?' (Size = 200), @p62='?' (DbType = DateTime2), @p63='?' (Size = 200), @p64='?' (DbType = DateTime2), @p65='?' (Size = 200), @p66='?' (DbType = DateTime2), @p67='?' (Size = 200), @p68='?' (DbType = DateTime2), @p69='?' (Size = 200), @p70='?' (DbType = DateTime2), @p71='?' (Size = 200), @p72='?' (DbType = DateTime2), @p73='?' (Size = 200), @p74='?' (DbType = DateTime2), @p75='?' (Size = 200), @p76='?' (DbType = DateTime2), @p77='?' (Size = 200), @p78='?' (DbType = DateTime2), @p79='?' (Size = 200), @p80='?' (DbType = DateTime2), @p81='?' (Size = 200), @p82='?' (DbType = DateTime2), @p83='?' (Size = 200)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      MERGE [business].[BusinessService] USING (
+      VALUES (@p0, @p1, 0),
+      (@p2, @p3, 1),
+      (@p4, @p5, 2),
+      (@p6, @p7, 3),
+      (@p8, @p9, 4),
+      (@p10, @p11, 5),
+      (@p12, @p13, 6),
+      (@p14, @p15, 7),
+      (@p16, @p17, 8),
+      (@p18, @p19, 9),
+      (@p20, @p21, 10),
+      (@p22, @p23, 11),
+      (@p24, @p25, 12),
+      (@p26, @p27, 13),
+      (@p28, @p29, 14),
+      (@p30, @p31, 15),
+      (@p32, @p33, 16),
+      (@p34, @p35, 17),
+      (@p36, @p37, 18),
+      (@p38, @p39, 19),
+      (@p40, @p41, 20),
+      (@p42, @p43, 21),
+      (@p44, @p45, 22),
+      (@p46, @p47, 23),
+      (@p48, @p49, 24),
+      (@p50, @p51, 25),
+      (@p52, @p53, 26),
+      (@p54, @p55, 27),
+      (@p56, @p57, 28),
+      (@p58, @p59, 29),
+      (@p60, @p61, 30),
+      (@p62, @p63, 31),
+      (@p64, @p65, 32),
+      (@p66, @p67, 33),
+      (@p68, @p69, 34),
+      (@p70, @p71, 35),
+      (@p72, @p73, 36),
+      (@p74, @p75, 37),
+      (@p76, @p77, 38),
+      (@p78, @p79, 39),
+      (@p80, @p81, 40),
+      (@p82, @p83, 41)) AS i ([InactiveDate], [Name], _Position) ON 1=0
+      WHEN NOT MATCHED THEN
+      INSERT ([InactiveDate], [Name])
+      VALUES (i.[InactiveDate], i.[Name])
+      OUTPUT INSERTED.[ServiceId], i._Position;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (22ms) [Parameters=[@p0='?' (DbType = DateTime2), @p1='?' (Size = 200), @p2='?' (DbType = DateTime2), @p3='?' (Size = 200), @p4='?' (DbType = DateTime2), @p5='?' (Size = 200), @p6='?' (DbType = DateTime2), @p7='?' (Size = 200), @p8='?' (DbType = DateTime2), @p9='?' (Size = 200), @p10='?' (DbType = DateTime2), @p11='?' (Size = 200), @p12='?' (DbType = DateTime2), @p13='?' (Size = 200), @p14='?' (DbType = DateTime2), @p15='?' (Size = 200), @p16='?' (DbType = DateTime2), @p17='?' (Size = 200), @p18='?' (DbType = DateTime2), @p19='?' (Size = 200), @p20='?' (DbType = DateTime2), @p21='?' (Size = 200), @p22='?' (DbType = DateTime2), @p23='?' (Size = 200), @p24='?' (DbType = DateTime2), @p25='?' (Size = 200), @p26='?' (DbType = DateTime2), @p27='?' (Size = 200), @p28='?' (DbType = DateTime2), @p29='?' (Size = 200), @p30='?' (DbType = DateTime2), @p31='?' (Size = 200)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      MERGE [business].[BusinessService] USING (
+      VALUES (@p0, @p1, 0),
+      (@p2, @p3, 1),
+      (@p4, @p5, 2),
+      (@p6, @p7, 3),
+      (@p8, @p9, 4),
+      (@p10, @p11, 5),
+      (@p12, @p13, 6),
+      (@p14, @p15, 7),
+      (@p16, @p17, 8),
+      (@p18, @p19, 9),
+      (@p20, @p21, 10),
+      (@p22, @p23, 11),
+      (@p24, @p25, 12),
+      (@p26, @p27, 13),
+      (@p28, @p29, 14),
+      (@p30, @p31, 15)) AS i ([InactiveDate], [Name], _Position) ON 1=0
+      WHEN NOT MATCHED THEN
+      INSERT ([InactiveDate], [Name])
+      VALUES (i.[InactiveDate], i.[Name])
+      OUTPUT INSERTED.[ServiceId], i._Position;
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5000
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\tscai\source\repos\Holonix\temp-build-out
