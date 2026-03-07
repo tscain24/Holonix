@@ -100,6 +100,8 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+await BusinessRoleSeeder.SeedAsync(app.Services);
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

@@ -1,0 +1,272 @@
+
+Warning: This is a simple server for use in testing or debugging Angular applications
+locally. It hasn't been reviewed for security issues.
+
+Binding this server to an open connection can result in compromising your application or
+computer. Using a different host than the one passed to the "--host" flag might result in
+websocket connection issues. You might need to use "--disable-host-check" if that's the
+case.
+    
+- Generating browser application bundles (phase: setup)...
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+
+./src/app/app-routing.module.ts:2:0-57 - Error: Module not found: Error: Can't resolve './login/login.component' in 'C:\Users\tscai\source\repos\Holonix\ClientApp\src\app'
+
+./src/app/app-routing.module.ts:3:0-66 - Error: Module not found: Error: Can't resolve './register/register.component' in 'C:\Users\tscai\source\repos\Holonix\ClientApp\src\app'
+
+./src/app/app-routing.module.ts:4:0-54 - Error: Module not found: Error: Can't resolve './home/home.component' in 'C:\Users\tscai\source\repos\Holonix\ClientApp\src\app'
+
+./src/app/app-routing.module.ts:5:0-63 - Error: Module not found: Error: Can't resolve './profile/profile.component' in 'C:\Users\tscai\source\repos\Holonix\ClientApp\src\app'
+
+./src/app/app.module.ts:16:0-57 - Error: Module not found: Error: Can't resolve './login/login.component' in 'C:\Users\tscai\source\repos\Holonix\ClientApp\src\app'
+
+./src/app/app.module.ts:17:0-66 - Error: Module not found: Error: Can't resolve './register/register.component' in 'C:\Users\tscai\source\repos\Holonix\ClientApp\src\app'
+
+./src/app/app.module.ts:18:0-54 - Error: Module not found: Error: Can't resolve './home/home.component' in 'C:\Users\tscai\source\repos\Holonix\ClientApp\src\app'
+
+./src/app/app.module.ts:19:0-69 - Error: Module not found: Error: Can't resolve './home/home-summary.component' in 'C:\Users\tscai\source\repos\Holonix\ClientApp\src\app'
+
+./src/app/app.module.ts:20:0-63 - Error: Module not found: Error: Can't resolve './profile/profile.component' in 'C:\Users\tscai\source\repos\Holonix\ClientApp\src\app'
+
+./src/app/app.module.ts:21:0-78 - Error: Module not found: Error: Can't resolve './profile/recent-activity.component' in 'C:\Users\tscai\source\repos\Holonix\ClientApp\src\app'
+
+Error: src/app/app-routing.module.ts:3:32 - error TS2307: Cannot find module './login/login.component' or its corresponding type declarations.
+
+3 import { LoginComponent } from './login/login.component';
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Error: src/app/app-routing.module.ts:4:35 - error TS2307: Cannot find module './register/register.component' or its corresponding type declarations.
+
+4 import { RegisterComponent } from './register/register.component';
+                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Error: src/app/app-routing.module.ts:5:31 - error TS2307: Cannot find module './home/home.component' or its corresponding type declarations.
+
+5 import { HomeComponent } from './home/home.component';
+                                ~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Error: src/app/app-routing.module.ts:6:34 - error TS2307: Cannot find module './profile/profile.component' or its corresponding type declarations.
+
+6 import { ProfileComponent } from './profile/profile.component';
+                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Error: src/app/app.component.html:3:5 - error NG8001: 'router-outlet' is not a known element:
+1. If 'router-outlet' is an Angular component, then verify that it is part of this module.
+2. If 'router-outlet' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.
+
+3     <router-outlet></router-outlet>
+      ~~~~~~~~~~~~~~~
+
+  src/app/app.component.ts:5:16
+    5   templateUrl: './app.component.html',
+                     ~~~~~~~~~~~~~~~~~~~~~~
+    Error occurs in the template of component AppComponent.
+
+
+Error: src/app/app.module.ts:16:32 - error TS2307: Cannot find module './login/login.component' or its corresponding type declarations.
+
+16 import { LoginComponent } from './login/login.component';
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Error: src/app/app.module.ts:17:35 - error TS2307: Cannot find module './register/register.component' or its corresponding type declarations.
+
+17 import { RegisterComponent } from './register/register.component';
+                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Error: src/app/app.module.ts:18:31 - error TS2307: Cannot find module './home/home.component' or its corresponding type declarations.
+
+18 import { HomeComponent } from './home/home.component';
+                                 ~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Error: src/app/app.module.ts:19:38 - error TS2307: Cannot find module './home/home-summary.component' or its corresponding type declarations.
+
+19 import { HomeSummaryComponent } from './home/home-summary.component';
+                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Error: src/app/app.module.ts:20:34 - error TS2307: Cannot find module './profile/profile.component' or its corresponding type declarations.
+
+20 import { ProfileComponent } from './profile/profile.component';
+                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Error: src/app/app.module.ts:21:41 - error TS2307: Cannot find module './profile/recent-activity.component' or its corresponding type declarations.
+
+21 import { RecentActivityComponent } from './profile/recent-activity.component';
+                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Error: src/app/app.module.ts:24:17 - error NG1010: Value
+
+Error: src/app/features/auth/login/login.component.ts:5:29 - error TS2307: Cannot find module '../auth.service' or its corresponding type declarations.
+
+5 import { AuthService } from '../auth.service';
+                              ~~~~~~~~~~~~~~~~~
+
+
+Error: src/app/features/auth/login/login.component.ts:23:13 - error NG2003: No suitable injection token for parameter 'auth' of class 'LoginComponent'.
+  Consider using the @Inject decorator to specify an injection token.
+
+23     private auth: AuthService,
+               ~~~~
+
+  src/app/features/auth/login/login.component.ts:23:19
+    23     private auth: AuthService,
+                         ~~~~~~~~~~~
+    This type does not have a value, so it cannot be used as injection token.
+
+
+Error: src/app/features/auth/login/login.component.ts:48:14 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+48       next: (res) => {
+                ~~~
+
+
+Error: src/app/features/auth/login/login.component.ts:63:15 - error TS7006: Parameter 'err' implicitly has an 'any' type.
+
+63       error: (err) => {
+                 ~~~
+
+
+Error: src/app/features/auth/register/register.component.ts:5:46 - error TS2307: Cannot find module '../auth.service' or its corresponding type declarations.
+
+5 import { AuthService, RegisterRequest } from '../auth.service';
+                                               ~~~~~~~~~~~~~~~~~
+
+
+Error: src/app/features/auth/register/register.component.ts:34:13 - error NG2003: No suitable injection token for parameter 'auth' of class 'RegisterComponent'.
+  Consider using the @Inject decorator to specify an injection token.
+
+34     private auth: AuthService,
+               ~~~~
+
+  src/app/features/auth/register/register.component.ts:34:19
+    34     private auth: AuthService,
+                         ~~~~~~~~~~~
+    This type does not have a value, so it cannot be used as injection token.
+
+
+Error: src/app/features/auth/register/register.component.ts:84:14 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+84       next: (res) => {
+                ~~~
+
+
+Error: src/app/features/auth/register/register.component.ts:90:15 - error TS7006: Parameter 'err' implicitly has an 'any' type.
+
+90       error: (err) => {
+                 ~~~
+
+
+Error: src/app/features/home/home.component.html:35:3 - error NG8001: 'app-home-summary' is not a known element:
+1. If 'app-home-summary' is an Angular component, then verify that it is part of this module.
+2. If 'app-home-summary' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.
+
+35   <app-home-summary *ngIf="isLoggedIn" [firstName]="firstName"></app-home-summary>
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  src/app/features/home/home.component.ts:6:16
+    6   templateUrl: './home.component.html',
+                     ~~~~~~~~~~~~~~~~~~~~~~~
+    Error occurs in the template of component HomeComponent.
+
+
+Error: src/app/features/home/home.component.html:35:40 - error NG8002: Can't bind to 'firstName' since it isn't a known property of 'app-home-summary'.
+1. If 'app-home-summary' is an Angular component and it has 'firstName' input, then verify that it is part of this module.
+2. If 'app-home-summary' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.
+3. To allow any property add 'NO_ERRORS_SCHEMA' to the '@NgModule.schemas' of this component.
+
+35   <app-home-summary *ngIf="isLoggedIn" [firstName]="firstName"></app-home-summary>
+                                          ~~~~~~~~~~~~~~~~~~~~~~~
+
+  src/app/features/home/home.component.ts:6:16
+    6   templateUrl: './home.component.html',
+                     ~~~~~~~~~~~~~~~~~~~~~~~
+    Error occurs in the template of component HomeComponent.
+
+
+Error: src/app/features/profile/components/recent-activity.component.html:10:36 - error NG8002: Can't bind to 'ngClass' since it isn't a known property of 'span'.
+
+10         <span class="activity-dot" [ngClass]="'activity-dot-' + activity.accent" aria-hidden="true"></span>
+                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  src/app/features/profile/components/recent-activity.component.ts:12:16
+    12   templateUrl: './recent-activity.component.html',
+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Error occurs in the template of component RecentActivityComponent.
+
+
+Error: src/app/features/profile/profile.component.ts:4:29 - error TS2307: Cannot find module '../auth.service' or its corresponding type declarations.
+
+4 import { AuthService } from '../auth.service';
+                              ~~~~~~~~~~~~~~~~~
+
+
+Error: src/app/features/profile/profile.component.ts:58:13 - error NG2003: No suitable injection token for parameter 'auth' of class 'ProfileComponent'.
+  Consider using the @Inject decorator to specify an injection token.
+
+58     private auth: AuthService,
+               ~~~~
+
+  src/app/features/profile/profile.component.ts:58:19
+    58     private auth: AuthService,
+                         ~~~~~~~~~~~
+    This type does not have a value, so it cannot be used as injection token.
+
+
+Error: src/app/features/profile/profile.component.ts:90:14 - error TS7006: Parameter 'profile' implicitly has an 'any' type.
+
+90       next: (profile) => {
+                ~~~~~~~
+
+
+Error: src/app/features/profile/profile.component.ts:183:18 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+183           next: (res) => {
+                     ~~~
+
+
+Error: src/app/features/profile/profile.component.ts:256:14 - error TS7006: Parameter 'profile' implicitly has an 'any' type.
+
+256       next: (profile) => {
+                 ~~~~~~~
+
+
+Error: src/app/features/profile/profile.component.ts:275:15 - error TS7006: Parameter 'err' implicitly has an 'any' type.
+
+275       error: (err) => {
+                  ~~~
+
+
+
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.
+√ Browser application bundle generation complete.

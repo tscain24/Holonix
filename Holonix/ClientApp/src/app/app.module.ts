@@ -13,11 +13,12 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { AppComponent } from './app.component';
-import { LoginComponent } from './login/login.component';
-import { RegisterComponent } from './register/register.component';
-import { HomeComponent } from './home/home.component';
-import { HomeSummaryComponent } from './home/home-summary.component';
-import { ProfileComponent } from './profile/profile.component';
+import { LoginComponent } from './features/auth/login/login.component';
+import { RegisterComponent } from './features/auth/register/register.component';
+import { HomeComponent } from './features/home/home.component';
+import { HomeSummaryComponent } from './features/home/components/home-summary.component';
+import { ProfileComponent } from './features/profile/profile.component';
+import { RecentActivityComponent } from './features/profile/components/recent-activity.component';
 
 @NgModule({
   declarations: [
@@ -26,7 +27,8 @@ import { ProfileComponent } from './profile/profile.component';
     RegisterComponent,
     HomeComponent,
     HomeSummaryComponent,
-    ProfileComponent
+    ProfileComponent,
+    RecentActivityComponent
   ],
   imports: [
     BrowserModule,

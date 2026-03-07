@@ -1,0 +1,204 @@
+<div class="uber-home-shell">
+  <header class="top-nav">
+    <div class="brand-mark">
+      <img src="assets/holonix-logo-blue.svg" alt="Holonix logo" />
+      <span>Holonix</span>
+    </div>
+
+    <nav class="top-links" aria-label="Primary"></nav>
+
+    <div class="auth-actions" *ngIf="!isLoggedIn">
+      <a class="auth-link secondary" routerLink="/register">Sign up</a>
+      <a class="auth-link primary" routerLink="/login">Log in</a>
+    </div>
+
+    <div class="auth-actions auth-actions-logged-in" *ngIf="isLoggedIn">
+      <button type="button" class="profile-menu-trigger" (click)="toggleUserMenu($event)" aria-label="Open profile menu">
+        <img
+          *ngIf="profileImageDataUrl"
+          [src]="profileImageDataUrl"
+          alt="Profile picture"
+          class="profile-menu-image"
+        />
+        <span *ngIf="!profileImageDataUrl" class="profile-menu-initials">{{ userInitials }}</span>
+        <span class="profile-menu-name">{{ displayName }}</span>
+        <span class="profile-menu-caret" aria-hidden="true">&#9662;</span>
+      </button>
+
+      <div class="user-menu" *ngIf="isUserMenuOpen">
+        <button type="button" class="user-menu-item" (click)="viewProfile()">View Profile</button>
+        <button type="button" class="user-menu-item danger" (click)="signOut()">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <app-home-summary *ngIf="isLoggedIn" [firstName]="firstName"></app-home-summary>
+
+  <section class="guest-search" [class.member-search]="isLoggedIn" aria-label="Service search">
+    <div class="guest-search-panel">
+      <span class="guest-search-kicker">{{ isLoggedIn ? 'Find Your Next Service' : 'Holonix Match' }}</span>
+      <h2>
+        {{ isLoggedIn
+          ? 'Search trusted local pros and book with confidence.'
+          : 'Find trusted local businesses for what you need.' }}
+      </h2>
+      <div class="guest-search-row">
+        <input
+          id="guestServiceInput"
+          type="search"
+          placeholder="What service do you need?"
+          aria-label="Service"
+        />
+        <div class="guest-search-location">
+          <span class="location-glyph" aria-hidden="true"></span>
+          <input 
+            id="guestLocationInput" 
+            type="text" 
+            placeholder="City or ZIP" 
+          aria-label="Location" />
+        </div>
+        <button type="button" aria-label="Search">{{ isLoggedIn ? 'Find Pros' : 'Search' }}</button>
+      </div>
+    </div>
+  </section>
+
+  <main class="hero-shell" aria-label="Home layout">
+    <section class="right-stage" aria-label="Service sections">
+      <div class="service-sections">
+        <div class="service-header">
+          <span class="service-eyebrow">Featured Local Services</span>
+          <h2>Services near Woodstock, Georgia</h2>
+        </div>
+
+        <article class="service-section">
+          <div class="section-top">
+            <div class="section-copy">
+              <h3>Lawn Mowing</h3>
+              <p>Find local pros for one-time and recurring lawn care.</p>
+            </div>
+            <button type="button" class="section-arrow-btn" aria-label="Lawn Mowing section">
+              <span aria-hidden="true">&rarr;</span>
+            </button>
+          </div>
+          <div class="company-row" aria-label="Lawn mowing companies">
+            <div class="company-card">
+              <div class="company-logo">GH</div>
+              <div class="company-meta">
+                <strong>Green Horizon</strong>
+                <span>$49 and up</span>
+              </div>
+            </div>
+            <div class="company-card">
+              <div class="company-logo">LM</div>
+              <div class="company-meta">
+                <strong>Leaf & Mow Co.</strong>
+                <span>$55 and up</span>
+              </div>
+            </div>
+            <div class="company-card">
+              <div class="company-logo">YT</div>
+              <div class="company-meta">
+                <strong>YardTech Crew</strong>
+                <span>$60 and up</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="service-section">
+          <div class="section-top">
+            <div class="section-copy">
+              <h3>Personal Training</h3>
+              <p>Connect with local trainers to help take your fitness to the next level.</p>
+            </div>
+            <button type="button" class="section-arrow-btn" aria-label="Personal Training section">
+              <span aria-hidden="true">&rarr;</span>
+            </button>
+          </div>
+          <div class="company-row" aria-label="Interior painting companies">
+            <div class="company-card">
+              <div class="company-logo">PA</div>
+              <div class="company-meta">
+                <strong>Prime Athletics</strong>
+                <span>From $45/hour</span>
+              </div>
+            </div>
+            <div class="company-card">
+              <div class="company-logo">WPT</div>
+              <div class="company-meta">
+                <strong>Woodstock Personal Training</strong>
+                <span>From $70/hr</span>
+              </div>
+            </div>
+            <div class="company-card">
+              <div class="company-logo">FT</div>
+              <div class="company-meta">
+                <strong>Freshcore Training</strong>
+                <span>From $60/hr</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="service-section">
+          <div class="section-top">
+            <div class="section-copy">
+              <h3>Interior Cleaning</h3>
+              <p>Book trusted cleaners for routine or deep cleaning sessions.</p>
+            </div>
+            <button type="button" class="section-arrow-btn" aria-label="Interior Cleaning section">
+              <span aria-hidden="true">&rarr;</span>
+            </button>
+          </div>
+          <div class="company-row" aria-label="Interior cleaning companies">
+            <div class="company-card">
+              <div class="company-logo">SP</div>
+              <div class="company-meta">
+                <strong>SparklePoint</strong>
+                <span>From $89/visit</span>
+              </div>
+            </div>
+            <div class="company-card">
+              <div class="company-logo">NC</div>
+              <div class="company-meta">
+                <strong>NeatNest Cleaners</strong>
+                <span>From $95/visit</span>
+              </div>
+            </div>
+            <div class="company-card">
+              <div class="company-logo">DP</div>
+              <div class="company-meta">
+                <strong>DeepPure Home</strong>
+                <span>From $120/visit</span>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <section class="business-cta" aria-label="Start business on Holonix">
+    <div class="business-media" aria-hidden="true">
+      <img src="assets/home construction business.jpg" alt="Home construction business owner working in a woodshop" class="business-photo" />
+    </div>
+
+    <div class="business-cta-copy">
+      <span class="business-eyebrow">HOLONIX BUSINESS</span>
+      <h2>Build Strong, Build Whole</h2>
+      <p>
+        Build your own local service business on your schedule. Get discovered by nearby customers and manage your work
+        with Holonix.
+      </p>
+      <div class="business-cta-actions">
+        <button type="button" class="business-btn primary" *ngIf="!isLoggedIn || !hasBusiness" (click)="goToBusinessEntry()">
+          Get started
+        </button>
+        <a routerLink="/login" class="business-btn secondary" *ngIf="!isLoggedIn">Already have an account? Sign in</a>
+        <a routerLink="/profile" class="business-btn primary" *ngIf="isLoggedIn && hasBusiness">Manage Business</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+

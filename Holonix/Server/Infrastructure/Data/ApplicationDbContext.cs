@@ -10,6 +10,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<BusinessService> BusinessServices => Set<BusinessService>();
     public DbSet<BusinessToService> BusinessToServices => Set<BusinessToService>();
     public DbSet<Business> Businesses => Set<Business>();
+    public DbSet<BusinessDetails> BusinessDetails => Set<BusinessDetails>();
     public DbSet<BusinessRole> BusinessRoles => Set<BusinessRole>();
     public DbSet<BusinessUser> BusinessUsers => Set<BusinessUser>();
     public DbSet<BusinessUserRole> BusinessUserRoles => Set<BusinessUserRole>();
@@ -86,7 +87,25 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.ToTable("Business", "business");
             entity.HasKey(x => x.BusinessId);
             entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            entity.HasOne(x => x.Details)
+                .WithOne(x => x.Business)
+                .HasForeignKey<BusinessDetails>(x => x.BusinessId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<BusinessDetails>(entity =>
+        {
+            entity.ToTable("BusinessDetails", "business");
+            entity.HasKey(x => x.BusinessId);
             entity.Property(x => x.Description).HasColumnType("nvarchar(max)");
+            entity.Property(x => x.Address1).HasMaxLength(200);
+            entity.Property(x => x.Address2).HasMaxLength(200);
+            entity.Property(x => x.City).HasMaxLength(120);
+            entity.Property(x => x.State).HasMaxLength(120);
+            entity.Property(x => x.Country).HasMaxLength(120);
+            entity.Property(x => x.ZipCode).HasMaxLength(32);
+            entity.Property(x => x.Latitude).HasColumnType("decimal(9,6)");
+            entity.Property(x => x.Longitude).HasColumnType("decimal(9,6)");
             entity.Property(x => x.BusinessIconBase64).HasColumnType("nvarchar(max)");
             entity.Property(x => x.OwnerJobPercentage).HasColumnType("decimal(5,2)");
         });

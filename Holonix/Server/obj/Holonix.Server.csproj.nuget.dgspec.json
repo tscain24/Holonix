@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\tscai\\source\\repos\\Holonix\\Server\\Holonix.Server.csproj": {}
+    "c:\\Users\\tscai\\source\\repos\\Holonix\\Server\\Holonix.Server.csproj": {}
   },
   "projects": {
-    "C:\\Users\\tscai\\source\\repos\\Holonix\\Server\\Holonix.Server.csproj": {
+    "c:\\Users\\tscai\\source\\repos\\Holonix\\Server\\Holonix.Server.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\tscai\\source\\repos\\Holonix\\Server\\Holonix.Server.csproj",
+        "projectUniqueName": "c:\\Users\\tscai\\source\\repos\\Holonix\\Server\\Holonix.Server.csproj",
         "projectName": "Holonix.Server",
-        "projectPath": "C:\\Users\\tscai\\source\\repos\\Holonix\\Server\\Holonix.Server.csproj",
+        "projectPath": "c:\\Users\\tscai\\source\\repos\\Holonix\\Server\\Holonix.Server.csproj",
         "packagesPath": "C:\\Users\\tscai\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\tscai\\source\\repos\\Holonix\\Server\\obj\\",
+        "outputPath": "c:\\Users\\tscai\\source\\repos\\Holonix\\Server\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\tscai\\AppData\\Roaming\\NuGet\\NuGet.Config"

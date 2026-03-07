@@ -1,0 +1,21 @@
+<article class="activity-card" aria-label="Recent activity">
+  <div class="activity-head">
+    <h2>Recent Activity</h2>
+    <p>A quick look at profile changes and sign-ins.</p>
+  </div>
+
+  <div class="activity-list">
+    <div class="activity-row" *ngFor="let activity of activities">
+      <div class="activity-marker">
+        <span class="activity-dot" [ngClass]="'activity-dot-' + activity.accent" aria-hidden="true"></span>
+      </div>
+      <div class="activity-copy">
+        <div class="activity-meta">
+          <strong>{{ activity.title }}</strong>
+          <span>{{ activity.dateLabel }}</span>
+        </div>
+        <p>{{ activity.detail }}</p>
+      </div>
+    </div>
+  </div>
+</article>

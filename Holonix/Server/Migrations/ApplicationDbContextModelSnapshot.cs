@@ -111,12 +111,6 @@ namespace Holonix.Server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BusinessId"));
 
-                    b.Property<string>("BusinessIconBase64")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<bool>("IsRecurring")
                         .HasColumnType("bit");
 
@@ -128,15 +122,61 @@ namespace Holonix.Server.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<decimal>("OwnerJobPercentage")
-                        .HasColumnType("decimal(5,2)");
-
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");
 
                     b.HasKey("BusinessId");
 
                     b.ToTable("Business", "business");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessDetails", b =>
+                {
+                    b.Property<int>("BusinessId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Address1")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Address2")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("BusinessIconBase64")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal>("OwnerJobPercentage")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("State")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("ZipCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.HasKey("BusinessId");
+
+                    b.ToTable("BusinessDetails", "business");
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessRole", b =>
@@ -670,6 +710,17 @@ namespace Holonix.Server.Migrations
                     b.ToTable("UserTokens", "authentication");
                 });
 
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessDetails", b =>
+                {
+                    b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
+                        .WithOne("Details")
+                        .HasForeignKey("Holonix.Server.Domain.Entities.BusinessDetails", "BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Business");
+                });
+
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessToService", b =>
                 {
                     b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
@@ -890,6 +941,11 @@ namespace Holonix.Server.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.Business", b =>
+                {
+                    b.Navigation("Details");
                 });
 #pragma warning restore 612, 618
         }
