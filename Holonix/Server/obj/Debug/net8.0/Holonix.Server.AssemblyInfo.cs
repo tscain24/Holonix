@@ -10,10 +10,11 @@
 using System;
 using System.Reflection;
 
+[assembly: Microsoft.Extensions.Configuration.UserSecrets.UserSecretsIdAttribute("19db2eb6-a347-4c15-9e65-06b8f8ae4cf1")]
 [assembly: System.Reflection.AssemblyCompanyAttribute("Holonix.Server")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2fcfd9027067b1534f79cd3987dd071884a74d32")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+61eae23d2f694cad76ec57bf18545a16cfed9bc7")]
 [assembly: System.Reflection.AssemblyProductAttribute("Holonix.Server")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Holonix.Server")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -1,0 +1,254 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background:
+    radial-gradient(960px 620px at 0% 0%, rgba(191, 219, 254, 0.6), rgba(191, 219, 254, 0)),
+    radial-gradient(880px 560px at 100% 100%, rgba(254, 240, 138, 0.55), rgba(254, 240, 138, 0)),
+    linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+  color: #0f172a;
+  font-family: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
+}
+
+.create-business-page {
+  min-height: 100vh;
+  padding: 18px clamp(16px, 2.8vw, 32px) 32px;
+  display: grid;
+  gap: 18px;
+}
+
+.create-business-header {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.back-btn {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid #ccdaee;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.06);
+}
+
+.create-business-shell {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(420px, 1.2fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.create-business-intro,
+.create-business-card {
+  border-radius: 24px;
+  border: 1px solid #cfdced;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
+}
+
+.create-business-intro {
+  padding: 28px;
+  background:
+    radial-gradient(340px 180px at 100% 0%, rgba(96, 165, 250, 0.2), rgba(96, 165, 250, 0)),
+    linear-gradient(150deg, #0f2f66 0%, #123d85 50%, #1d4ed8 100%);
+  color: #ffffff;
+  display: grid;
+  gap: 18px;
+  min-height: 100%;
+}
+
+.intro-kicker,
+.card-kicker {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.intro-kicker {
+  color: #bfdbfe;
+}
+
+.create-business-intro h1 {
+  margin: 0;
+  font-size: clamp(30px, 3vw, 46px);
+  line-height: 1.04;
+  max-width: 12ch;
+}
+
+.intro-copy {
+  margin: 0;
+  color: #dbeafe;
+  font-size: 15px;
+  line-height: 1.7;
+  max-width: 42ch;
+}
+
+.intro-points {
+  display: grid;
+  gap: 12px;
+}
+
+.intro-point {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(191, 219, 254, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  display: grid;
+  gap: 4px;
+}
+
+.intro-point strong {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.intro-point span {
+  color: #dbeafe;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.create-business-card {
+  padding: 28px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(6px);
+  display: grid;
+  gap: 22px;
+}
+
+.card-heading {
+  display: grid;
+  gap: 8px;
+}
+
+.card-kicker {
+  color: #2563eb;
+}
+
+.card-heading h2 {
+  margin: 0;
+  font-size: clamp(24px, 2.4vw, 34px);
+  line-height: 1.08;
+}
+
+.card-heading p:last-child {
+  margin: 0;
+  color: #5a7093;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field-span-2 {
+  grid-column: span 2;
+}
+
+.field span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #456284;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid #cfdbed;
+  background: #f9fbff;
+  padding: 14px 15px;
+  box-sizing: border-box;
+  color: #0f172a;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 110px;
+}
+
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 4px;
+}
+
+.form-footer p {
+  margin: 0;
+  color: #5a7093;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 46ch;
+}
+
+.submit-btn {
+  height: 48px;
+  min-width: 160px;
+  padding: 0 22px;
+  border-radius: 14px;
+  border: 1px solid #1d4ed8;
+  background: linear-gradient(130deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 14px 26px rgba(29, 78, 216, 0.22);
+}
+
+.submit-btn:hover,
+.back-btn:hover {
+  transform: translateY(-1px);
+}
+
+@media (max-width: 980px) {
+  .create-business-shell {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field-span-2 {
+    grid-column: auto;
+  }
+
+  .form-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .submit-btn {
+    width: 100%;
+  }
+}

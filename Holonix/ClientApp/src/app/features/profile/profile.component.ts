@@ -184,10 +184,7 @@ export class ProfileComponent implements OnInit {
   }
 
   onCreateBusinessProfile(): void {
-    this.snackBar.open('Business profile setup is ready for the next step.', 'Close', {
-      duration: 3000,
-      panelClass: ['snack-success'],
-    });
+    this.router.navigate(['/business/create']);
   }
 
   onProfileImageSelected(event: Event): void {

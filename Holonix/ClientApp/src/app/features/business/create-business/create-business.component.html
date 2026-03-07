@@ -1,0 +1,92 @@
+<section class="create-business-page" aria-label="Create business profile">
+  <header class="create-business-header">
+    <button type="button" class="back-btn" (click)="goBack()">
+      <span aria-hidden="true">&larr;</span>
+      Back to Profile
+    </button>
+  </header>
+
+  <div class="create-business-shell">
+    <aside class="create-business-intro">
+      <p class="intro-kicker">Holonix Business</p>
+      <h1>Launch a business profile that feels established from day one.</h1>
+      <p class="intro-copy">
+        Set up the core details customers need to discover your business, trust your presence, and find you locally.
+      </p>
+
+      <div class="intro-points">
+        <div class="intro-point">
+          <strong>Local presence</strong>
+          <span>Your address details will support location-based discovery and mapping.</span>
+        </div>
+        <div class="intro-point">
+          <strong>Professional profile</strong>
+          <span>Start with a clean business identity before services, scheduling, and team setup.</span>
+        </div>
+        <div class="intro-point">
+          <strong>Built to grow</strong>
+          <span>This is the foundation for owners, employees, and future business management features.</span>
+        </div>
+      </div>
+    </aside>
+
+    <form class="create-business-card" [formGroup]="businessForm" (ngSubmit)="submit()">
+      <div class="card-heading">
+        <p class="card-kicker">Create Business</p>
+        <h2>Business details</h2>
+        <p>Enter the basics for your business profile. We will use this address for future geocoding.</p>
+      </div>
+
+      <div class="form-grid">
+        <label class="field field-span-2">
+          <span>Business Name</span>
+          <input type="text" formControlName="name" placeholder="North Ridge Home Services" />
+        </label>
+
+        <label class="field field-span-2">
+          <span>Description</span>
+          <textarea
+            formControlName="description"
+            rows="4"
+            placeholder="Tell customers what your business does and what makes it trustworthy."
+          ></textarea>
+        </label>
+
+        <label class="field field-span-2">
+          <span>Address 1</span>
+          <input type="text" formControlName="address1" placeholder="123 Main Street" />
+        </label>
+
+        <label class="field field-span-2">
+          <span>Address 2</span>
+          <input type="text" formControlName="address2" placeholder="Suite 200" />
+        </label>
+
+        <label class="field">
+          <span>City</span>
+          <input type="text" formControlName="city" placeholder="Woodstock" />
+        </label>
+
+        <label class="field">
+          <span>State</span>
+          <input type="text" formControlName="state" placeholder="Georgia" />
+        </label>
+
+        <label class="field">
+          <span>ZIP Code</span>
+          <input type="text" formControlName="zipCode" placeholder="30188" />
+        </label>
+
+        <label class="field">
+          <span>Country</span>
+          <input type="text" formControlName="country" placeholder="United States" />
+        </label>
+      </div>
+
+      <div class="form-footer">
+        <p>Your business location will be stored and geocoded on save, not while you type.</p>
+        <button type="submit" class="submit-btn">Continue</button>
+      </div>
+    </form>
+  </div>
+</section>

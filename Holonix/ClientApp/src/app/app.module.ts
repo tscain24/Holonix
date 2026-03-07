@@ -19,6 +19,7 @@ import { HomeComponent } from './features/home/home.component';
 import { HomeSummaryComponent } from './features/home/components/home-summary.component';
 import { ProfileComponent } from './features/profile/profile.component';
 import { RecentActivityComponent } from './features/profile/components/recent-activity.component';
+import { CreateBusinessComponent } from './features/business/create-business/create-business.component';
 
 @NgModule({
   declarations: [
@@ -28,7 +29,8 @@ import { RecentActivityComponent } from './features/profile/components/recent-ac
     HomeComponent,
     HomeSummaryComponent,
     ProfileComponent,
-    RecentActivityComponent
+    RecentActivityComponent,
+    CreateBusinessComponent
   ],
   imports: [
     BrowserModule,

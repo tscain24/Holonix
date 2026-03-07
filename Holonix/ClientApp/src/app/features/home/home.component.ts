@@ -80,7 +80,7 @@ export class HomeComponent {
       return;
     }
 
-    this.router.navigate(['/profile']);
+    this.router.navigate(['/business/create']);
   }
 
   @HostListener('document:click', ['$event'])

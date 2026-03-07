@@ -25,6 +25,7 @@ if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 }
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.Configure<MapboxOptions>(builder.Configuration.GetSection(MapboxOptions.SectionName));
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -72,6 +73,11 @@ builder.Services
 builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddHttpClient<IGeocodingService, MapboxGeocodingService>((serviceProvider, client) =>
+{
+    var mapboxOptions = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<MapboxOptions>>().Value;
+    client.BaseAddress = new Uri(mapboxOptions.BaseUrl);
+});
 builder.Services.AddScoped<IRegisterUserHandler, RegisterUserHandler>();
 builder.Services.AddScoped<ILoginUserHandler, LoginUserHandler>();
 
@@ -101,6 +107,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 await BusinessRoleSeeder.SeedAsync(app.Services);
+await BusinessServiceSeeder.SeedAsync(app.Services);
 
 if (app.Environment.IsDevelopment())
 {
