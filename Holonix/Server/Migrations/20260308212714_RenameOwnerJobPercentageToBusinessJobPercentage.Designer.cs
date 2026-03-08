@@ -4,6 +4,7 @@ using Holonix.Server.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Holonix.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260308212714_RenameOwnerJobPercentageToBusinessJobPercentage")]
+    partial class RenameOwnerJobPercentageToBusinessJobPercentage
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -203,11 +206,32 @@ namespace Holonix.Server.Migrations
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessService", b =>
                 {
-                    b.Property<long>("BusinessServiceId")
+                    b.Property<int>("ServiceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ServiceId"));
+
+                    b.Property<DateTime?>("InactiveDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("ServiceId");
+
+                    b.ToTable("BusinessService", "business");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessToService", b =>
+                {
+                    b.Property<long>("BusinessToServiceId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("BusinessServiceId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("BusinessToServiceId"));
 
                     b.Property<int>("BusinessId")
                         .HasColumnType("int");
@@ -215,13 +239,13 @@ namespace Holonix.Server.Migrations
                     b.Property<int>("ServiceId")
                         .HasColumnType("int");
 
-                    b.HasKey("BusinessServiceId");
+                    b.HasKey("BusinessToServiceId");
 
                     b.HasIndex("BusinessId");
 
                     b.HasIndex("ServiceId");
 
-                    b.ToTable("BusinessService", "business");
+                    b.ToTable("BusinessToService", "business");
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessUser", b =>
@@ -527,27 +551,6 @@ namespace Holonix.Server.Migrations
                     b.ToTable("JobWorkload", "job");
                 });
 
-            modelBuilder.Entity("Holonix.Server.Domain.Entities.Service", b =>
-                {
-                    b.Property<int>("ServiceId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ServiceId"));
-
-                    b.Property<DateTime?>("InactiveDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.HasKey("ServiceId");
-
-                    b.ToTable("Service", "service");
-                });
-
             modelBuilder.Entity("Holonix.Server.Domain.Entities.Workload", b =>
                 {
                     b.Property<long>("WorkloadId")
@@ -766,7 +769,7 @@ namespace Holonix.Server.Migrations
                     b.Navigation("Country");
                 });
 
-            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessService", b =>
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessToService", b =>
                 {
                     b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
                         .WithMany()
@@ -774,7 +777,7 @@ namespace Holonix.Server.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Holonix.Server.Domain.Entities.Service", "Service")
+                    b.HasOne("Holonix.Server.Domain.Entities.BusinessService", "Service")
                         .WithMany()
                         .HasForeignKey("ServiceId")
                         .OnDelete(DeleteBehavior.Restrict)

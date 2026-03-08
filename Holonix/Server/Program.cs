@@ -107,7 +107,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 await BusinessRoleSeeder.SeedAsync(app.Services);
-await BusinessServiceSeeder.SeedAsync(app.Services);
+await ServiceSeeder.SeedAsync(app.Services);
 
 if (app.Environment.IsDevelopment())
 {

@@ -1,6 +1,6 @@
 namespace Holonix.Server.Domain.Entities;
 
-public class BusinessService
+public class Service
 {
     public int ServiceId { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -26,24 +26,33 @@ public class BusinessDetails
     public string? Address2 { get; set; }
     public string? City { get; set; }
     public string? State { get; set; }
-    public string? Country { get; set; }
+    public int? CountryId { get; set; }
     public string? ZipCode { get; set; }
     public decimal? Latitude { get; set; }
     public decimal? Longitude { get; set; }
     public string? BusinessIconBase64 { get; set; }
-    public decimal OwnerJobPercentage { get; set; }
+    public decimal BusinessJobPercentage { get; set; }
 
     public Business Business { get; set; } = null!;
+    public Country? Country { get; set; }
 }
 
-public class BusinessToService
+public class Country
 {
-    public long BusinessToServiceId { get; set; }
+    public int CountryId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string TwoLetterIsoCode { get; set; } = string.Empty;
+    public string? ThreeLetterIsoCode { get; set; }
+}
+
+public class BusinessService
+{
+    public long BusinessServiceId { get; set; }
     public int BusinessId { get; set; }
     public int ServiceId { get; set; }
 
     public Business Business { get; set; } = null!;
-    public BusinessService Service { get; set; } = null!;
+    public Service Service { get; set; } = null!;
 }
 
 public class BusinessRole

@@ -18,7 +18,7 @@ public class BusinessController : ControllerBase
     [HttpGet("services")]
     public async Task<IActionResult> GetServices(CancellationToken cancellationToken)
     {
-        var services = await _dbContext.BusinessServices
+        var services = await _dbContext.Services
             .AsNoTracking()
             .Where(service => service.InactiveDate == null)
             .OrderBy(service => service.Name)
@@ -30,5 +30,22 @@ public class BusinessController : ControllerBase
             .ToListAsync(cancellationToken);
 
         return Ok(services);
+    }
+
+    [HttpGet("countries")]
+    public async Task<IActionResult> GetCountries(CancellationToken cancellationToken)
+    {
+        var countries = await _dbContext.Countries
+            .AsNoTracking()
+            .OrderBy(country => country.Name)
+            .Select(country => new
+            {
+                country.CountryId,
+                country.Name,
+                country.TwoLetterIsoCode,
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(countries);
     }
 }

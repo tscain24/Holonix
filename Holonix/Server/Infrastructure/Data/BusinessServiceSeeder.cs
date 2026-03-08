@@ -4,7 +4,7 @@ using System.Globalization;
 
 namespace Holonix.Server.Infrastructure.Data;
 
-public static class BusinessServiceSeeder
+public static class ServiceSeeder
 {
     private static readonly string[] DeprecatedServiceNames =
     [
@@ -223,10 +223,10 @@ public static class BusinessServiceSeeder
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var existingServices = await dbContext.BusinessServices
+        var existingServices = await dbContext.Services
             .ToListAsync(cancellationToken);
 
-        var assignedServiceIds = await dbContext.BusinessToServices
+        var assignedServiceIds = await dbContext.BusinessServices
             .AsNoTracking()
             .Select(link => link.ServiceId)
             .Distinct()
@@ -253,7 +253,7 @@ public static class BusinessServiceSeeder
 
         if (deprecatedServices.Count > 0)
         {
-            dbContext.BusinessServices.RemoveRange(deprecatedServices);
+            dbContext.Services.RemoveRange(deprecatedServices);
             hasChanges = true;
         }
 
@@ -265,7 +265,7 @@ public static class BusinessServiceSeeder
         var existingLookup = new HashSet<string>(existingNames, StringComparer.OrdinalIgnoreCase);
         var missingServices = canonicalServiceNames
             .Where(name => !existingLookup.Contains(name))
-            .Select(name => new BusinessService { Name = name })
+            .Select(name => new Service { Name = name })
             .ToList();
 
         if (missingServices.Count == 0)
@@ -278,7 +278,7 @@ public static class BusinessServiceSeeder
             return;
         }
 
-        dbContext.BusinessServices.AddRange(missingServices);
+        dbContext.Services.AddRange(missingServices);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 

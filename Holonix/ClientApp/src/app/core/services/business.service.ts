@@ -7,11 +7,18 @@ export interface BusinessServiceOption {
   name: string;
 }
 
+export interface CountryOption {
+  countryId: number;
+  name: string;
+  twoLetterIsoCode: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
 export class BusinessService {
   private readonly servicesEndpoint = '/api/business/services';
+  private readonly countriesEndpoint = '/api/business/countries';
   private readonly fallbackOrigins = [
     'http://localhost:5237',
     'https://localhost:7241',
@@ -32,6 +39,18 @@ export class BusinessService {
     );
   }
 
+  getCountries(): Observable<CountryOption[]> {
+    return this.http.get<CountryOption[]>(this.countriesEndpoint).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryGetCountriesFallback(0);
+      })
+    );
+  }
+
   private tryGetServicesFallback(index: number): Observable<BusinessServiceOption[]> {
     if (index >= this.fallbackOrigins.length) {
       return throwError(() => new Error('Business services endpoint not found on configured local origins.'));
@@ -42,6 +61,23 @@ export class BusinessService {
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
           return this.tryGetServicesFallback(index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryGetCountriesFallback(index: number): Observable<CountryOption[]> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Countries endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.countriesEndpoint}`;
+    return this.http.get<CountryOption[]>(url).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryGetCountriesFallback(index + 1);
         }
 
         return throwError(() => err);

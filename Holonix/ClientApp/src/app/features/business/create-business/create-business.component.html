@@ -2,7 +2,7 @@
   <header class="create-business-header">
     <button type="button" class="back-btn" (click)="goBack()">
       <span aria-hidden="true">&larr;</span>
-      Back to Profile
+      {{ currentStep === 1 ? 'Back to Profile' : 'Back' }}
     </button>
   </header>
 
@@ -14,6 +14,30 @@
         <p class="intro-copy">
           Build a strong presence in your community with a business profile that showcases what you offer and helps nearby customers discover you with confidence.
         </p>
+
+        <div class="step-rail" aria-label="Business profile steps">
+          <div class="step-rail-item" [class.step-rail-item-active]="currentStep === 1" [class.step-rail-item-complete]="currentStep > 1">
+            <span class="step-rail-number">1</span>
+            <div>
+              <strong>Business Details</strong>
+              <span>Name, services, and address</span>
+            </div>
+          </div>
+          <div class="step-rail-item" [class.step-rail-item-active]="currentStep === 2" [class.step-rail-item-complete]="currentStep > 2">
+            <span class="step-rail-number">2</span>
+            <div>
+              <strong>Business Setup</strong>
+              <span>Identity and operating setup</span>
+            </div>
+          </div>
+          <div class="step-rail-item" [class.step-rail-item-active]="currentStep === 3">
+            <span class="step-rail-number">3</span>
+            <div>
+              <strong>Review and Launch</strong>
+              <span>Confirm before save is wired in</span>
+            </div>
+          </div>
+        </div>
 
         <div class="intro-support">
           <div class="intro-support-item">
@@ -78,13 +102,13 @@
       <div class="card-heading">
         <div class="card-heading-top">
           <p class="card-kicker">Create Business</p>
-          <span class="card-step">Step 1 of 3</span>
+          <span class="card-step">Step {{ currentStep }} of 3</span>
         </div>
-        <h2>Business Details</h2>
-        <p>Enter the basics for your business profile. We will use this address for future geocoding.</p>
+        <h2>{{ currentStepTitle }}</h2>
+        <p>{{ currentStepDescription }}</p>
       </div>
 
-      <div class="form-grid">
+      <div class="form-grid" *ngIf="currentStep === 1">
         <label class="field field-span-2">
           <span>Business Name <strong aria-hidden="true">*</strong></span>
           <input type="text" formControlName="name" placeholder="North Ridge Home Services" />
@@ -118,20 +142,27 @@
             </div>
 
             <input
+              #serviceInput
               type="text"
               [value]="serviceSearch"
               placeholder="Search services and add one or more"
               (input)="onServiceSearchInput($event)"
-              (focus)="openServiceDropdown()"
+              (keydown)="onServiceSearchKeydown($event, serviceInput)"
+              (focus)="openServiceDropdown(serviceInput)"
               (blur)="closeServiceDropdown()"
             />
 
-            <div class="service-dropdown" *ngIf="serviceDropdownOpen">
+            <div
+              class="service-dropdown"
+              [class.service-dropdown-up]="serviceDropdownDirection === 'up'"
+              *ngIf="serviceDropdownOpen"
+            >
               <div class="service-dropdown-state" *ngIf="loadingServices">Loading services...</div>
               <button
-                *ngFor="let service of filteredServices"
+                *ngFor="let service of filteredServices; let i = index"
                 type="button"
                 class="service-option"
+                [class.service-option-active]="highlightedServiceIndex === i"
                 (mousedown)="selectService(service)"
               >
                 {{ service.name }}
@@ -184,19 +215,220 @@
           </small>
         </label>
 
-        <label class="field">
+        <div class="field">
           <span>Country <strong aria-hidden="true">*</strong></span>
-          <input type="text" formControlName="country" placeholder="United States" />
-          <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.country.invalid">
-            Country is required.
+          <div class="service-picker service-picker-single" [class.service-picker-invalid]="submitAttempted && businessForm.controls.countryId.invalid">
+            <input
+              #countryInput
+              type="text"
+              autocomplete="off"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              [value]="countrySearch"
+              placeholder="Start typing a country"
+              (input)="onCountrySearchInput($event)"
+              (keydown)="onCountrySearchKeydown($event, countryInput)"
+              (focus)="openCountryDropdown(countryInput)"
+              (blur)="closeCountryDropdown()"
+            />
+
+            <div
+              class="service-dropdown"
+              [class.service-dropdown-up]="countryDropdownDirection === 'up'"
+              *ngIf="countryDropdownOpen"
+            >
+              <div class="service-dropdown-state" *ngIf="loadingCountries">Loading countries...</div>
+              <button
+                *ngFor="let country of filteredCountries; let i = index"
+                type="button"
+                class="service-option"
+                [class.service-option-active]="highlightedCountryIndex === i"
+                (mousedown)="selectCountry(country)"
+              >
+                {{ country.name }}
+              </button>
+              <div class="service-dropdown-state" *ngIf="!loadingCountries && filteredCountries.length === 0">
+                No matching countries found.
+              </div>
+            </div>
+          </div>
+          <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.countryId.invalid">
+            Select a country from the list.
           </small>
-        </label>
+        </div>
       </div>
 
-      <div class="form-footer">
-        <p>Your business location will be stored and geocoded on save, and you must select at least one service.</p>
-        <button type="submit" class="submit-btn">Continue</button>
+      <div class="form-grid" *ngIf="currentStep === 2">
+        <div class="field field-span-2">
+          <span>Business Icon</span>
+          <div class="upload-card">
+            <div class="upload-preview" [class.upload-preview-empty]="!iconPreview">
+              <img *ngIf="iconPreview" [src]="iconPreview" alt="Business icon preview" />
+              <span *ngIf="!iconPreview">Add a logo or icon to make your business profile more recognizable.</span>
+            </div>
+
+            <div class="upload-actions">
+              <label class="upload-btn">
+                Upload image
+                <input type="file" accept="image/*" (change)="onBusinessIconSelected($event)" />
+              </label>
+              <button type="button" class="ghost-btn" *ngIf="iconPreview" (click)="removeBusinessIcon()">Remove</button>
+            </div>
+          </div>
+        </div>
+
+        <label class="field">
+          <span>Business Job Percentage <strong aria-hidden="true">*</strong></span>
+          <input type="number" min="0" max="100" formControlName="businessJobPercentage" placeholder="100" />
+          <small class="field-note">Use a percentage from 0 to 100 to describe how much of the job workload belongs to the business.</small>
+          <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.businessJobPercentage.invalid">
+            Enter a value between 0 and 100.
+          </small>
+        </label>
+
+        <div class="field">
+          <span>Business Model <strong aria-hidden="true">*</strong></span>
+          <div class="choice-grid">
+            <button
+              type="button"
+              class="choice-card"
+              [class.choice-card-active]="businessForm.controls.isSingleService.value === true"
+              (click)="businessForm.controls.isSingleService.setValue(true)"
+            >
+              <strong>Single-Service First</strong>
+              <span>Lead with a focused service offering as the main shape of the business.</span>
+            </button>
+            <button
+              type="button"
+              class="choice-card"
+              [class.choice-card-active]="businessForm.controls.isSingleService.value === false"
+              (click)="businessForm.controls.isSingleService.setValue(false)"
+            >
+              <strong>Multi-Service</strong>
+              <span>Support multiple service lines from launch and present broader capability.</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="field field-span-2">
+          <span>Recurring Work</span>
+          <div class="choice-grid">
+            <button
+              type="button"
+              class="choice-card"
+              [class.choice-card-active]="businessForm.controls.isRecurring.value === true"
+              (click)="businessForm.controls.isRecurring.setValue(true)"
+            >
+              <strong>Recurring-Friendly</strong>
+              <span>Design the business for repeat work like ongoing maintenance, cleaning, or scheduled visits.</span>
+            </button>
+            <button
+              type="button"
+              class="choice-card"
+              [class.choice-card-active]="businessForm.controls.isRecurring.value === false"
+              (click)="businessForm.controls.isRecurring.setValue(false)"
+            >
+              <strong>One-Time Focus</strong>
+              <span>Keep the business optimized for discrete projects and one-off customer jobs.</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="review-shell" *ngIf="currentStep === 3">
+        <div class="review-card">
+          <div class="review-card-header">
+            <h3>Business Details</h3>
+            <button type="button" class="ghost-btn" (click)="editStep(1)">Edit</button>
+          </div>
+          <dl class="review-list">
+            <div>
+              <dt>Name</dt>
+              <dd>{{ businessForm.controls.name.value || 'Not provided' }}</dd>
+            </div>
+            <div>
+              <dt>Description</dt>
+              <dd>{{ businessForm.controls.description.value || 'Not provided' }}</dd>
+            </div>
+            <div>
+              <dt>Services</dt>
+              <dd>{{ selectedServicesSummary }}</dd>
+            </div>
+            <div>
+              <dt>Address</dt>
+              <dd>{{ addressSummary }}</dd>
+            </div>
+            <div>
+              <dt>Country</dt>
+              <dd>{{ selectedCountryName }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="review-card">
+          <div class="review-card-header">
+            <h3>Business Setup</h3>
+            <button type="button" class="ghost-btn" (click)="editStep(2)">Edit</button>
+          </div>
+          <dl class="review-list">
+            <div>
+              <dt>Business Job Percentage</dt>
+              <dd>{{ businessForm.controls.businessJobPercentage.value }}%</dd>
+            </div>
+            <div>
+              <dt>Business Model</dt>
+              <dd>{{ businessForm.controls.isSingleService.value ? 'Single-Service First' : 'Multi-Service' }}</dd>
+            </div>
+            <div>
+              <dt>Recurring Work</dt>
+              <dd>{{ businessForm.controls.isRecurring.value ? 'Recurring-Friendly' : 'One-Time Focus' }}</dd>
+            </div>
+            <div>
+              <dt>Business Icon</dt>
+              <dd>{{ iconPreview ? 'Ready to upload' : 'Not added' }}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+      <div class="form-footer" *ngIf="currentStep === 1">
+        <p></p>
+        <button type="button" class="submit-btn" (click)="goToStepTwo()">Continue to Setup</button>
+      </div>
+
+      <div class="form-footer" *ngIf="currentStep === 2">
+        <p>These settings shape how the business will operate once the backend create flow is connected.</p>
+        <div class="footer-actions">
+          <button type="button" class="ghost-btn" (click)="editStep(1)">Back to Details</button>
+          <button type="button" class="submit-btn" (click)="goToStepThree()">Continue to Review</button>
+        </div>
+      </div>
+
+      <div class="form-footer" *ngIf="currentStep === 3">
+        <p>The review step is live, but the final backend save endpoint still needs wiring before launch can persist the business.</p>
+        <div class="footer-actions">
+          <button type="button" class="ghost-btn" (click)="editStep(2)">Back to Setup</button>
+          <button type="submit" class="submit-btn">Launch Business</button>
+        </div>
       </div>
     </form>
   </div>
 </section>
+
+<div class="leave-modal-overlay" *ngIf="showLeaveConfirmation" (click)="cancelLeaveConfirmation()">
+  <div class="leave-modal" role="dialog" aria-modal="true" aria-labelledby="leave-modal-title" (click)="$event.stopPropagation()">
+    <div class="leave-modal-copy">
+      <p class="leave-modal-kicker">Leave Create Business</p>
+      <h2 id="leave-modal-title">You have unsaved business details.</h2>
+      <p>
+        If you go back now, the business information you entered will be lost.
+      </p>
+    </div>
+
+    <div class="leave-modal-actions">
+      <button type="button" class="ghost-btn" (click)="cancelLeaveConfirmation()">Stay Here</button>
+      <button type="button" class="submit-btn" (click)="confirmLeave()">Leave Page</button>
+    </div>
+  </div>
+</div>

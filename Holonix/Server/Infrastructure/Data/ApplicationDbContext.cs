@@ -7,10 +7,11 @@ namespace Holonix.Server.Infrastructure.Data;
 
 public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 {
+    public DbSet<Service> Services => Set<Service>();
     public DbSet<BusinessService> BusinessServices => Set<BusinessService>();
-    public DbSet<BusinessToService> BusinessToServices => Set<BusinessToService>();
     public DbSet<Business> Businesses => Set<Business>();
     public DbSet<BusinessDetails> BusinessDetails => Set<BusinessDetails>();
+    public DbSet<Country> Countries => Set<Country>();
     public DbSet<BusinessRole> BusinessRoles => Set<BusinessRole>();
     public DbSet<BusinessUser> BusinessUsers => Set<BusinessUser>();
     public DbSet<BusinessUserRole> BusinessUserRoles => Set<BusinessUserRole>();
@@ -75,9 +76,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         });
 
 
-        builder.Entity<BusinessService>(entity =>
+        builder.Entity<Service>(entity =>
         {
-            entity.ToTable("BusinessService", "business");
+            entity.ToTable("Service", "service");
             entity.HasKey(x => x.ServiceId);
             entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
         });
@@ -102,18 +103,33 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(x => x.Address2).HasMaxLength(200);
             entity.Property(x => x.City).HasMaxLength(120);
             entity.Property(x => x.State).HasMaxLength(120);
-            entity.Property(x => x.Country).HasMaxLength(120);
             entity.Property(x => x.ZipCode).HasMaxLength(32);
             entity.Property(x => x.Latitude).HasColumnType("decimal(9,6)");
             entity.Property(x => x.Longitude).HasColumnType("decimal(9,6)");
             entity.Property(x => x.BusinessIconBase64).HasColumnType("nvarchar(max)");
-            entity.Property(x => x.OwnerJobPercentage).HasColumnType("decimal(5,2)");
+            entity.Property(x => x.BusinessJobPercentage).HasColumnType("decimal(5,2)");
+            entity.HasOne(x => x.Country)
+                .WithMany()
+                .HasForeignKey(x => x.CountryId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
-        builder.Entity<BusinessToService>(entity =>
+        builder.Entity<Country>(entity =>
         {
-            entity.ToTable("BusinessToService", "business");
-            entity.HasKey(x => x.BusinessToServiceId);
+            entity.ToTable("Country", "reference");
+            entity.HasKey(x => x.CountryId);
+            entity.Property(x => x.Name).IsRequired().HasMaxLength(120);
+            entity.Property(x => x.TwoLetterIsoCode).IsRequired().HasMaxLength(2);
+            entity.Property(x => x.ThreeLetterIsoCode).HasMaxLength(3);
+            entity.HasIndex(x => x.Name).IsUnique();
+            entity.HasIndex(x => x.TwoLetterIsoCode).IsUnique();
+            entity.HasIndex(x => x.ThreeLetterIsoCode).IsUnique().HasFilter("[ThreeLetterIsoCode] IS NOT NULL");
+        });
+
+        builder.Entity<BusinessService>(entity =>
+        {
+            entity.ToTable("BusinessService", "business");
+            entity.HasKey(x => x.BusinessServiceId);
             entity.HasOne(x => x.Business)
                 .WithMany()
                 .HasForeignKey(x => x.BusinessId)

@@ -63,9 +63,9 @@ public sealed class MapboxGeocodingService : IGeocodingService
             ["place"] = businessDetails.City,
             ["region"] = businessDetails.State,
             ["postcode"] = businessDetails.ZipCode,
-            ["country"] = string.IsNullOrWhiteSpace(businessDetails.Country)
+            ["country"] = string.IsNullOrWhiteSpace(businessDetails.Country?.TwoLetterIsoCode)
                 ? _options.CountryCode
-                : businessDetails.Country,
+                : businessDetails.Country.TwoLetterIsoCode,
             ["autocomplete"] = "false",
             ["permanent"] = _options.PermanentGeocoding ? "true" : "false",
             ["access_token"] = _options.AccessToken,
