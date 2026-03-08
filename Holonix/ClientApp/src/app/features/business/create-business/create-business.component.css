@@ -41,7 +41,7 @@
   display: grid;
   grid-template-columns: minmax(280px, 0.9fr) minmax(420px, 1.2fr);
   gap: 20px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .create-business-intro,
@@ -252,7 +252,9 @@
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(6px);
   display: grid;
+  grid-template-rows: auto auto 1fr auto;
   gap: 22px;
+  height: 100%;
 }
 
 .card-heading {
@@ -638,7 +640,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding-top: 4px;
+  padding-top: 18px;
+  align-self: end;
 }
 
 .form-footer p {
