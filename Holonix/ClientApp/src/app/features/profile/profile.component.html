@@ -5,7 +5,10 @@
       <span>Holonix</span>
     </div>
 
-    <nav class="top-links" aria-label="Primary"></nav>
+    <nav class="top-links" aria-label="Primary">
+      <a routerLink="/home" routerLinkActive="top-link-active" class="top-link">Home</a>
+      <a routerLink="/business" routerLinkActive="top-link-active" class="top-link">Business</a>
+    </nav>
 
     <div class="auth-actions auth-actions-logged-in">
       <button type="button" class="profile-menu-trigger" (click)="toggleUserMenu($event)" aria-label="Open profile menu">

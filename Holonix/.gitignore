@@ -1,0 +1,13 @@
+# Local build and tooling output
+.dotnet-home/
+temp-build-out/
+client-dev.log
+client-dev.err.log
+server-dev.log
+server-dev.err.log
+
+# .NET generated output
+Server/bin/
+Server/obj/
+Server/tmp*/
+

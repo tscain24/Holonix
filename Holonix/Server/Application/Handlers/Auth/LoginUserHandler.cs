@@ -37,7 +37,7 @@ public sealed class LoginUserHandler : ILoginUserHandler
             return HandlerResult<AuthResponse>.Fail(StatusCodes.Status401Unauthorized, "Invalid credentials.");
         }
 
-        var token = _tokenService.CreateToken(user);
+        var token = await _tokenService.CreateTokenAsync(user, cancellationToken);
         var displayName = $"{user.FirstName} {user.LastName}".Trim();
         return HandlerResult<AuthResponse>.Ok(
             new AuthResponse(user.Id, displayName, token, user.ProfileImageBase64));

@@ -12,7 +12,7 @@ public class Business
     public int BusinessId { get; set; }
     public string Name { get; set; } = string.Empty;
     public DateOnly StartDate { get; set; }
-    public bool IsSingleService { get; set; }
+    public bool IsProductBased { get; set; }
     public bool IsRecurring { get; set; }
 
     public BusinessDetails? Details { get; set; }

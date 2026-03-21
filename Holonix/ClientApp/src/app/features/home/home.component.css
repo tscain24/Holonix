@@ -35,6 +35,7 @@
 }
 
 .brand-mark {
+  grid-column: 1;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -50,7 +51,32 @@
   object-fit: contain;
 }
 
+.top-links {
+  grid-column: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-link {
+  padding: 10px 14px;
+  border-radius: 999px;
+  color: #4b6487;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 700;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.top-link:hover,
+.top-link-active {
+  background: #e7f0ff;
+  color: #1d4ed8;
+}
+
 .auth-actions {
+  grid-column: 3;
+  justify-self: end;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -786,6 +812,19 @@
 }
 
 @media (max-width: 960px) {
+  .top-nav {
+    grid-template-columns: 1fr auto;
+    height: auto;
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+
+  .top-links {
+    grid-column: 1 / -1;
+    order: 3;
+    flex-wrap: wrap;
+  }
+
   .guest-search {
     padding: 14px;
     min-height: 300px;

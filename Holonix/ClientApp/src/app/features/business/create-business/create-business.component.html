@@ -1,8 +1,39 @@
 <section class="create-business-page" aria-label="Create business profile">
+  <header class="top-nav">
+    <div class="brand-mark brand-button" (click)="goHome()" role="button" tabindex="0" aria-label="Go to home">
+      <img src="assets/holonix-logo-blue.svg" alt="Holonix logo" />
+      <span>Holonix</span>
+    </div>
+
+    <nav class="top-links" aria-label="Primary">
+      <a routerLink="/home" routerLinkActive="top-link-active" class="top-link">Home</a>
+      <a routerLink="/business" routerLinkActive="top-link-active" class="top-link">Business</a>
+    </nav>
+
+    <div class="auth-actions auth-actions-logged-in">
+      <button type="button" class="profile-menu-trigger" (click)="toggleUserMenu($event)" aria-label="Open profile menu">
+        <img
+          *ngIf="profileImageDataUrl"
+          [src]="profileImageDataUrl"
+          alt="Profile picture"
+          class="profile-menu-image"
+        />
+        <span *ngIf="!profileImageDataUrl" class="profile-menu-initials">{{ initials }}</span>
+        <span class="profile-menu-name">{{ displayName }}</span>
+        <span class="profile-menu-caret" aria-hidden="true">&#9662;</span>
+      </button>
+
+      <div class="user-menu" *ngIf="isUserMenuOpen">
+        <button type="button" class="user-menu-item" (click)="goToProfile()">View Profile</button>
+        <button type="button" class="user-menu-item danger" (click)="signOut()">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
   <header class="create-business-header">
     <button type="button" class="back-btn" (click)="goBack()">
       <span aria-hidden="true">&larr;</span>
-      {{ currentStep === 1 ? 'Back to Profile' : 'Back' }}
+      {{ currentStep === 1 ? 'Back to Business' : 'Back' }}
     </button>
   </header>
 
@@ -133,7 +164,7 @@
               #serviceInput
               type="text"
               [value]="serviceSearch"
-              placeholder="Search services and add one or more"
+              placeholder="Landscaping, Snow Removal, etc."
               (input)="onServiceSearchInput($event)"
               (keydown)="onServiceSearchKeydown($event, serviceInput)"
               (focus)="openServiceDropdown(serviceInput)"
@@ -160,7 +191,7 @@
               </div>
             </div>
           </div>
-          <small class="field-note">Choose at least one service your business will offer at launch.</small>
+          <small class="field-note">Choose at least one service your business will offer at launch. If a service isn't available, reach out to Holonix Support to get it added.</small>
           <small class="field-note field-error" *ngIf="submitAttempted && selectedServices.length === 0">
             Select at least one service.
           </small>
@@ -205,7 +236,7 @@
 
         <div class="field">
           <span>Country <strong aria-hidden="true">*</strong></span>
-          <div class="service-picker service-picker-single" [class.service-picker-invalid]="submitAttempted && businessForm.controls.countryId.invalid">
+          <div class="service-picker service-picker-single country-picker" [class.service-picker-invalid]="submitAttempted && businessForm.controls.countryId.invalid">
             <input
               #countryInput
               type="text"
@@ -251,9 +282,14 @@
         <div class="field field-span-2">
           <span>Business Icon</span>
           <div class="upload-card">
-            <div class="upload-preview" [class.upload-preview-empty]="!iconPreview">
-              <img *ngIf="iconPreview" [src]="iconPreview" alt="Business icon preview" />
-              <span *ngIf="!iconPreview">Add a logo or icon to make your business profile more recognizable.</span>
+            <div class="upload-preview-shell">
+              <div class="upload-preview" [class.upload-preview-empty]="!iconPreview">
+                <canvas *ngIf="iconPreview && !iconPreviewLoadFailed" #iconPreviewCanvas class="upload-preview-canvas" aria-label="Business icon preview"></canvas>
+                <span *ngIf="iconPreview && iconPreviewLoadFailed" class="field-note field-error">
+                  The selected image could not be rendered for preview.
+                </span>
+                <span *ngIf="!iconPreview">Add a logo or icon to make your business profile more recognizable.</span>
+              </div>
             </div>
 
             <div class="upload-actions">
@@ -267,9 +303,12 @@
         </div>
 
         <label class="field">
-          <span>Business Job Percentage <strong aria-hidden="true">*</strong></span>
-          <input type="number" min="0" max="100" formControlName="businessJobPercentage" placeholder="100" />
-          <small class="field-note">Use a percentage from 0 to 100 to describe how much of the job workload belongs to the business.</small>
+          <span>Business Earnings Percentage <strong aria-hidden="true">*</strong></span>
+          <div class="input-suffix-wrap">
+            <input type="number" min="0" max="100" formControlName="businessJobPercentage" placeholder="0" />
+            <span class="input-suffix" aria-hidden="true">%</span>
+          </div>
+          <small class="field-note">Use a percentage from 0 to 100 to distribute how much of each job's earnings go to the business, compared to the employee share.</small>
           <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.businessJobPercentage.invalid">
             Enter a value between 0 and 100.
           </small>
@@ -281,44 +320,20 @@
             <button
               type="button"
               class="choice-card"
-              [class.choice-card-active]="businessForm.controls.isSingleService.value === true"
-              (click)="businessForm.controls.isSingleService.setValue(true)"
+              [class.choice-card-active]="isProductBasedControl.value === true"
+              (click)="isProductBasedControl.setValue(true)"
             >
-              <strong>Single-Service First</strong>
-              <span>Lead with a focused service offering as the main shape of the business.</span>
+              <strong>Product Based</strong>
+              <span>Position the business around goods or packaged offerings that customers purchase directly.</span>
             </button>
             <button
               type="button"
               class="choice-card"
-              [class.choice-card-active]="businessForm.controls.isSingleService.value === false"
-              (click)="businessForm.controls.isSingleService.setValue(false)"
+              [class.choice-card-active]="isProductBasedControl.value === false"
+              (click)="isProductBasedControl.setValue(false)"
             >
-              <strong>Multi-Service</strong>
-              <span>Support multiple service lines from launch and present broader capability.</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="field field-span-2">
-          <span>Recurring Work</span>
-          <div class="choice-grid">
-            <button
-              type="button"
-              class="choice-card"
-              [class.choice-card-active]="businessForm.controls.isRecurring.value === true"
-              (click)="businessForm.controls.isRecurring.setValue(true)"
-            >
-              <strong>Recurring-Friendly</strong>
-              <span>Design the business for repeat work like ongoing maintenance, cleaning, or scheduled visits.</span>
-            </button>
-            <button
-              type="button"
-              class="choice-card"
-              [class.choice-card-active]="businessForm.controls.isRecurring.value === false"
-              (click)="businessForm.controls.isRecurring.setValue(false)"
-            >
-              <strong>One-Time Focus</strong>
-              <span>Keep the business optimized for discrete projects and one-off customer jobs.</span>
+              <strong>Service Based</strong>
+              <span>Position the business around professional services customers schedule, request, or hire you to deliver.</span>
             </button>
           </div>
         </div>
@@ -361,20 +376,26 @@
           </div>
           <dl class="review-list">
             <div>
-              <dt>Business Job Percentage</dt>
+              <dt>Business Earnings Percentage</dt>
               <dd>{{ businessForm.controls.businessJobPercentage.value }}%</dd>
             </div>
             <div>
               <dt>Business Model</dt>
-              <dd>{{ businessForm.controls.isSingleService.value ? 'Single-Service First' : 'Multi-Service' }}</dd>
-            </div>
-            <div>
-              <dt>Recurring Work</dt>
-              <dd>{{ businessForm.controls.isRecurring.value ? 'Recurring-Friendly' : 'One-Time Focus' }}</dd>
+              <dd>{{ businessModelLabel }}</dd>
             </div>
             <div>
               <dt>Business Icon</dt>
-              <dd>{{ iconPreview ? 'Ready to upload' : 'Not added' }}</dd>
+              <dd>
+                <div class="review-icon-shell" *ngIf="iconPreview; else reviewIconMissing">
+                  <div class="upload-preview" [class.upload-preview-empty]="!iconPreview">
+                    <canvas *ngIf="iconPreview && !iconPreviewLoadFailed" #iconPreviewCanvas class="upload-preview-canvas" aria-label="Business icon review preview"></canvas>
+                    <span *ngIf="iconPreview && iconPreviewLoadFailed" class="field-note field-error">
+                      Preview unavailable
+                    </span>
+                  </div>
+                </div>
+                <ng-template #reviewIconMissing>Not added</ng-template>
+              </dd>
             </div>
           </dl>
         </div>
@@ -394,10 +415,12 @@
       </div>
 
       <div class="form-footer" *ngIf="currentStep === 3">
-        <p>The review step is live, but the final backend save endpoint still needs wiring before launch can persist the business.</p>
+        <p>Review everything before creating the business profile and setting the current user as the business owner.</p>
         <div class="footer-actions">
           <button type="button" class="ghost-btn" (click)="editStep(2)">Back to Setup</button>
-          <button type="submit" class="submit-btn">Launch Business</button>
+          <button type="submit" class="submit-btn" [disabled]="launchingBusiness">
+            {{ launchingBusiness ? 'Launching...' : 'Launch Business' }}
+          </button>
         </div>
       </div>
     </form>

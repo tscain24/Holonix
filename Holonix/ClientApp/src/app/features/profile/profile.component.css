@@ -59,6 +59,28 @@
   cursor: pointer;
 }
 
+.top-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-link {
+  padding: 10px 14px;
+  border-radius: 999px;
+  color: #4b6487;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 700;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.top-link:hover,
+.top-link-active {
+  background: #e7f0ff;
+  color: #1d4ed8;
+}
+
 .auth-actions {
   display: inline-flex;
   align-items: center;
@@ -549,6 +571,19 @@
 }
 
 @media (max-width: 860px) {
+  .top-nav {
+    grid-template-columns: 1fr auto;
+    height: auto;
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+
+  .top-links {
+    grid-column: 1 / -1;
+    order: 3;
+    flex-wrap: wrap;
+  }
+
   .profile-grid {
     grid-template-columns: 1fr;
   }

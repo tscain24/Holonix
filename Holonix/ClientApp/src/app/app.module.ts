@@ -20,6 +20,7 @@ import { HomeSummaryComponent } from './features/home/components/home-summary.co
 import { ProfileComponent } from './features/profile/profile.component';
 import { RecentActivityComponent } from './features/profile/components/recent-activity.component';
 import { CreateBusinessComponent } from './features/business/create-business/create-business.component';
+import { BusinessOverviewComponent } from './features/business/business-overview/business-overview.component';
 
 @NgModule({
   declarations: [
@@ -30,7 +31,8 @@ import { CreateBusinessComponent } from './features/business/create-business/cre
     HomeSummaryComponent,
     ProfileComponent,
     RecentActivityComponent,
-    CreateBusinessComponent
+    CreateBusinessComponent,
+    BusinessOverviewComponent
   ],
   imports: [
     BrowserModule,

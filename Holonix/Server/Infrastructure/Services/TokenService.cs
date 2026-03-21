@@ -3,6 +3,8 @@ using Microsoft.IdentityModel.Tokens;
 using Holonix.Server.Application.Interfaces;
 using Holonix.Server.Domain.Entities;
 using Holonix.Server.Infrastructure.Configuration;
+using Holonix.Server.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -12,13 +14,15 @@ namespace Holonix.Server.Infrastructure.Services;
 public sealed class TokenService : ITokenService
 {
     private readonly JwtOptions _options;
+    private readonly ApplicationDbContext _dbContext;
 
-    public TokenService(IOptions<JwtOptions> options)
+    public TokenService(IOptions<JwtOptions> options, ApplicationDbContext dbContext)
     {
         _options = options.Value;
+        _dbContext = dbContext;
     }
 
-    public string CreateToken(ApplicationUser user)
+    public async Task<string> CreateTokenAsync(ApplicationUser user, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(_options.Key))
         {
@@ -32,6 +36,26 @@ public sealed class TokenService : ITokenService
             new(ClaimTypes.NameIdentifier, user.Id),
             new(ClaimTypes.Name, $"{user.FirstName} {user.LastName}".Trim()),
         };
+
+        var isOwner = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser => businessUser.UserId == user.Id && businessUser.IsActive && businessUser.EndDate == null)
+            .Join(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRole) => businessUserRole.BusinessRoleId)
+            .Join(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                businessRoleId => businessRoleId,
+                businessRole => businessRole.BusinessRoleId,
+                (_, businessRole) => businessRole.Name)
+            .AnyAsync(roleName => roleName == "Owner", cancellationToken);
+
+        if (isOwner)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, "Owner"));
+        }
 
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.Key));
         var tokenDescriptor = new SecurityTokenDescriptor

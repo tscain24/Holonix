@@ -5,7 +5,10 @@
       <span>Holonix</span>
     </div>
 
-    <nav class="top-links" aria-label="Primary"></nav>
+    <nav class="top-links" aria-label="Primary" *ngIf="isLoggedIn">
+      <a routerLink="/home" routerLinkActive="top-link-active" class="top-link">Home</a>
+      <a routerLink="/business" routerLinkActive="top-link-active" class="top-link">Business</a>
+    </nav>
 
     <div class="auth-actions" *ngIf="!isLoggedIn">
       <a class="auth-link secondary" routerLink="/register">Sign up</a>
@@ -195,7 +198,7 @@
           Get started
         </button>
         <a routerLink="/login" class="business-btn secondary" *ngIf="!isLoggedIn">Already have an account? Sign in</a>
-        <a routerLink="/profile" class="business-btn primary" *ngIf="isLoggedIn && hasBusiness">Manage Business</a>
+        <a routerLink="/business" class="business-btn primary" *ngIf="isLoggedIn && hasBusiness">View Businesses</a>
       </div>
     </div>
   </section>

@@ -1,16 +1,35 @@
-import { Component, OnInit } from '@angular/core';
-import { FormBuilder, Validators } from '@angular/forms';
+import { AfterViewChecked, Component, ElementRef, HostListener, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { FormBuilder, FormControl, Validators } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { BusinessService, BusinessServiceOption, CountryOption } from '../../../core/services/business.service';
+
+type CreateBusinessForm = {
+  name: FormControl<string | null>;
+  description: FormControl<string | null>;
+  address1: FormControl<string | null>;
+  address2: FormControl<string | null>;
+  city: FormControl<string | null>;
+  state: FormControl<string | null>;
+  zipCode: FormControl<string | null>;
+  countryId: FormControl<number | null>;
+  businessIconBase64: FormControl<string | null>;
+  businessJobPercentage: FormControl<number | null>;
+  isProductBased: FormControl<boolean | null>;
+};
 
 @Component({
   selector: 'app-create-business',
   templateUrl: './create-business.component.html',
   styleUrls: ['./create-business.component.css'],
 })
-export class CreateBusinessComponent implements OnInit {
+export class CreateBusinessComponent implements OnInit, AfterViewChecked {
   private static readonly DropdownPreferredHeight = 288;
+  private pendingIconPreviewRender: File | null = null;
+  private businessIconPreviewFile: File | null = null;
+
+  @ViewChildren('iconPreviewCanvas')
+  private iconPreviewCanvases?: QueryList<ElementRef<HTMLCanvasElement>>;
 
   currentStep: 1 | 2 | 3 = 1;
   submitAttempted = false;
@@ -27,29 +46,36 @@ export class CreateBusinessComponent implements OnInit {
   countryDropdownDirection: 'down' | 'up' = 'down';
   highlightedCountryIndex = -1;
   loadingCountries = false;
+  launchingBusiness = false;
+  displayName = 'User';
+  initials = 'U';
+  profileImageDataUrl = '';
+  isUserMenuOpen = false;
   iconPreview: string | null = null;
+  iconPreviewLoadFailed = false;
   showLeaveConfirmation = false;
 
-  businessForm = this.formBuilder.group({
-    name: ['', [Validators.required, Validators.maxLength(200)]],
-    description: ['', [Validators.maxLength(1000)]],
-    address1: ['', [Validators.required, Validators.maxLength(200)]],
-    address2: ['', [Validators.maxLength(200)]],
-    city: ['', [Validators.required, Validators.maxLength(120)]],
-    state: ['', [Validators.required, Validators.maxLength(120)]],
-    zipCode: ['', [Validators.required, Validators.maxLength(32)]],
-    countryId: [null as number | null, [Validators.required]],
-    businessIconBase64: [''],
-    businessJobPercentage: [100, [Validators.required, Validators.min(0), Validators.max(100)]],
-    isSingleService: [true, [Validators.required]],
-    isRecurring: [false, [Validators.required]],
+  businessForm = this.formBuilder.group<CreateBusinessForm>({
+    name: this.formBuilder.control('', [Validators.required, Validators.maxLength(200)]),
+    description: this.formBuilder.control('', [Validators.maxLength(1000)]),
+    address1: this.formBuilder.control('', [Validators.required, Validators.maxLength(200)]),
+    address2: this.formBuilder.control('', [Validators.maxLength(200)]),
+    city: this.formBuilder.control('', [Validators.required, Validators.maxLength(120)]),
+    state: this.formBuilder.control('', [Validators.required, Validators.maxLength(120)]),
+    zipCode: this.formBuilder.control('', [Validators.required, Validators.maxLength(32)]),
+    countryId: this.formBuilder.control<number | null>(null, [Validators.required]),
+    businessIconBase64: this.formBuilder.control(''),
+    businessJobPercentage: this.formBuilder.control(100, [Validators.required, Validators.min(0), Validators.max(100)]),
+    isProductBased: this.formBuilder.control(true, [Validators.required]),
   });
+  isProductBasedControl = this.businessForm.controls.isProductBased;
 
   constructor(
     private readonly formBuilder: FormBuilder,
     private readonly router: Router,
     private readonly snackBar: MatSnackBar,
-    private readonly businessService: BusinessService
+    private readonly businessService: BusinessService,
+    private readonly elementRef: ElementRef<HTMLElement>
   ) {}
 
   ngOnInit(): void {
@@ -57,6 +83,11 @@ export class CreateBusinessComponent implements OnInit {
       this.router.navigate(['/login']);
       return;
     }
+
+    this.displayName = (localStorage.getItem('holonix_display_name') ?? '').trim() || 'User';
+    const parts = this.displayName.split(' ').filter(Boolean);
+    this.initials = `${parts[0]?.[0] ?? 'U'}${parts[1]?.[0] ?? ''}`.toUpperCase();
+    this.profileImageDataUrl = this.buildImageDataUrl(localStorage.getItem('holonix_profile_image_base64'));
 
     this.loadingServices = true;
     this.businessService.getServices().subscribe({
@@ -94,9 +125,44 @@ export class CreateBusinessComponent implements OnInit {
     });
   }
 
+  ngAfterViewChecked(): void {
+    if (!this.pendingIconPreviewRender || !this.iconPreviewCanvases || this.iconPreviewCanvases.length === 0) {
+      return;
+    }
+
+    const nextPreviewFile = this.pendingIconPreviewRender;
+    this.pendingIconPreviewRender = null;
+    this.drawBusinessIconPreview(nextPreviewFile);
+  }
+
+  goHome(): void {
+    this.router.navigate(['/home']);
+  }
+
+  goToBusinessOverview(): void {
+    this.router.navigate(['/business']);
+  }
+
+  goToProfile(): void {
+    this.router.navigate(['/profile']);
+  }
+
+  toggleUserMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.isUserMenuOpen = !this.isUserMenuOpen;
+  }
+
+  signOut(): void {
+    localStorage.removeItem('holonix_token');
+    localStorage.removeItem('holonix_display_name');
+    localStorage.removeItem('holonix_profile_image_base64');
+    this.router.navigate(['/login']);
+  }
+
   goBack(): void {
     if (this.currentStep > 1) {
       this.currentStep = (this.currentStep - 1) as 1 | 2 | 3;
+      this.queueBusinessIconPreviewRender();
       return;
     }
 
@@ -105,7 +171,7 @@ export class CreateBusinessComponent implements OnInit {
       return;
     }
 
-    this.router.navigate(['/profile']);
+    this.router.navigate(['/business']);
   }
 
   cancelLeaveConfirmation(): void {
@@ -114,7 +180,7 @@ export class CreateBusinessComponent implements OnInit {
 
   confirmLeave(): void {
     this.showLeaveConfirmation = false;
-    this.router.navigate(['/profile']);
+    this.router.navigate(['/business']);
   }
 
   get currentStepTitle(): string {
@@ -160,6 +226,10 @@ export class CreateBusinessComponent implements OnInit {
     ].filter((value): value is string => !!value && value.trim().length > 0);
 
     return parts.length > 0 ? parts.join(', ') : 'Not provided';
+  }
+
+  get businessModelLabel(): string {
+    return this.isProductBasedControl.value ? 'Product Based' : 'Service Based';
   }
 
   get hasUnsavedBusinessData(): boolean {
@@ -342,12 +412,44 @@ export class CreateBusinessComponent implements OnInit {
       return;
     }
 
+    if (!file.type.startsWith('image/')) {
+      this.snackBar.open('Choose an image file for the business icon.', 'Close', {
+        duration: 3000,
+        panelClass: ['snack-error'],
+      });
+      input.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : '';
-      const normalized = this.normalizeBase64Image(result);
+      const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+      const normalized = this.extractBase64(dataUrl);
+      const mimeType = this.extractImageMimeType(dataUrl) || file.type;
+      if (!normalized) {
+        this.businessForm.controls.businessIconBase64.setValue('');
+        this.iconPreview = null;
+        this.snackBar.open('Could not read that image file.', 'Close', {
+          duration: 3000,
+          panelClass: ['snack-error'],
+        });
+        return;
+      }
+
+      this.iconPreviewLoadFailed = false;
+      this.iconPreview = this.buildImageDataUrl(normalized, mimeType);
+      this.businessIconPreviewFile = file;
+      this.pendingIconPreviewRender = file;
       this.businessForm.controls.businessIconBase64.setValue(normalized);
-      this.iconPreview = result;
+      this.businessForm.controls.businessIconBase64.markAsDirty();
+    };
+    reader.onerror = () => {
+      this.businessForm.controls.businessIconBase64.setValue('');
+      this.iconPreview = null;
+      this.snackBar.open('Could not read that image file.', 'Close', {
+        duration: 3000,
+        panelClass: ['snack-error'],
+      });
     };
 
     reader.readAsDataURL(file);
@@ -356,6 +458,10 @@ export class CreateBusinessComponent implements OnInit {
   removeBusinessIcon(): void {
     this.businessForm.controls.businessIconBase64.setValue('');
     this.iconPreview = null;
+    this.iconPreviewLoadFailed = false;
+    this.businessIconPreviewFile = null;
+    this.pendingIconPreviewRender = null;
+    this.clearBusinessIconCanvas();
   }
 
   goToStepTwo(): void {
@@ -377,6 +483,7 @@ export class CreateBusinessComponent implements OnInit {
     }
 
     this.currentStep = 2;
+    this.queueBusinessIconPreviewRender();
     this.submitAttempted = false;
   }
 
@@ -385,25 +492,83 @@ export class CreateBusinessComponent implements OnInit {
 
     if (
       this.businessForm.controls.businessJobPercentage.invalid ||
-      this.businessForm.controls.isSingleService.invalid ||
-      this.businessForm.controls.isRecurring.invalid
+      this.isProductBasedControl.invalid
     ) {
       this.businessForm.controls.businessJobPercentage.markAsTouched();
       return;
     }
 
     this.currentStep = 3;
+    this.queueBusinessIconPreviewRender();
     this.submitAttempted = false;
   }
 
   editStep(step: 1 | 2): void {
     this.currentStep = step;
+    this.queueBusinessIconPreviewRender();
   }
 
   submit(): void {
-    this.snackBar.open('Business creation flow is ready for backend wiring.', 'Close', {
-      duration: 3000,
-      panelClass: ['snack-success'],
+    if (this.launchingBusiness) {
+      return;
+    }
+
+    const countryId = this.businessForm.controls.countryId.value;
+    const businessJobPercentage = this.businessForm.controls.businessJobPercentage.value;
+    const isProductBased = this.isProductBasedControl.value;
+
+    if (
+      !countryId ||
+      businessJobPercentage === null ||
+      typeof isProductBased !== 'boolean' ||
+      this.selectedServices.length === 0
+    ) {
+      this.snackBar.open('Business details are incomplete.', 'Close', {
+        duration: 3000,
+        panelClass: ['snack-error'],
+      });
+      return;
+    }
+
+    this.launchingBusiness = true;
+    this.businessService.createBusiness({
+      name: (this.businessForm.controls.name.value ?? '').trim(),
+      description: this.businessForm.controls.description.value?.trim() || null,
+      address1: (this.businessForm.controls.address1.value ?? '').trim(),
+      address2: this.businessForm.controls.address2.value?.trim() || null,
+      city: (this.businessForm.controls.city.value ?? '').trim(),
+      state: (this.businessForm.controls.state.value ?? '').trim(),
+      zipCode: (this.businessForm.controls.zipCode.value ?? '').trim(),
+      countryId,
+      businessIconBase64: this.businessForm.controls.businessIconBase64.value?.trim() || null,
+      businessJobPercentage,
+      isProductBased,
+      serviceIds: this.selectedServices.map((service) => service.serviceId),
+    }).subscribe({
+      next: (response) => {
+        this.launchingBusiness = false;
+        localStorage.setItem('holonix_token', response.token);
+        localStorage.setItem('holonix_display_name', response.displayName);
+        if (response.profileImageBase64) {
+          localStorage.setItem('holonix_profile_image_base64', response.profileImageBase64);
+        } else {
+          localStorage.removeItem('holonix_profile_image_base64');
+        }
+
+        this.snackBar.open(`Business "${response.name}" launched.`, 'Close', {
+          duration: 3000,
+          panelClass: ['snack-success'],
+        });
+        this.router.navigate(['/business'], { state: { toastMessage: `Business "${response.name}" launched.` } });
+      },
+      error: (err) => {
+        this.launchingBusiness = false;
+        const errors = err?.error?.errors as string[] | undefined;
+        this.snackBar.open(errors?.[0] ?? 'Could not launch business.', 'Close', {
+          duration: 4000,
+          panelClass: ['snack-error'],
+        });
+      },
     });
   }
 
@@ -452,9 +617,97 @@ export class CreateBusinessComponent implements OnInit {
     return 'down';
   }
 
-  private normalizeBase64Image(value: string): string {
+  private extractBase64(dataUrl: string): string {
     const marker = 'base64,';
-    const markerIndex = value.indexOf(marker);
-    return markerIndex >= 0 ? value.slice(markerIndex + marker.length) : value;
+    const markerIndex = dataUrl.indexOf(marker);
+    if (markerIndex < 0) {
+      return '';
+    }
+
+    return dataUrl.slice(markerIndex + marker.length).trim();
+  }
+
+  private extractImageMimeType(dataUrl: string): string {
+    const match = /^data:([^;]+);base64,/i.exec(dataUrl);
+    return match?.[1]?.trim() ?? '';
+  }
+
+  private buildImageDataUrl(base64: string | null, mimeType = 'image/png'): string {
+    if (!base64 || !base64.trim()) {
+      return '';
+    }
+
+    return `data:${mimeType};base64,${base64.trim()}`;
+  }
+
+  private queueBusinessIconPreviewRender(): void {
+    if (!this.businessIconPreviewFile || !this.iconPreview) {
+      return;
+    }
+
+    this.pendingIconPreviewRender = this.businessIconPreviewFile;
+  }
+
+  private drawBusinessIconPreview(file: File): void {
+    const canvases = this.iconPreviewCanvases?.toArray().map((entry) => entry.nativeElement) ?? [];
+    if (canvases.length === 0) {
+      this.pendingIconPreviewRender = file;
+      return;
+    }
+
+    createImageBitmap(file)
+      .then((imageBitmap) => {
+      const drawableCanvases = canvases
+        .map((canvas) => ({ canvas, context: canvas.getContext('2d') }))
+        .filter((entry): entry is { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D } => !!entry.context);
+
+      if (drawableCanvases.length === 0) {
+        this.iconPreviewLoadFailed = true;
+        imageBitmap.close();
+        return;
+      }
+
+      const maxWidth = 720;
+      const maxHeight = 240;
+      const scale = Math.min(maxWidth / imageBitmap.width, maxHeight / imageBitmap.height, 1);
+      const drawWidth = Math.max(1, Math.round(imageBitmap.width * scale));
+      const drawHeight = Math.max(1, Math.round(imageBitmap.height * scale));
+
+      for (const { canvas, context } of drawableCanvases) {
+        canvas.width = drawWidth;
+        canvas.height = drawHeight;
+        context.clearRect(0, 0, drawWidth, drawHeight);
+        context.drawImage(imageBitmap, 0, 0, drawWidth, drawHeight);
+      }
+
+      imageBitmap.close();
+      this.iconPreviewLoadFailed = false;
+    })
+      .catch(() => {
+        this.iconPreviewLoadFailed = true;
+        this.clearBusinessIconCanvas();
+      });
+  }
+
+  private clearBusinessIconCanvas(): void {
+    const canvases = this.iconPreviewCanvases?.toArray().map((entry) => entry.nativeElement) ?? [];
+    for (const canvas of canvases) {
+      const context = canvas.getContext('2d');
+      if (!context) {
+        continue;
+      }
+
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as Node | null;
+    if (target && !this.elementRef.nativeElement.contains(target)) {
+      this.isUserMenuOpen = false;
+    }
   }
 }

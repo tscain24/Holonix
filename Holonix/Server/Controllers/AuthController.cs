@@ -76,7 +76,7 @@ public class AuthController : ControllerBase
             return NotFound(new { errors = new[] { "User not found." } });
         }
 
-        var token = _tokenService.CreateToken(user);
+        var token = await _tokenService.CreateTokenAsync(user, cancellationToken);
         var displayName = $"{user.FirstName} {user.LastName}".Trim();
         return Ok(new AuthResponse(user.Id, displayName, token, user.ProfileImageBase64));
     }
