@@ -1,0 +1,346 @@
+<section class="workspace-page" aria-label="Business workspace">
+  <header class="top-nav">
+    <div class="brand-mark brand-button" (click)="goHome()" role="button" tabindex="0" aria-label="Go to home">
+      <img src="/assets/holonix-logo-blue.svg" alt="Holonix logo" width="32" height="32" />
+      <span>Holonix</span>
+    </div>
+
+    <nav class="top-links" aria-label="Primary">
+      <a routerLink="/home" routerLinkActive="top-link-active" class="top-link">Home</a>
+      <a routerLink="/business" routerLinkActive="top-link-active" class="top-link">Business</a>
+    </nav>
+
+    <div class="auth-actions auth-actions-logged-in">
+      <button type="button" class="profile-menu-trigger" (click)="toggleUserMenu($event)" aria-label="Open profile menu">
+        <img
+          *ngIf="profileImageDataUrl"
+          [src]="profileImageDataUrl"
+          alt="Profile picture"
+          class="profile-menu-image"
+          width="34"
+          height="34"
+        />
+        <span *ngIf="!profileImageDataUrl" class="profile-menu-initials">{{ initials }}</span>
+        <span class="profile-menu-name">{{ displayName }}</span>
+        <span class="profile-menu-caret" aria-hidden="true">&#9662;</span>
+      </button>
+
+      <div class="user-menu" *ngIf="isUserMenuOpen">
+        <button type="button" class="user-menu-item" (click)="goToProfile()">View Profile</button>
+        <button type="button" class="user-menu-item danger" (click)="signOut()">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="workspace-shell">
+    <div class="workspace-state" *ngIf="loadingWorkspace">Loading business workspace...</div>
+
+    <ng-container *ngIf="!loadingWorkspace && businessWorkspace as business">
+      <section class="workspace-hero">
+        <div class="workspace-hero-top">
+          <button type="button" class="back-btn" (click)="goToBusinesses()">Back to Businesses</button>
+          <div class="hero-actions" *ngIf="canEditBusinessProfile">
+            <button type="button" class="hero-btn hero-btn-secondary" *ngIf="!editingProfile" (click)="startProfileEdit()">Edit Business</button>
+            <ng-container *ngIf="editingProfile">
+              <button type="button" class="hero-btn hero-btn-secondary" (click)="cancelProfileEdit()" [disabled]="savingProfile">Cancel</button>
+              <button type="button" class="hero-btn hero-btn-primary" (click)="saveBusinessProfile()" [disabled]="savingProfile">
+                {{ savingProfile ? 'Saving...' : 'Save Changes' }}
+              </button>
+            </ng-container>
+          </div>
+        </div>
+
+        <div class="workspace-hero-main">
+          <div class="workspace-icon-edit">
+            <div class="workspace-icon" [class.workspace-icon-empty]="!(editingProfile ? editBusinessIconPreviewUrl : businessIconDataUrl)">
+              <img *ngIf="editingProfile ? editBusinessIconPreviewUrl : businessIconDataUrl" [src]="editingProfile ? editBusinessIconPreviewUrl : businessIconDataUrl" [alt]="business.name + ' icon'" width="84" height="84" />
+              <span *ngIf="!(editingProfile ? editBusinessIconPreviewUrl : businessIconDataUrl)">{{ business.name.slice(0, 1) }}</span>
+            </div>
+
+            <div class="icon-actions" *ngIf="editingProfile">
+              <label class="hero-btn hero-btn-secondary hero-btn-file">
+                Upload Icon
+                <input type="file" accept="image/*" (change)="onBusinessIconSelected($event)" />
+              </label>
+              <button type="button" class="hero-btn hero-btn-secondary" (click)="removeBusinessIcon()">Remove</button>
+            </div>
+          </div>
+
+          <div class="workspace-hero-copy">
+            <p class="workspace-kicker">Business Workspace</p>
+            <ng-container *ngIf="!editingProfile; else businessProfileEditor">
+              <h1>{{ business.name }}</h1>
+              <p class="workspace-summary">{{ business.description || 'No business description yet.' }}</p>
+            </ng-container>
+
+            <div class="workspace-badges">
+              <span class="workspace-badge">{{ business.isProductBased ? 'Product Based' : 'Service Based' }}</span>
+              <span class="workspace-badge workspace-badge-soft">{{ business.currentUserRoleName || 'Active Member' }}</span>
+              <span class="workspace-badge workspace-badge-soft">{{ locationLabel }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <ng-template #businessProfileEditor>
+        <div class="hero-edit-fields">
+          <label class="hero-field">
+            <span>Business Name</span>
+            <input type="text" [value]="editBusinessName" (input)="onBusinessNameInput($event)" />
+          </label>
+
+          <label class="hero-field">
+            <span>Business Description</span>
+            <textarea rows="4" [value]="editBusinessDescription" (input)="onBusinessDescriptionInput($event)"></textarea>
+          </label>
+        </div>
+      </ng-template>
+
+      <section class="workspace-section" *ngIf="canViewGeneralInformation">
+        <div class="section-heading section-heading-actions">
+          <div>
+            <h2>General Information</h2>
+          </div>
+
+          <div class="hero-actions">
+            <button
+              type="button"
+              class="hero-btn hero-btn-secondary"
+              *ngIf="!editingGeneralInformation"
+              (click)="startGeneralInformationEdit()"
+            >
+              Edit General Information
+            </button>
+            <ng-container *ngIf="editingGeneralInformation">
+              <button
+                type="button"
+                class="hero-btn hero-btn-secondary"
+                (click)="cancelGeneralInformationEdit()"
+                [disabled]="savingGeneralInformation"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="hero-btn hero-btn-primary"
+                (click)="saveGeneralInformation()"
+                [disabled]="savingGeneralInformation"
+              >
+                {{ savingGeneralInformation ? 'Saving...' : 'Save Changes' }}
+              </button>
+            </ng-container>
+          </div>
+        </div>
+
+        <div class="info-grid">
+          <article class="info-card info-card-wide">
+            <span class="info-label">Business Address</span>
+            <ng-container *ngIf="!editingGeneralInformation; else generalAddressEditor">
+              <strong>{{ addressLabel }}</strong>
+            </ng-container>
+          </article>
+          <article class="info-card">
+            <span class="info-label">Services</span>
+            <strong>{{ business.serviceCount }}</strong>
+            <p>{{ serviceSummary }}</p>
+
+            <div class="service-manager" *ngIf="canManageServices">
+              <div class="selected-service-list" *ngIf="business.services.length > 0">
+                <button
+                  type="button"
+                  class="selected-service-chip"
+                  *ngFor="let service of visibleServiceChips"
+                  (click)="removeService(service.serviceId)"
+                  [disabled]="savingServices"
+                >
+                  {{ service.name }}
+                  <span aria-hidden="true">&times;</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="selected-service-chip selected-service-chip-more"
+                  *ngIf="!servicesExpanded && hiddenServiceChipCount > 0"
+                  (click)="expandServiceChips()"
+                  [disabled]="savingServices"
+                >
+                  +{{ hiddenServiceChipCount }}
+                </button>
+              </div>
+
+              <label class="service-search">
+                <span>Add services</span>
+                <div class="service-autocomplete">
+                  <input
+                    type="text"
+                    placeholder="Search available services"
+                    [value]="serviceSearch"
+                    (input)="onServiceSearchInput($event)"
+                    (focus)="openServiceDropdown()"
+                    (blur)="closeServiceDropdown()"
+                    [disabled]="savingServices || loadingAvailableServices"
+                  />
+
+                  <div class="service-dropdown" *ngIf="serviceDropdownOpen && filteredAvailableServices.length > 0">
+                    <button
+                      type="button"
+                      class="service-dropdown-option"
+                      *ngFor="let service of filteredAvailableServices"
+                      (mousedown)="addService(service)"
+                      [disabled]="savingServices"
+                    >
+                      {{ service.name }}
+                    </button>
+                  </div>
+                </div>
+              </label>
+
+              <p class="service-manager-note" *ngIf="loadingAvailableServices">Loading available services...</p>
+              <p class="service-manager-note" *ngIf="!loadingAvailableServices && serviceSearch && filteredAvailableServices.length === 0">
+                No more matching services to add.
+              </p>
+            </div>
+          </article>
+          <article class="info-card">
+            <span class="info-label">Business Earnings Percentage</span>
+            <ng-container *ngIf="!editingGeneralInformation; else earningsEditor">
+              <strong>{{ business.businessJobPercentage }}%</strong>
+              <p>Share retained by the business from each job before the employee portion and after taxes/fees.</p>
+            </ng-container>
+          </article>
+          <article class="info-card">
+            <span class="info-label">Total Revenue</span>
+            <strong>{{ formatMoney(business.totalRevenue) }}</strong>
+          </article>
+          <article class="info-card">
+            <span class="info-label">Active Employees</span>
+            <strong>{{ business.activeEmployeeCount }}</strong>
+          </article>
+          <article class="info-card">
+            <span class="info-label">Total Scheduled Jobs</span>
+            <strong>{{ business.totalJobs }}</strong>
+          </article>
+        </div>
+
+        <ng-template #generalAddressEditor>
+          <div class="general-info-form">
+            <label class="hero-field">
+              <span>Address Line 1</span>
+              <input type="text" [value]="editAddress1" (input)="onAddress1Input($event)" />
+            </label>
+
+            <label class="hero-field">
+              <span>Address Line 2</span>
+              <input type="text" [value]="editAddress2" (input)="onAddress2Input($event)" />
+            </label>
+
+            <label class="hero-field">
+              <span>City</span>
+              <input type="text" [value]="editCity" (input)="onCityInput($event)" />
+            </label>
+
+            <label class="hero-field">
+              <span>State</span>
+              <input type="text" [value]="editState" (input)="onStateInput($event)" />
+            </label>
+
+            <label class="hero-field">
+              <span>Zip Code</span>
+              <input type="text" [value]="editZipCode" (input)="onZipCodeInput($event)" />
+            </label>
+
+            <div class="general-info-country">
+              <span class="info-label">Country</span>
+              <strong>{{ business.countryName || 'Country not provided' }}</strong>
+            </div>
+          </div>
+        </ng-template>
+
+        <ng-template #earningsEditor>
+          <label class="hero-field general-percentage-field">
+            <span>Business Earnings Percentage</span>
+            <div class="percentage-input-shell">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                [value]="editBusinessJobPercentage"
+                (input)="onBusinessJobPercentageInput($event)"
+              />
+              <span class="percentage-input-symbol">%</span>
+            </div>
+            <p>Share retained by the business from each job before the employee portion.</p>
+          </label>
+        </ng-template>
+      </section>
+
+      <section class="workspace-section">
+        <div class="section-heading">
+          <h2>Employees</h2>
+          <p>Team members currently associated with this business, their title, and employment status.</p>
+        </div>
+
+        <div class="section-state" *ngIf="business.employees.length === 0">No employees are associated with this business yet.</div>
+
+        <div class="employee-grid" *ngIf="business.employees.length > 0">
+          <article class="employee-card" *ngFor="let employee of business.employees">
+            <div class="employee-card-top">
+              <div class="employee-card-copy">
+                <h3>{{ employee.displayName }}</h3>
+                <div class="employee-meta">
+                  <span>{{ employee.roleName || 'Team Member' }}</span>
+                  <span>Hired {{ formatHiredDate(employee.hiredDate) }}</span>
+                </div>
+              </div>
+              <span class="status-chip" [class.status-chip-inactive]="!employee.isActive">
+                {{ employee.isActive ? 'Active' : 'Inactive' }}
+              </span>
+            </div>
+
+            <details class="employee-details">
+              <summary class="employee-details-summary">
+                <span class="employee-details-trigger">Details</span>
+              </summary>
+
+              <div class="employee-details-body">
+                <div class="employee-detail-row">
+                  <span class="employee-details-label">Assigned Jobs</span>
+                  <span class="employee-details-value">{{ employee.assignedJobCount }}</span>
+                </div>
+              </div>
+            </details>
+          </article>
+        </div>
+      </section>
+
+      <section class="workspace-section">
+        <div class="section-heading">
+          <h2>Jobs</h2>
+          <p>Recent jobs for this business with timing, assignee, and revenue impact.</p>
+        </div>
+
+        <div class="section-state" *ngIf="business.jobs.length === 0">No jobs have been created for this business yet.</div>
+
+        <div class="job-list" *ngIf="business.jobs.length > 0">
+          <article class="job-card" *ngFor="let job of business.jobs">
+            <div class="job-card-main">
+              <div>
+                <h3>{{ job.name }}</h3>
+                <p>{{ formatJobWindow(job) }}</p>
+              </div>
+              <div class="job-money">
+                <span>Net Revenue</span>
+                <strong>{{ formatMoney(job.netCost) }}</strong>
+              </div>
+            </div>
+
+            <div class="job-meta">
+              <span>Assigned To: {{ job.assignedEmployeeName || 'Unassigned' }}</span>
+              <span>Total Price: {{ formatMoney(job.cost) }}</span>
+            </div>
+          </article>
+        </div>
+      </section>
+    </ng-container>
+  </div>
+</section>

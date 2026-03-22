@@ -145,6 +145,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.ToTable("BusinessRole", "business");
             entity.HasKey(x => x.BusinessRoleId);
             entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            entity.HasIndex(x => x.Name).IsUnique();
         });
 
         builder.Entity<BusinessUser>(entity =>
@@ -152,6 +153,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.ToTable("BusinessUser", "business");
             entity.HasKey(x => x.BusinessUserId);
             entity.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+            entity.Property(x => x.ReportsToUserId).HasMaxLength(450);
             entity.HasOne(x => x.Business)
                 .WithMany()
                 .HasForeignKey(x => x.BusinessId)
@@ -159,6 +161,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasOne(x => x.User)
                 .WithMany()
                 .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.ReportsToUser)
+                .WithMany()
+                .HasForeignKey(x => x.ReportsToUserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

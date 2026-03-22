@@ -241,6 +241,20 @@
   gap: 18px;
 }
 
+.business-card-button {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.business-card-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 40px rgba(15, 23, 42, 0.12);
+  border-color: #bcd0eb;
+}
+
 .business-card-top {
   display: flex;
   align-items: center;

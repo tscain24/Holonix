@@ -50,11 +50,11 @@ public sealed class TokenService : ITokenService
                 businessRoleId => businessRoleId,
                 businessRole => businessRole.BusinessRoleId,
                 (_, businessRole) => businessRole.Name)
-            .AnyAsync(roleName => roleName == "Owner", cancellationToken);
+            .AnyAsync(roleName => roleName == BusinessRoleNames.Owner, cancellationToken);
 
         if (isOwner)
         {
-            claims.Add(new Claim(ClaimTypes.Role, "Owner"));
+            claims.Add(new Claim(ClaimTypes.Role, BusinessRoleNames.Owner));
         }
 
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.Key));

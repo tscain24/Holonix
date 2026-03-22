@@ -198,6 +198,9 @@ namespace Holonix.Server.Migrations
 
                     b.HasKey("BusinessRoleId");
 
+                    b.HasIndex("Name")
+                        .IsUnique();
+
                     b.ToTable("BusinessRole", "business");
                 });
 
@@ -241,6 +244,10 @@ namespace Holonix.Server.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<string>("ReportsToUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
 
@@ -252,6 +259,8 @@ namespace Holonix.Server.Migrations
                     b.HasKey("BusinessUserId");
 
                     b.HasIndex("BusinessId");
+
+                    b.HasIndex("ReportsToUserId");
 
                     b.HasIndex("UserId");
 
@@ -799,7 +808,14 @@ namespace Holonix.Server.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Holonix.Server.Domain.Entities.ApplicationUser", "ReportsToUser")
+                        .WithMany()
+                        .HasForeignKey("ReportsToUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Business");
+
+                    b.Navigation("ReportsToUser");
 
                     b.Navigation("User");
                 });

@@ -37,6 +37,32 @@ export interface CreateBusinessResponse {
   profileImageBase64?: string | null;
 }
 
+export interface UpdateBusinessProfileRequest {
+  name: string;
+  description?: string | null;
+  businessIconBase64?: string | null;
+  address1: string;
+  address2?: string | null;
+  city: string;
+  state: string;
+  zipCode: string;
+  businessJobPercentage: number;
+}
+
+export interface UpdateBusinessProfileResponse {
+  businessId: number;
+  name: string;
+  description?: string | null;
+  businessIconBase64?: string | null;
+  address1?: string | null;
+  address2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zipCode?: string | null;
+  countryName?: string | null;
+  businessJobPercentage: number;
+}
+
 export interface UserBusinessSummary {
   businessId: number;
   name: string;
@@ -50,6 +76,53 @@ export interface UserBusinessSummary {
   serviceCount: number;
   roleName?: string | null;
   totalJobs: number;
+}
+
+export interface BusinessWorkspaceEmployee {
+  businessUserId: number;
+  displayName: string;
+  roleName?: string | null;
+  hiredDate: string;
+  isActive: boolean;
+  assignedJobCount: number;
+}
+
+export interface BusinessWorkspaceService {
+  serviceId: number;
+  name: string;
+}
+
+export interface BusinessWorkspaceJob {
+  jobId: number;
+  name: string;
+  startDateTime: string;
+  endDateTime: string;
+  cost: number;
+  netCost: number;
+  assignedEmployeeName?: string | null;
+}
+
+export interface BusinessWorkspace {
+  businessId: number;
+  name: string;
+  description?: string | null;
+  address1?: string | null;
+  address2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zipCode?: string | null;
+  countryName?: string | null;
+  businessIconBase64?: string | null;
+  businessJobPercentage: number;
+  isProductBased: boolean;
+  currentUserRoleName?: string | null;
+  serviceCount: number;
+  services: BusinessWorkspaceService[];
+  activeEmployeeCount: number;
+  totalJobs: number;
+  totalRevenue: number;
+  employees: BusinessWorkspaceEmployee[];
+  jobs: BusinessWorkspaceJob[];
 }
 
 @Injectable({
@@ -95,23 +168,51 @@ export class BusinessService {
   }
 
   createBusiness(payload: CreateBusinessRequest): Observable<CreateBusinessResponse> {
-    return this.withFreshToken((headers) =>
-      this.sendCreateBusinessRequest(payload, headers, true)
-    );
+    const token = this.getStoredToken();
+    if (!token) {
+      return throwError(() => new Error('Missing auth token.'));
+    }
+
+    return this.sendCreateBusinessRequest(payload, this.buildAuthHeaders(token), true);
   }
 
   getMyBusinesses(): Observable<UserBusinessSummary[]> {
-    return this.withFreshToken((headers) =>
-      this.http.get<UserBusinessSummary[]>(this.businessEndpoint, { headers }).pipe(
-        catchError((err) => {
-          if (!this.shouldTryNextOrigin(err)) {
-            return throwError(() => err);
-          }
+    const token = this.getStoredToken();
+    if (!token) {
+      return throwError(() => new Error('Missing auth token.'));
+    }
 
-          return this.tryGetMyBusinessesFallback(headers, 0);
-        })
-      )
-    );
+    return this.sendGetMyBusinessesRequest(this.buildAuthHeaders(token), true);
+  }
+
+  getBusinessWorkspace(businessId: number): Observable<BusinessWorkspace> {
+    const token = this.getStoredToken();
+    if (!token) {
+      return throwError(() => new Error('Missing auth token.'));
+    }
+
+    return this.sendGetBusinessWorkspaceRequest(businessId, this.buildAuthHeaders(token), true);
+  }
+
+  updateBusinessServices(businessId: number, serviceIds: number[]): Observable<BusinessWorkspaceService[]> {
+    const token = this.getStoredToken();
+    if (!token) {
+      return throwError(() => new Error('Missing auth token.'));
+    }
+
+    return this.sendUpdateBusinessServicesRequest(businessId, serviceIds, this.buildAuthHeaders(token), true);
+  }
+
+  updateBusinessProfile(
+    businessId: number,
+    payload: UpdateBusinessProfileRequest
+  ): Observable<UpdateBusinessProfileResponse> {
+    const token = this.getStoredToken();
+    if (!token) {
+      return throwError(() => new Error('Missing auth token.'));
+    }
+
+    return this.sendUpdateBusinessProfileRequest(businessId, payload, this.buildAuthHeaders(token), true);
   }
 
   private sendCreateBusinessRequest(
@@ -210,18 +311,165 @@ export class BusinessService {
     );
   }
 
-  private withFreshToken<T>(requestFactory: (headers: HttpHeaders) => Observable<T>): Observable<T> {
-    const token = this.getStoredToken();
-    if (!token) {
-      return throwError(() => new Error('Missing auth token.'));
+  private tryGetBusinessWorkspaceFallback(
+    businessId: number,
+    headers: HttpHeaders,
+    index: number
+  ): Observable<BusinessWorkspace> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Business workspace endpoint not found on configured local origins.'));
     }
 
-    if (!this.isTokenExpiringSoon(token)) {
-      return requestFactory(this.buildAuthHeaders(token));
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}`;
+    return this.http.get<BusinessWorkspace>(url, { headers }).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryGetBusinessWorkspaceFallback(businessId, headers, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryUpdateBusinessServicesFallback(
+    businessId: number,
+    serviceIds: number[],
+    headers: HttpHeaders,
+    index: number
+  ): Observable<BusinessWorkspaceService[]> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Business services update endpoint not found on configured local origins.'));
     }
 
-    return this.refreshToken().pipe(
-      switchMap((refreshedToken) => requestFactory(this.buildAuthHeaders(refreshedToken)))
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}/services`;
+    return this.http.put<BusinessWorkspaceService[]>(url, { serviceIds }, { headers }).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryUpdateBusinessServicesFallback(businessId, serviceIds, headers, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryUpdateBusinessProfileFallback(
+    businessId: number,
+    payload: UpdateBusinessProfileRequest,
+    headers: HttpHeaders,
+    index: number
+  ): Observable<UpdateBusinessProfileResponse> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Business profile update endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}`;
+    return this.http.put<UpdateBusinessProfileResponse>(url, payload, { headers }).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryUpdateBusinessProfileFallback(businessId, payload, headers, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private sendGetMyBusinessesRequest(
+    headers: HttpHeaders,
+    allowRefreshRetry: boolean
+  ): Observable<UserBusinessSummary[]> {
+    return this.http.get<UserBusinessSummary[]>(this.businessEndpoint, { headers }).pipe(
+      catchError((err) => {
+        if (err?.status === 401 && allowRefreshRetry) {
+          return this.refreshToken().pipe(
+            switchMap((refreshedToken) =>
+              this.sendGetMyBusinessesRequest(this.buildAuthHeaders(refreshedToken), false)
+            )
+          );
+        }
+
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryGetMyBusinessesFallback(headers, 0);
+      })
+    );
+  }
+
+  private sendGetBusinessWorkspaceRequest(
+    businessId: number,
+    headers: HttpHeaders,
+    allowRefreshRetry: boolean
+  ): Observable<BusinessWorkspace> {
+    return this.http.get<BusinessWorkspace>(`${this.businessEndpoint}/${businessId}`, { headers }).pipe(
+      catchError((err) => {
+        if (err?.status === 401 && allowRefreshRetry) {
+          return this.refreshToken().pipe(
+            switchMap((refreshedToken) =>
+              this.sendGetBusinessWorkspaceRequest(businessId, this.buildAuthHeaders(refreshedToken), false)
+            )
+          );
+        }
+
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryGetBusinessWorkspaceFallback(businessId, headers, 0);
+      })
+    );
+  }
+
+  private sendUpdateBusinessServicesRequest(
+    businessId: number,
+    serviceIds: number[],
+    headers: HttpHeaders,
+    allowRefreshRetry: boolean
+  ): Observable<BusinessWorkspaceService[]> {
+    return this.http.put<BusinessWorkspaceService[]>(`${this.businessEndpoint}/${businessId}/services`, { serviceIds }, { headers }).pipe(
+      catchError((err) => {
+        if (err?.status === 401 && allowRefreshRetry) {
+          return this.refreshToken().pipe(
+            switchMap((refreshedToken) =>
+              this.sendUpdateBusinessServicesRequest(businessId, serviceIds, this.buildAuthHeaders(refreshedToken), false)
+            )
+          );
+        }
+
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryUpdateBusinessServicesFallback(businessId, serviceIds, headers, 0);
+      })
+    );
+  }
+
+  private sendUpdateBusinessProfileRequest(
+    businessId: number,
+    payload: UpdateBusinessProfileRequest,
+    headers: HttpHeaders,
+    allowRefreshRetry: boolean
+  ): Observable<UpdateBusinessProfileResponse> {
+    return this.http.put<UpdateBusinessProfileResponse>(`${this.businessEndpoint}/${businessId}`, payload, { headers }).pipe(
+      catchError((err) => {
+        if (err?.status === 401 && allowRefreshRetry) {
+          return this.refreshToken().pipe(
+            switchMap((refreshedToken) =>
+              this.sendUpdateBusinessProfileRequest(businessId, payload, this.buildAuthHeaders(refreshedToken), false)
+            )
+          );
+        }
+
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryUpdateBusinessProfileFallback(businessId, payload, headers, 0);
+      })
     );
   }
 
@@ -287,28 +535,6 @@ export class BusinessService {
 
   private getStoredToken(): string {
     return (localStorage.getItem('holonix_token') ?? '').trim();
-  }
-
-  private isTokenExpiringSoon(token: string): boolean {
-    try {
-      const tokenParts = token.split('.');
-      if (tokenParts.length < 2) {
-        return true;
-      }
-
-      const base64 = tokenParts[1].replace(/-/g, '+').replace(/_/g, '/');
-      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-      const payloadJson = atob(padded);
-      const payload = JSON.parse(payloadJson) as { exp?: number };
-      if (!payload.exp) {
-        return true;
-      }
-
-      const nowEpochSeconds = Math.floor(Date.now() / 1000);
-      return payload.exp - nowEpochSeconds <= this.refreshLeadSeconds;
-    } catch {
-      return true;
-    }
   }
 
   private shouldTryNextOrigin(err: { status?: number } | null | undefined): boolean {

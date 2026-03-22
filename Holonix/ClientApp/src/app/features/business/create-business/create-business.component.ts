@@ -240,8 +240,7 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     const query = this.serviceSearch.trim().toLowerCase();
     return this.allServices
       .filter((service) => !this.selectedServices.some((selected) => selected.serviceId === service.serviceId))
-      .filter((service) => !query || service.name.toLowerCase().includes(query))
-      .slice(0, 10);
+      .filter((service) => !query || service.name.toLowerCase().includes(query));
   }
 
   get filteredCountries(): CountryOption[] {

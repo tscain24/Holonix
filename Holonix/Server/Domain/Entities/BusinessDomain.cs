@@ -62,17 +62,32 @@ public class BusinessRole
     public long HierarchyNumber { get; set; }
 }
 
+public static class BusinessRoleNames
+{
+    public const string Owner = "Owner";
+    public const string Administrator = "Administrator";
+    public const string Manager = "Manager";
+    public const string Employee = "Employee";
+
+    public static bool RequiresReportsToUserId(string? roleName)
+    {
+        return !string.Equals(roleName, Owner, StringComparison.OrdinalIgnoreCase);
+    }
+}
+
 public class BusinessUser
 {
     public long BusinessUserId { get; set; }
     public int BusinessId { get; set; }
     public string UserId { get; set; } = string.Empty;
+    public string? ReportsToUserId { get; set; }
     public bool IsActive { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime? EndDate { get; set; }
 
     public Business Business { get; set; } = null!;
     public ApplicationUser User { get; set; } = null!;
+    public ApplicationUser? ReportsToUser { get; set; }
 }
 
 public class BusinessUserRole

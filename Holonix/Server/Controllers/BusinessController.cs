@@ -165,6 +165,421 @@ public class BusinessController : ControllerBase
     }
 
     [Authorize]
+    [HttpGet("{businessId:int}")]
+    public async Task<IActionResult> GetBusinessWorkspace(int businessId, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var currentMembership = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId &&
+                businessUser.UserId == userId &&
+                businessUser.IsActive &&
+                businessUser.EndDate == null)
+            .GroupJoin(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRoles) => new { businessUser.BusinessUserId, businessUserRoles })
+            .SelectMany(
+                joined => joined.businessUserRoles.DefaultIfEmpty(),
+                (joined, businessUserRole) => new
+                {
+                    joined.BusinessUserId,
+                    BusinessRoleId = businessUserRole != null ? businessUserRole.BusinessRoleId : (long?)null,
+                })
+            .GroupJoin(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                joined => joined.BusinessRoleId,
+                businessRole => (long?)businessRole.BusinessRoleId,
+                (joined, businessRoles) => new { joined.BusinessUserId, businessRoles })
+            .SelectMany(
+                joined => joined.businessRoles.DefaultIfEmpty(),
+                (joined, businessRole) => new
+                {
+                    joined.BusinessUserId,
+                    RoleName = businessRole != null ? businessRole.Name : null,
+                })
+            .OrderBy(item => item.RoleName)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (currentMembership is null)
+        {
+            return Forbid();
+        }
+
+        var business = await _dbContext.Businesses
+            .AsNoTracking()
+            .Where(item => item.BusinessId == businessId)
+            .Include(item => item.Details)
+                .ThenInclude(details => details!.Country)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (business is null)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var services = await _dbContext.BusinessServices
+            .AsNoTracking()
+            .Where(item => item.BusinessId == businessId)
+            .Join(
+                _dbContext.Services.AsNoTracking(),
+                businessService => businessService.ServiceId,
+                service => service.ServiceId,
+                (businessService, service) => new
+                {
+                    service.ServiceId,
+                    service.Name,
+                })
+            .OrderBy(item => item.Name)
+            .Select(item => new BusinessWorkspaceServiceResponse(item.ServiceId, item.Name))
+            .ToListAsync(cancellationToken);
+
+        var employeeRoleRows = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser => businessUser.BusinessId == businessId && businessUser.EndDate == null)
+            .Join(
+                _dbContext.Users.AsNoTracking(),
+                businessUser => businessUser.UserId,
+                user => user.Id,
+                (businessUser, user) => new
+                {
+                    businessUser.BusinessUserId,
+                    businessUser.IsActive,
+                    businessUser.StartDate,
+                    user.FirstName,
+                    user.LastName,
+                })
+            .GroupJoin(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRoles) => new { businessUser, businessUserRoles })
+            .SelectMany(
+                joined => joined.businessUserRoles.DefaultIfEmpty(),
+                (joined, businessUserRole) => new
+                {
+                    joined.businessUser.BusinessUserId,
+                    joined.businessUser.IsActive,
+                    joined.businessUser.StartDate,
+                    joined.businessUser.FirstName,
+                    joined.businessUser.LastName,
+                    BusinessRoleId = businessUserRole != null ? businessUserRole.BusinessRoleId : (long?)null,
+                })
+            .GroupJoin(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                joined => joined.BusinessRoleId,
+                businessRole => (long?)businessRole.BusinessRoleId,
+                (joined, businessRoles) => new { joined, businessRoles })
+            .SelectMany(
+                joined => joined.businessRoles.DefaultIfEmpty(),
+                (joined, businessRole) => new
+                {
+                    joined.joined.BusinessUserId,
+                    joined.joined.IsActive,
+                    joined.joined.StartDate,
+                    joined.joined.FirstName,
+                    joined.joined.LastName,
+                    RoleName = businessRole != null ? businessRole.Name : null,
+                })
+            .ToListAsync(cancellationToken);
+
+        var assignedJobCounts = await _dbContext.Jobs
+            .AsNoTracking()
+            .Where(job => job.BusinessId == businessId && job.BusinessUserId.HasValue)
+            .GroupBy(job => job.BusinessUserId!.Value)
+            .Select(group => new { BusinessUserId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.BusinessUserId, item => item.Count, cancellationToken);
+
+        var employees = employeeRoleRows
+            .GroupBy(item => item.BusinessUserId)
+            .Select(group =>
+            {
+                var first = group
+                    .OrderByDescending(item => item.IsActive)
+                    .ThenBy(item => item.StartDate)
+                    .First();
+
+                var displayName = $"{first.FirstName} {first.LastName}".Trim();
+                var roleName = group
+                    .Where(item => !string.IsNullOrWhiteSpace(item.RoleName))
+                    .Select(item => item.RoleName!)
+                    .OrderBy(name => name)
+                    .FirstOrDefault();
+
+                return new BusinessWorkspaceEmployeeResponse(
+                    group.Key,
+                    string.IsNullOrWhiteSpace(displayName) ? "Team Member" : displayName,
+                    roleName,
+                    first.StartDate,
+                    first.IsActive,
+                    assignedJobCounts.TryGetValue(group.Key, out var assignedJobCount) ? assignedJobCount : 0);
+            })
+            .OrderByDescending(item => item.IsActive)
+            .ThenBy(item => item.DisplayName)
+            .ToList();
+
+        var jobs = await _dbContext.Jobs
+            .AsNoTracking()
+            .Where(job => job.BusinessId == businessId)
+            .OrderByDescending(job => job.StartDateTime)
+            .Select(job => new
+            {
+                job.JobId,
+                job.Name,
+                job.StartDateTime,
+                job.EndDateTime,
+                job.Cost,
+                job.NetCost,
+                job.BusinessUserId,
+            })
+            .Take(8)
+            .ToListAsync(cancellationToken);
+
+        var employeeNameByBusinessUserId = employees.ToDictionary(
+            employee => employee.BusinessUserId,
+            employee => employee.DisplayName);
+
+        var jobResponses = jobs
+            .Select(job => new BusinessWorkspaceJobResponse(
+                job.JobId,
+                string.IsNullOrWhiteSpace(job.Name) ? $"Job #{job.JobId}" : job.Name,
+                job.StartDateTime,
+                job.EndDateTime,
+                job.Cost,
+                job.NetCost,
+                job.BusinessUserId.HasValue && employeeNameByBusinessUserId.TryGetValue(job.BusinessUserId.Value, out var employeeName)
+                    ? employeeName
+                    : null))
+            .ToList();
+
+        var totalRevenue = await _dbContext.Jobs
+            .AsNoTracking()
+            .Where(job => job.BusinessId == businessId)
+            .Select(job => (decimal?)job.NetCost)
+            .SumAsync(cancellationToken) ?? 0m;
+
+        var totalJobs = await _dbContext.Jobs
+            .AsNoTracking()
+            .CountAsync(job => job.BusinessId == businessId, cancellationToken);
+
+        var activeEmployeeCount = employees.Count(employee => employee.IsActive);
+
+        var response = new BusinessWorkspaceResponse(
+            business.BusinessId,
+            business.Name,
+            business.Details?.Description,
+            business.Details?.Address1,
+            business.Details?.Address2,
+            business.Details?.City,
+            business.Details?.State,
+            business.Details?.ZipCode,
+            business.Details?.Country?.Name,
+            business.Details?.BusinessIconBase64,
+            business.Details?.BusinessJobPercentage ?? 0,
+            business.IsProductBased,
+            currentMembership.RoleName,
+            services.Count,
+            services,
+            activeEmployeeCount,
+            totalJobs,
+            totalRevenue,
+            employees,
+            jobResponses);
+
+        return Ok(response);
+    }
+
+    [Authorize]
+    [HttpPut("{businessId:int}")]
+    public async Task<IActionResult> UpdateBusinessProfile(int businessId, UpdateBusinessProfileRequest request, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var isOwner = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId &&
+                businessUser.UserId == userId &&
+                businessUser.IsActive &&
+                businessUser.EndDate == null)
+            .Join(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRole) => businessUserRole.BusinessRoleId)
+            .Join(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                businessRoleId => businessRoleId,
+                businessRole => businessRole.BusinessRoleId,
+                (_, businessRole) => businessRole.Name)
+            .AnyAsync(roleName => roleName == BusinessRoleNames.Owner, cancellationToken);
+
+        if (!isOwner)
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return BadRequest(new { errors = new[] { "Business name is required." } });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Address1) ||
+            string.IsNullOrWhiteSpace(request.City) ||
+            string.IsNullOrWhiteSpace(request.State) ||
+            string.IsNullOrWhiteSpace(request.ZipCode))
+        {
+            return BadRequest(new { errors = new[] { "Business address is required." } });
+        }
+
+        if (request.BusinessJobPercentage < 0 || request.BusinessJobPercentage > 100)
+        {
+            return BadRequest(new { errors = new[] { "Business earnings percentage must be between 0 and 100." } });
+        }
+
+        var business = await _dbContext.Businesses
+            .Include(item => item.Details)
+            .ThenInclude(details => details!.Country)
+            .SingleOrDefaultAsync(item => item.BusinessId == businessId, cancellationToken);
+
+        if (business is null)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        business.Name = request.Name.Trim();
+        business.Details ??= new BusinessDetails { BusinessId = business.BusinessId };
+        business.Details.Description = NormalizeOptional(request.Description);
+        business.Details.BusinessIconBase64 = NormalizeBase64Image(request.BusinessIconBase64);
+        business.Details.Address1 = request.Address1.Trim();
+        business.Details.Address2 = NormalizeOptional(request.Address2);
+        business.Details.City = request.City.Trim();
+        business.Details.State = request.State.Trim();
+        business.Details.ZipCode = request.ZipCode.Trim();
+        business.Details.BusinessJobPercentage = request.BusinessJobPercentage;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new UpdateBusinessProfileResponse(
+            business.BusinessId,
+            business.Name,
+            business.Details.Description,
+            business.Details.BusinessIconBase64,
+            business.Details.Address1,
+            business.Details.Address2,
+            business.Details.City,
+            business.Details.State,
+            business.Details.ZipCode,
+            business.Details.Country?.Name,
+            business.Details.BusinessJobPercentage));
+    }
+
+    [Authorize]
+    [HttpPut("{businessId:int}/services")]
+    public async Task<IActionResult> UpdateBusinessServices(int businessId, UpdateBusinessServicesRequest request, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var isOwner = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId &&
+                businessUser.UserId == userId &&
+                businessUser.IsActive &&
+                businessUser.EndDate == null)
+            .Join(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRole) => businessUserRole.BusinessRoleId)
+            .Join(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                businessRoleId => businessRoleId,
+                businessRole => businessRole.BusinessRoleId,
+                (_, businessRole) => businessRole.Name)
+            .AnyAsync(roleName => roleName == BusinessRoleNames.Owner, cancellationToken);
+
+        if (!isOwner)
+        {
+            return Forbid();
+        }
+
+        var serviceIds = request.ServiceIds
+            .Where(serviceId => serviceId > 0)
+            .Distinct()
+            .ToArray();
+
+        if (serviceIds.Length == 0)
+        {
+            return BadRequest(new { errors = new[] { "At least one service is required." } });
+        }
+
+        var businessExists = await _dbContext.Businesses
+            .AsNoTracking()
+            .AnyAsync(business => business.BusinessId == businessId, cancellationToken);
+
+        if (!businessExists)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var validServices = await _dbContext.Services
+            .AsNoTracking()
+            .Where(service => serviceIds.Contains(service.ServiceId) && service.InactiveDate == null)
+            .Select(service => new
+            {
+                service.ServiceId,
+                service.Name,
+            })
+            .ToListAsync(cancellationToken);
+
+        if (validServices.Count != serviceIds.Length)
+        {
+            return BadRequest(new { errors = new[] { "One or more selected services were not found." } });
+        }
+
+        var existingServices = await _dbContext.BusinessServices
+            .Where(item => item.BusinessId == businessId)
+            .ToListAsync(cancellationToken);
+
+        _dbContext.BusinessServices.RemoveRange(existingServices);
+        _dbContext.BusinessServices.AddRange(
+            serviceIds.Select(serviceId => new BusinessService
+            {
+                BusinessId = businessId,
+                ServiceId = serviceId,
+            }));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(validServices
+            .OrderBy(item => item.Name)
+            .Select(item => new BusinessWorkspaceServiceResponse(item.ServiceId, item.Name))
+            .ToList());
+    }
+
+    [Authorize]
     [HttpPost]
     public async Task<IActionResult> CreateBusiness(CreateBusinessRequest request, CancellationToken cancellationToken)
     {
@@ -189,7 +604,7 @@ public class BusinessController : ControllerBase
         }
 
         var ownerRole = await _dbContext.BusinessRoles
-            .SingleOrDefaultAsync(role => role.Name == "Owner", cancellationToken);
+            .SingleOrDefaultAsync(role => role.Name == BusinessRoleNames.Owner, cancellationToken);
 
         if (ownerRole is null)
         {

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Data.SqlClient;
 using Holonix.Server.Application.Handlers.Auth;
 using Holonix.Server.Application.Interfaces;
 using Holonix.Server.Domain.Entities;
@@ -26,6 +27,14 @@ if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<MapboxOptions>(builder.Configuration.GetSection(MapboxOptions.SectionName));
+
+if (builder.Environment.IsDevelopment())
+{
+    var tenantId = Environment.GetEnvironmentVariable("AZURE_TENANT_ID");
+    SqlAuthenticationProvider.SetProvider(
+        SqlAuthenticationMethod.ActiveDirectoryDefault,
+        new AzureCliSqlAuthenticationProvider(tenantId));
+}
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));

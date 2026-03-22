@@ -6,6 +6,7 @@ import { HomeComponent } from './features/home/home.component';
 import { ProfileComponent } from './features/profile/profile.component';
 import { CreateBusinessComponent } from './features/business/create-business/create-business.component';
 import { BusinessOverviewComponent } from './features/business/business-overview/business-overview.component';
+import { BusinessWorkspaceComponent } from './features/business/business-workspace/business-workspace.component';
 
 const routes: Routes = [
   { path: '', redirectTo: 'home', pathMatch: 'full' },
@@ -15,6 +16,7 @@ const routes: Routes = [
   { path: 'profile', component: ProfileComponent },
   { path: 'business', component: BusinessOverviewComponent },
   { path: 'business/create', component: CreateBusinessComponent },
+  { path: 'business/:businessId', component: BusinessWorkspaceComponent },
   { path: '**', redirectTo: 'home' },
 ];
 

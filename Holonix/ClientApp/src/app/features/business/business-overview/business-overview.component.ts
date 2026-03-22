@@ -71,6 +71,10 @@ export class BusinessOverviewComponent implements OnInit {
     this.router.navigate(['/business/create']);
   }
 
+  goToBusinessWorkspace(businessId: number): void {
+    this.router.navigate(['/business', businessId]);
+  }
+
   toggleUserMenu(event: MouseEvent): void {
     event.stopPropagation();
     this.isUserMenuOpen = !this.isUserMenuOpen;

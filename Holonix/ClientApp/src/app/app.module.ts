@@ -21,6 +21,7 @@ import { ProfileComponent } from './features/profile/profile.component';
 import { RecentActivityComponent } from './features/profile/components/recent-activity.component';
 import { CreateBusinessComponent } from './features/business/create-business/create-business.component';
 import { BusinessOverviewComponent } from './features/business/business-overview/business-overview.component';
+import { BusinessWorkspaceComponent } from './features/business/business-workspace/business-workspace.component';
 
 @NgModule({
   declarations: [
@@ -32,7 +33,8 @@ import { BusinessOverviewComponent } from './features/business/business-overview
     ProfileComponent,
     RecentActivityComponent,
     CreateBusinessComponent,
-    BusinessOverviewComponent
+    BusinessOverviewComponent,
+    BusinessWorkspaceComponent
   ],
   imports: [
     BrowserModule,
