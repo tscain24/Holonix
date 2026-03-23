@@ -3,6 +3,7 @@ import { FormBuilder, Validators } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { AuthSessionService } from '../../../core/services/auth-session.service';
 
 @Component({
   selector: 'app-login',
@@ -21,6 +22,7 @@ export class LoginComponent {
   constructor(
     private fb: FormBuilder,
     private auth: AuthService,
+    private authSession: AuthSessionService,
     private snackBar: MatSnackBar,
     private router: Router
   ) {}
@@ -33,6 +35,13 @@ export class LoginComponent {
         panelClass: ['snack-success'],
       });
       history.replaceState({}, '');
+    }
+
+    if (this.authSession.consumeSessionExpiredFlag()) {
+      this.snackBar.open('User has been logged out due to inactivity.', 'Close', {
+        duration: 4000,
+        panelClass: ['snack-error'],
+      });
     }
   }
 
@@ -47,13 +56,7 @@ export class LoginComponent {
     this.auth.login(payload).subscribe({
       next: (res) => {
         this.loading = false;
-        localStorage.setItem('holonix_token', res.token);
-        localStorage.setItem('holonix_display_name', res.displayName);
-        if (res.profileImageBase64) {
-          localStorage.setItem('holonix_profile_image_base64', res.profileImageBase64);
-        } else {
-          localStorage.removeItem('holonix_profile_image_base64');
-        }
+        this.authSession.persistSession(res);
         this.snackBar.open(`Signed in as ${res.displayName}.`, 'Close', {
           duration: 3000,
           panelClass: ['snack-success'],

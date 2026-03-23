@@ -1,0 +1,29 @@
+
+> client-app@0.0.0 start
+> ng serve --proxy-config proxy.conf.json
+
+
+Initial Chunk Files   | Names         |  Raw Size
+vendor.js             | vendor        |   4.20 MB |
+main.js               | main          | 902.11 kB |
+styles.css, styles.js | styles        | 258.54 kB |
+polyfills.js          | polyfills     | 252.54 kB |
+runtime.js            | runtime       |   6.50 kB |
+
+| Initial Total |   5.58 MB
+
+Build at: 2026-03-23T21:38:03.380Z - Hash: ddc717050b5c049f - Time: 7045ms
+
+** Angular Live Development Server is listening on localhost:4200, open your browser on http://localhost:4200/ **
+
+
+√ Compiled successfully.
+
+Initial Chunk Files | Names   | Raw Size
+runtime.js          | runtime |  6.50 kB |
+
+4 unchanged chunks
+
+Build at: 2026-03-23T21:38:04.259Z - Hash: dc938829a86f058a - Time: 653ms
+
+√ Compiled successfully.

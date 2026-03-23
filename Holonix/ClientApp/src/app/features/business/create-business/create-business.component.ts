@@ -3,6 +3,7 @@ import { FormBuilder, FormControl, Validators } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { BusinessService, BusinessServiceOption, CountryOption } from '../../../core/services/business.service';
+import { AuthSessionService } from '../../../core/services/auth-session.service';
 
 type CreateBusinessForm = {
   name: FormControl<string | null>;
@@ -75,7 +76,8 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     private readonly router: Router,
     private readonly snackBar: MatSnackBar,
     private readonly businessService: BusinessService,
-    private readonly elementRef: ElementRef<HTMLElement>
+    private readonly elementRef: ElementRef<HTMLElement>,
+    private readonly authSession: AuthSessionService
   ) {}
 
   ngOnInit(): void {
@@ -153,9 +155,7 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
   }
 
   signOut(): void {
-    localStorage.removeItem('holonix_token');
-    localStorage.removeItem('holonix_display_name');
-    localStorage.removeItem('holonix_profile_image_base64');
+    this.authSession.clearSession();
     this.router.navigate(['/login']);
   }
 
@@ -546,13 +546,7 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     }).subscribe({
       next: (response) => {
         this.launchingBusiness = false;
-        localStorage.setItem('holonix_token', response.token);
-        localStorage.setItem('holonix_display_name', response.displayName);
-        if (response.profileImageBase64) {
-          localStorage.setItem('holonix_profile_image_base64', response.profileImageBase64);
-        } else {
-          localStorage.removeItem('holonix_profile_image_base64');
-        }
+        this.authSession.persistSession(response);
 
         this.snackBar.open(`Business "${response.name}" launched.`, 'Close', {
           duration: 3000,

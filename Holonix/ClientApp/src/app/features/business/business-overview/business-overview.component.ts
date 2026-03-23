@@ -2,6 +2,7 @@ import { Component, ElementRef, HostListener, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { BusinessService, UserBusinessSummary } from '../../../core/services/business.service';
+import { AuthSessionService } from '../../../core/services/auth-session.service';
 
 @Component({
   selector: 'app-business-overview',
@@ -20,7 +21,8 @@ export class BusinessOverviewComponent implements OnInit {
     private readonly router: Router,
     private readonly elementRef: ElementRef<HTMLElement>,
     private readonly businessService: BusinessService,
-    private readonly snackBar: MatSnackBar
+    private readonly snackBar: MatSnackBar,
+    private readonly authSession: AuthSessionService
   ) {}
 
   ngOnInit(): void {
@@ -51,6 +53,10 @@ export class BusinessOverviewComponent implements OnInit {
       },
       error: () => {
         this.loadingBusinesses = false;
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
         this.snackBar.open('Could not load your businesses.', 'Close', {
           duration: 3500,
           panelClass: ['snack-error'],
@@ -81,9 +87,7 @@ export class BusinessOverviewComponent implements OnInit {
   }
 
   signOut(): void {
-    localStorage.removeItem('holonix_token');
-    localStorage.removeItem('holonix_display_name');
-    localStorage.removeItem('holonix_profile_image_base64');
+    this.authSession.clearSession();
     this.router.navigate(['/login']);
   }
 

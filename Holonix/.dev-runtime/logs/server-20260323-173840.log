@@ -1,0 +1,161 @@
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (40ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT [b].[Name]
+      FROM [business].[BusinessRole] AS [b]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (34ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT [s].[ServiceId], [s].[InactiveDate], [s].[Name]
+      FROM [service].[Service] AS [s]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (21ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT DISTINCT [b].[ServiceId]
+      FROM [business].[BusinessService] AS [b]
+warn: Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServer[8]
+      The ASP.NET Core developer certificate is not trusted. For information about trusting the ASP.NET Core developer certificate, see https://aka.ms/aspnet/https-trust-dev-cert.
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: https://localhost:7241
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5237
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\tscai\source\repos\Holonix\Server
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (90ms) [Parameters=[@__normalizedEmail_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(2) [u].[UsersId], [u].[AccessFailedCount], [u].[ConcurrencyStamp], [u].[DateOfBirth], [u].[Email], [u].[EmailConfirmed], [u].[FirstName], [u].[LastName], [u].[LockoutEnabled], [u].[LockoutEnd], [u].[NormalizedEmail], [u].[NormalizedUserName], [u].[PasswordHash], [u].[PhoneNumber], [u].[PhoneNumberConfirmed], [u].[ProfileImageBase64], [u].[SecurityStamp], [u].[TwoFactorEnabled], [u].[UserName]
+      FROM [authentication].[Users] AS [u]
+      WHERE [u].[NormalizedEmail] = @__normalizedEmail_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (34ms) [Parameters=[@__user_Id_0='?' (Size = 450)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [business].[BusinessUser] AS [b]
+              INNER JOIN (
+                  SELECT [b0].[BusinessUserRoleId], [b0].[BusinessRoleId], [b0].[BusinessUserId], [b0].[EndDate], [b0].[StartDate]
+                  FROM [business].[BusinessUserRole] AS [b0]
+                  WHERE [b0].[EndDate] IS NULL
+              ) AS [t] ON [b].[BusinessUserId] = [t].[BusinessUserId]
+              INNER JOIN [business].[BusinessRole] AS [b1] ON [t].[BusinessRoleId] = [b1].[BusinessRoleId]
+              WHERE [b].[UserId] = @__user_Id_0 AND [b].[IsActive] = CAST(1 AS bit) AND [b].[EndDate] IS NULL AND [b1].[Name] = N'Owner') THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (51ms) [Parameters=[@__userId_0='?' (Size = 450)], CommandType='Text', CommandTimeout='30']
+      SELECT [b].[BusinessId], (
+          SELECT TOP(1) [b3].[Name]
+          FROM [business].[BusinessUser] AS [b2]
+          LEFT JOIN (
+              SELECT [b4].[BusinessUserRoleId], [b4].[BusinessRoleId], [b4].[BusinessUserId], [b4].[EndDate], [b4].[StartDate]
+              FROM [business].[BusinessUserRole] AS [b4]
+              WHERE [b4].[EndDate] IS NULL
+          ) AS [t0] ON [b2].[BusinessUserId] = [t0].[BusinessUserId]
+          LEFT JOIN [business].[BusinessRole] AS [b3] ON [t0].[BusinessRoleId] = [b3].[BusinessRoleId]
+          WHERE [b2].[UserId] = @__userId_0 AND [b2].[IsActive] = CAST(1 AS bit) AND [b2].[EndDate] IS NULL AND [b].[BusinessId] = [b2].[BusinessId] AND [b3].[Name] IS NOT NULL
+          ORDER BY [b3].[Name]) AS [RoleName]
+      FROM [business].[BusinessUser] AS [b]
+      LEFT JOIN (
+          SELECT [b0].[BusinessRoleId], [b0].[BusinessUserId]
+          FROM [business].[BusinessUserRole] AS [b0]
+          WHERE [b0].[EndDate] IS NULL
+      ) AS [t] ON [b].[BusinessUserId] = [t].[BusinessUserId]
+      LEFT JOIN [business].[BusinessRole] AS [b1] ON [t].[BusinessRoleId] = [b1].[BusinessRoleId]
+      WHERE [b].[UserId] = @__userId_0 AND [b].[IsActive] = CAST(1 AS bit) AND [b].[EndDate] IS NULL
+      GROUP BY [b].[BusinessId]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (52ms) [Parameters=[@__businessIds_0='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT [b].[BusinessId], [b].[IsProductBased], [b].[IsRecurring], [b].[Name], [b].[StartDate], [b1].[BusinessId], [b1].[Address1], [b1].[Address2], [b1].[BusinessIconBase64], [b1].[BusinessJobPercentage], [b1].[City], [b1].[CountryId], [b1].[Description], [b1].[Latitude], [b1].[Longitude], [b1].[State], [b1].[ZipCode], [c].[CountryId], [c].[Name], [c].[ThreeLetterIsoCode], [c].[TwoLetterIsoCode]
+      FROM [business].[Business] AS [b]
+      LEFT JOIN [business].[BusinessDetails] AS [b1] ON [b].[BusinessId] = [b1].[BusinessId]
+      LEFT JOIN [reference].[Country] AS [c] ON [b1].[CountryId] = [c].[CountryId]
+      WHERE [b].[BusinessId] IN (
+          SELECT [b0].[value]
+          FROM OPENJSON(@__businessIds_0) WITH ([value] int '$') AS [b0]
+      )
+      ORDER BY [b].[Name]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (31ms) [Parameters=[@__businessIds_0='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT [b].[BusinessId], COUNT(*) AS [Count]
+      FROM [business].[BusinessService] AS [b]
+      WHERE [b].[BusinessId] IN (
+          SELECT [b0].[value]
+          FROM OPENJSON(@__businessIds_0) WITH ([value] int '$') AS [b0]
+      )
+      GROUP BY [b].[BusinessId]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (27ms) [Parameters=[@__businessIds_0='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT [j].[BusinessId], COUNT(*) AS [Count]
+      FROM [job].[Job] AS [j]
+      WHERE [j].[BusinessId] IN (
+          SELECT [b].[value]
+          FROM OPENJSON(@__businessIds_0) WITH ([value] int '$') AS [b]
+      )
+      GROUP BY [j].[BusinessId]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (40ms) [Parameters=[@__businessId_0='?' (DbType = Int32), @__userId_1='?' (Size = 450)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [b].[BusinessUserId], [b1].[Name] AS [RoleName]
+      FROM [business].[BusinessUser] AS [b]
+      LEFT JOIN (
+          SELECT [b0].[BusinessRoleId], [b0].[BusinessUserId]
+          FROM [business].[BusinessUserRole] AS [b0]
+          WHERE [b0].[EndDate] IS NULL
+      ) AS [t] ON [b].[BusinessUserId] = [t].[BusinessUserId]
+      LEFT JOIN [business].[BusinessRole] AS [b1] ON [t].[BusinessRoleId] = [b1].[BusinessRoleId]
+      WHERE [b].[BusinessId] = @__businessId_0 AND [b].[UserId] = @__userId_1 AND [b].[IsActive] = CAST(1 AS bit) AND [b].[EndDate] IS NULL
+      ORDER BY [b1].[Name]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (27ms) [Parameters=[@__businessId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(2) [b].[BusinessId], [b].[IsProductBased], [b].[IsRecurring], [b].[Name], [b].[StartDate], [b0].[BusinessId], [b0].[Address1], [b0].[Address2], [b0].[BusinessIconBase64], [b0].[BusinessJobPercentage], [b0].[City], [b0].[CountryId], [b0].[Description], [b0].[Latitude], [b0].[Longitude], [b0].[State], [b0].[ZipCode], [c].[CountryId], [c].[Name], [c].[ThreeLetterIsoCode], [c].[TwoLetterIsoCode]
+      FROM [business].[Business] AS [b]
+      LEFT JOIN [business].[BusinessDetails] AS [b0] ON [b].[BusinessId] = [b0].[BusinessId]
+      LEFT JOIN [reference].[Country] AS [c] ON [b0].[CountryId] = [c].[CountryId]
+      WHERE [b].[BusinessId] = @__businessId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (39ms) [Parameters=[@__businessId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [s].[ServiceId], [s].[Name]
+      FROM [business].[BusinessService] AS [b]
+      INNER JOIN [service].[Service] AS [s] ON [b].[ServiceId] = [s].[ServiceId]
+      WHERE [b].[BusinessId] = @__businessId_0
+      ORDER BY [s].[Name]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (28ms) [Parameters=[@__businessId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [b].[BusinessUserId], [b].[IsActive], [b].[StartDate], [u].[FirstName], [u].[LastName], [b1].[Name] AS [RoleName]
+      FROM [business].[BusinessUser] AS [b]
+      INNER JOIN [authentication].[Users] AS [u] ON [b].[UserId] = [u].[UsersId]
+      LEFT JOIN (
+          SELECT [b0].[BusinessRoleId], [b0].[BusinessUserId]
+          FROM [business].[BusinessUserRole] AS [b0]
+          WHERE [b0].[EndDate] IS NULL
+      ) AS [t] ON [b].[BusinessUserId] = [t].[BusinessUserId]
+      LEFT JOIN [business].[BusinessRole] AS [b1] ON [t].[BusinessRoleId] = [b1].[BusinessRoleId]
+      WHERE [b].[BusinessId] = @__businessId_0 AND [b].[EndDate] IS NULL
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (25ms) [Parameters=[@__businessId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [j].[BusinessUserId], COUNT(*) AS [Count]
+      FROM [job].[Job] AS [j]
+      WHERE [j].[BusinessId] = @__businessId_0 AND [j].[BusinessUserId] IS NOT NULL
+      GROUP BY [j].[BusinessUserId]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (29ms) [Parameters=[@__p_1='?' (DbType = Int32), @__businessId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(@__p_1) [j].[JobId], [j].[Name], [j].[StartDateTime], [j].[EndDateTime], [j].[Cost], [j].[NetCost], [j].[BusinessUserId]
+      FROM [job].[Job] AS [j]
+      WHERE [j].[BusinessId] = @__businessId_0
+      ORDER BY [j].[StartDateTime] DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (24ms) [Parameters=[@__businessId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT COALESCE(SUM([j].[NetCost]), 0.0)
+      FROM [job].[Job] AS [j]
+      WHERE [j].[BusinessId] = @__businessId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (29ms) [Parameters=[@__businessId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM [job].[Job] AS [j]
+      WHERE [j].[BusinessId] = @__businessId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (28ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT [s].[ServiceId], [s].[Name]
+      FROM [service].[Service] AS [s]
+      WHERE [s].[InactiveDate] IS NULL
+      ORDER BY [s].[Name]

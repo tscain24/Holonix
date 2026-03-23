@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, catchError, finalize, map, shareReplay, switchMap, tap, throwError } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { Observable, catchError, throwError } from 'rxjs';
 
 export interface LoginRequest {
   email: string;
@@ -50,17 +50,14 @@ export interface UpdateUserProfileRequest {
 export class AuthService {
   private readonly profileEndpoint = '/api/auth/profile';
   private readonly profileImageEndpoint = '/api/auth/profile-image';
-  private readonly refreshEndpoint = '/api/auth/refresh';
-  private readonly refreshLeadSeconds = 120;
-  private readonly profileFallbackOrigins = [
+  private readonly fallbackOrigins = [
     'http://localhost:5237',
     'https://localhost:7241',
     'https://localhost:44367',
     'http://localhost:33823',
   ];
-  private refreshInFlight$: Observable<string> | null = null;
 
-  constructor(private http: HttpClient) {}
+  constructor(private readonly http: HttpClient) {}
 
   login(payload: LoginRequest): Observable<LoginResponse> {
     return this.http.post<LoginResponse>('/api/auth/login', payload);
@@ -71,205 +68,66 @@ export class AuthService {
   }
 
   updateProfileImage(profileImageBase64: string | null): Observable<{ profileImageBase64: string | null }> {
-    return this.withFreshToken((headers) =>
-      this.http.put<{ profileImageBase64: string | null }>(
-        this.profileImageEndpoint,
-        { profileImageBase64 },
-        { headers }
-      ).pipe(
-        catchError((err) => {
-          if (!this.shouldTryNextOrigin(err)) {
-            return throwError(() => err);
-          }
-
-          return this.tryProfileImageFallback(profileImageBase64, headers, 0);
-        })
-      )
-    );
-  }
-
-  getProfile(): Observable<UserProfileResponse> {
-    return this.withFreshToken((headers) =>
-      this.http.get<UserProfileResponse>(this.profileEndpoint, { headers }).pipe(
-        catchError((err) => {
-          if (!this.shouldTryNextOrigin(err)) {
-            return throwError(() => err);
-          }
-
-          return this.tryGetProfileFallback(headers, 0);
-        })
-      )
-    );
-  }
-
-  updateProfile(payload: UpdateUserProfileRequest): Observable<UserProfileResponse> {
-    return this.withFreshToken((headers) =>
-      this.http.put<UserProfileResponse>(this.profileEndpoint, payload, { headers }).pipe(
-        catchError((err) => {
-          if (!this.shouldTryNextOrigin(err)) {
-            return throwError(() => err);
-          }
-
-          return this.tryUpdateProfileFallback(payload, headers, 0);
-        })
-      )
-    );
-  }
-
-  deleteProfile(): Observable<void> {
-    return this.withFreshToken((headers) =>
-      this.http.delete<void>(this.profileEndpoint, { headers }).pipe(
-        catchError((err) => {
-          if (!this.shouldTryNextOrigin(err)) {
-            return throwError(() => err);
-          }
-
-          return this.tryDeleteProfileFallback(headers, 0);
-        })
-      )
-    );
-  }
-
-  private tryGetProfileFallback(headers: HttpHeaders, index: number): Observable<UserProfileResponse> {
-    if (index >= this.profileFallbackOrigins.length) {
-      return throwError(() => new Error('Profile endpoint not found on configured local origins.'));
-    }
-
-    const url = `${this.profileFallbackOrigins[index]}${this.profileEndpoint}`;
-    return this.http.get<UserProfileResponse>(url, { headers }).pipe(
-      catchError((err) => {
-        if (this.shouldTryNextOrigin(err)) {
-          return this.tryGetProfileFallback(headers, index + 1);
-        }
-
-        return throwError(() => err);
-      })
-    );
-  }
-
-  private tryUpdateProfileFallback(
-    payload: UpdateUserProfileRequest,
-    headers: HttpHeaders,
-    index: number
-  ): Observable<UserProfileResponse> {
-    if (index >= this.profileFallbackOrigins.length) {
-      return throwError(() => new Error('Profile update endpoint not found on configured local origins.'));
-    }
-
-    const url = `${this.profileFallbackOrigins[index]}${this.profileEndpoint}`;
-    return this.http.put<UserProfileResponse>(url, payload, { headers }).pipe(
-      catchError((err) => {
-        if (this.shouldTryNextOrigin(err)) {
-          return this.tryUpdateProfileFallback(payload, headers, index + 1);
-        }
-
-        return throwError(() => err);
-      })
-    );
-  }
-
-  private tryProfileImageFallback(
-    profileImageBase64: string | null,
-    headers: HttpHeaders,
-    index: number
-  ): Observable<{ profileImageBase64: string | null }> {
-    if (index >= this.profileFallbackOrigins.length) {
-      return throwError(() => new Error('Profile image endpoint not found on configured local origins.'));
-    }
-
-    const url = `${this.profileFallbackOrigins[index]}${this.profileImageEndpoint}`;
-    return this.http.put<{ profileImageBase64: string | null }>(url, { profileImageBase64 }, { headers }).pipe(
-      catchError((err) => {
-        if (this.shouldTryNextOrigin(err)) {
-          return this.tryProfileImageFallback(profileImageBase64, headers, index + 1);
-        }
-
-        return throwError(() => err);
-      })
-    );
-  }
-
-  private tryDeleteProfileFallback(headers: HttpHeaders, index: number): Observable<void> {
-    if (index >= this.profileFallbackOrigins.length) {
-      return throwError(() => new Error('Profile delete endpoint not found on configured local origins.'));
-    }
-
-    const url = `${this.profileFallbackOrigins[index]}${this.profileEndpoint}`;
-    return this.http.delete<void>(url, { headers }).pipe(
-      catchError((err) => {
-        if (this.shouldTryNextOrigin(err)) {
-          return this.tryDeleteProfileFallback(headers, index + 1);
-        }
-
-        return throwError(() => err);
-      })
-    );
-  }
-
-  private withFreshToken<T>(requestFactory: (headers: HttpHeaders) => Observable<T>): Observable<T> {
-    const token = this.getStoredToken();
-    if (!token) {
-      return throwError(() => new Error('Missing auth token.'));
-    }
-
-    if (!this.isTokenExpiringSoon(token)) {
-      return requestFactory(this.buildAuthHeaders(token));
-    }
-
-    return this.refreshToken().pipe(
-      switchMap((refreshedToken) => requestFactory(this.buildAuthHeaders(refreshedToken)))
-    );
-  }
-
-  private refreshToken(): Observable<string> {
-    if (this.refreshInFlight$) {
-      return this.refreshInFlight$;
-    }
-
-    const token = this.getStoredToken();
-    if (!token) {
-      return throwError(() => new Error('Missing auth token.'));
-    }
-
-    const headers = this.buildAuthHeaders(token);
-    const refreshRequest$ = this.http.post<LoginResponse>(this.refreshEndpoint, {}, { headers }).pipe(
+    return this.http.put<{ profileImageBase64: string | null }>(
+      this.profileImageEndpoint,
+      { profileImageBase64 }
+    ).pipe(
       catchError((err) => {
         if (!this.shouldTryNextOrigin(err)) {
           return throwError(() => err);
         }
 
-        return this.tryRefreshFallback(headers, 0);
-      }),
-      tap((res) => {
-        localStorage.setItem('holonix_token', res.token);
-        localStorage.setItem('holonix_display_name', res.displayName);
-        if (res.profileImageBase64) {
-          localStorage.setItem('holonix_profile_image_base64', res.profileImageBase64);
-        } else {
-          localStorage.removeItem('holonix_profile_image_base64');
-        }
-      }),
-      map((res) => res.token),
-      finalize(() => {
-        this.refreshInFlight$ = null;
-      }),
-      shareReplay(1)
+        return this.tryProfileImageFallback(profileImageBase64, 0);
+      })
     );
-
-    this.refreshInFlight$ = refreshRequest$;
-    return refreshRequest$;
   }
 
-  private tryRefreshFallback(headers: HttpHeaders, index: number): Observable<LoginResponse> {
-    if (index >= this.profileFallbackOrigins.length) {
-      return throwError(() => new Error('Refresh endpoint not found on configured local origins.'));
+  getProfile(): Observable<UserProfileResponse> {
+    return this.http.get<UserProfileResponse>(this.profileEndpoint).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryGetProfileFallback(0);
+      })
+    );
+  }
+
+  updateProfile(payload: UpdateUserProfileRequest): Observable<UserProfileResponse> {
+    return this.http.put<UserProfileResponse>(this.profileEndpoint, payload).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryUpdateProfileFallback(payload, 0);
+      })
+    );
+  }
+
+  deleteProfile(): Observable<void> {
+    return this.http.delete<void>(this.profileEndpoint).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryDeleteProfileFallback(0);
+      })
+    );
+  }
+
+  private tryGetProfileFallback(index: number): Observable<UserProfileResponse> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Profile endpoint not found on configured local origins.'));
     }
 
-    const url = `${this.profileFallbackOrigins[index]}${this.refreshEndpoint}`;
-    return this.http.post<LoginResponse>(url, {}, { headers }).pipe(
+    const url = `${this.fallbackOrigins[index]}${this.profileEndpoint}`;
+    return this.http.get<UserProfileResponse>(url).pipe(
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
-          return this.tryRefreshFallback(headers, index + 1);
+          return this.tryGetProfileFallback(index + 1);
         }
 
         return throwError(() => err);
@@ -277,34 +135,55 @@ export class AuthService {
     );
   }
 
-  private buildAuthHeaders(token: string): HttpHeaders {
-    return new HttpHeaders({ Authorization: `Bearer ${token}` });
-  }
-
-  private getStoredToken(): string {
-    return (localStorage.getItem('holonix_token') ?? '').trim();
-  }
-
-  private isTokenExpiringSoon(token: string): boolean {
-    try {
-      const tokenParts = token.split('.');
-      if (tokenParts.length < 2) {
-        return true;
-      }
-
-      const base64 = tokenParts[1].replace(/-/g, '+').replace(/_/g, '/');
-      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-      const payloadJson = atob(padded);
-      const payload = JSON.parse(payloadJson) as { exp?: number };
-      if (!payload.exp) {
-        return true;
-      }
-
-      const nowEpochSeconds = Math.floor(Date.now() / 1000);
-      return payload.exp - nowEpochSeconds <= this.refreshLeadSeconds;
-    } catch {
-      return true;
+  private tryUpdateProfileFallback(payload: UpdateUserProfileRequest, index: number): Observable<UserProfileResponse> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Profile update endpoint not found on configured local origins.'));
     }
+
+    const url = `${this.fallbackOrigins[index]}${this.profileEndpoint}`;
+    return this.http.put<UserProfileResponse>(url, payload).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryUpdateProfileFallback(payload, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryProfileImageFallback(profileImageBase64: string | null, index: number): Observable<{ profileImageBase64: string | null }> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Profile image endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.profileImageEndpoint}`;
+    return this.http.put<{ profileImageBase64: string | null }>(url, { profileImageBase64 }).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryProfileImageFallback(profileImageBase64, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryDeleteProfileFallback(index: number): Observable<void> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Profile delete endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.profileEndpoint}`;
+    return this.http.delete<void>(url).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryDeleteProfileFallback(index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
   }
 
   private shouldTryNextOrigin(err: { status?: number } | null | undefined): boolean {

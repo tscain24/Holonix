@@ -2,7 +2,7 @@ import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { ReactiveFormsModule } from '@angular/forms';
-import { HttpClientModule } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, HttpClientModule } from '@angular/common/http';
 import { AppRoutingModule } from './app-routing.module';
 import { RouterModule } from '@angular/router';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -22,6 +22,7 @@ import { RecentActivityComponent } from './features/profile/components/recent-ac
 import { CreateBusinessComponent } from './features/business/create-business/create-business.component';
 import { BusinessOverviewComponent } from './features/business/business-overview/business-overview.component';
 import { BusinessWorkspaceComponent } from './features/business/business-workspace/business-workspace.component';
+import { AuthInterceptor } from './core/services/auth.interceptor';
 
 @NgModule({
   declarations: [
@@ -50,7 +51,13 @@ import { BusinessWorkspaceComponent } from './features/business/business-workspa
     MatNativeDateModule,
     MatSnackBarModule
   ],
-  providers: [],
+  providers: [
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: AuthInterceptor,
+      multi: true,
+    },
+  ],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

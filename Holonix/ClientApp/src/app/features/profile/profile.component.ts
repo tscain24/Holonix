@@ -2,6 +2,7 @@ import { Component, ElementRef, HostListener, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { AuthSessionService } from '../../core/services/auth-session.service';
 
 interface JwtPayload {
   sub?: string;
@@ -62,7 +63,8 @@ export class ProfileComponent implements OnInit {
     private router: Router,
     private elementRef: ElementRef<HTMLElement>,
     private auth: AuthService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private authSession: AuthSessionService
   ) {}
 
   ngOnInit(): void {
@@ -113,6 +115,10 @@ export class ProfileComponent implements OnInit {
         localStorage.setItem('holonix_display_name', this.displayName);
       },
       error: () => {
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
         // Keep local fallback values if profile fetch fails.
       },
     });
@@ -133,9 +139,7 @@ export class ProfileComponent implements OnInit {
   }
 
   signOut(): void {
-    localStorage.removeItem('holonix_token');
-    localStorage.removeItem('holonix_display_name');
-    localStorage.removeItem('holonix_profile_image_base64');
+    this.authSession.clearSession();
     this.router.navigate(['/login']);
   }
 
@@ -165,15 +169,17 @@ export class ProfileComponent implements OnInit {
       next: () => {
         this.deletingAccount = false;
         this.isDeleteAccountModalOpen = false;
-        localStorage.removeItem('holonix_token');
-        localStorage.removeItem('holonix_display_name');
-        localStorage.removeItem('holonix_profile_image_base64');
+        this.authSession.clearSession();
         this.router.navigate(['/home'], {
           state: { toastMessage: 'Your account was deleted successfully.' },
         });
       },
       error: (err) => {
         this.deletingAccount = false;
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
         const errors = err?.error?.errors as string[] | undefined;
         this.snackBar.open(errors?.[0] ?? 'Failed to delete account.', 'Close', {
           duration: 3500,
@@ -252,6 +258,10 @@ export class ProfileComponent implements OnInit {
           },
           error: () => {
             this.uploadingImage = false;
+            if (this.authSession.hasSessionExpiredFlag()) {
+              return;
+            }
+
             this.snackBar.open('Failed to update profile picture.', 'Close', {
               duration: 3000,
               panelClass: ['snack-error'],
@@ -329,6 +339,10 @@ export class ProfileComponent implements OnInit {
       },
       error: (err) => {
         this.savingProfile = false;
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
         const errors = err?.error?.errors as string[] | undefined;
         this.snackBar.open(errors?.[0] ?? 'Failed to update profile.', 'Close', {
           duration: 3000,

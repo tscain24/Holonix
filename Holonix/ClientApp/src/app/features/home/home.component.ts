@@ -1,6 +1,7 @@
 import { Component, ElementRef, HostListener } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
+import { AuthSessionService } from '../../core/services/auth-session.service';
 
 interface JwtPayload {
   role?: string | string[];
@@ -25,7 +26,8 @@ export class HomeComponent {
   constructor(
     private router: Router,
     private elementRef: ElementRef<HTMLElement>,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private authSession: AuthSessionService
   ) {}
 
   ngOnInit(): void {
@@ -65,9 +67,7 @@ export class HomeComponent {
   }
 
   signOut(): void {
-    localStorage.removeItem('holonix_token');
-    localStorage.removeItem('holonix_display_name');
-    localStorage.removeItem('holonix_profile_image_base64');
+    this.authSession.clearSession();
     this.isLoggedIn = false;
     this.displayName = '';
     this.isUserMenuOpen = false;

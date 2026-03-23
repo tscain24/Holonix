@@ -8,6 +8,7 @@ import {
   BusinessWorkspaceJob,
   BusinessWorkspaceService,
 } from '../../../core/services/business.service';
+import { AuthSessionService } from '../../../core/services/auth-session.service';
 
 @Component({
   selector: 'app-business-workspace',
@@ -47,7 +48,8 @@ export class BusinessWorkspaceComponent implements OnInit {
     private readonly router: Router,
     private readonly elementRef: ElementRef<HTMLElement>,
     private readonly snackBar: MatSnackBar,
-    private readonly businessService: BusinessService
+    private readonly businessService: BusinessService,
+    private readonly authSession: AuthSessionService
   ) {}
 
   ngOnInit(): void {
@@ -79,6 +81,10 @@ export class BusinessWorkspaceComponent implements OnInit {
       },
       error: (err) => {
         this.loadingWorkspace = false;
+
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
 
         if (err?.status === 403) {
           this.snackBar.open('You do not have access to that business.', 'Close', {
@@ -124,9 +130,7 @@ export class BusinessWorkspaceComponent implements OnInit {
   }
 
   signOut(): void {
-    localStorage.removeItem('holonix_token');
-    localStorage.removeItem('holonix_display_name');
-    localStorage.removeItem('holonix_profile_image_base64');
+    this.authSession.clearSession();
     this.router.navigate(['/login']);
   }
 
@@ -401,6 +405,10 @@ export class BusinessWorkspaceComponent implements OnInit {
       },
       error: (err) => {
         this.savingProfile = false;
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
         const errors = err?.error?.errors as string[] | undefined;
         this.snackBar.open(errors?.[0] ?? 'Could not update business profile.', 'Close', {
           duration: 3500,
@@ -473,6 +481,10 @@ export class BusinessWorkspaceComponent implements OnInit {
       },
       error: (err) => {
         this.savingGeneralInformation = false;
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
         const errors = err?.error?.errors as string[] | undefined;
         this.snackBar.open(errors?.[0] ?? 'Could not update general information.', 'Close', {
           duration: 3500,
@@ -608,6 +620,10 @@ export class BusinessWorkspaceComponent implements OnInit {
       },
       error: (err) => {
         this.savingServices = false;
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
         const errors = err?.error?.errors as string[] | undefined;
         this.snackBar.open(errors?.[0] ?? 'Could not update business services.', 'Close', {
           duration: 3500,
