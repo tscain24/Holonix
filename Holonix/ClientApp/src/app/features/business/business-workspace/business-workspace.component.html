@@ -36,9 +36,12 @@
     <div class="workspace-state" *ngIf="loadingWorkspace">Loading business workspace...</div>
 
     <ng-container *ngIf="!loadingWorkspace && businessWorkspace as business">
+      <div class="workspace-back-row">
+        <button type="button" class="back-btn" (click)="goToBusinesses()">Back to Businesses</button>
+      </div>
+
       <section class="workspace-hero">
         <div class="workspace-hero-top">
-          <button type="button" class="back-btn" (click)="goToBusinesses()">Back to Businesses</button>
           <div class="hero-actions" *ngIf="canEditBusinessProfile">
             <button type="button" class="hero-btn hero-btn-secondary" *ngIf="!editingProfile" (click)="startProfileEdit()">Edit Business</button>
             <ng-container *ngIf="editingProfile">
