@@ -243,6 +243,12 @@
   color: #ffffff;
 }
 
+.hero-btn-danger {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  border-color: #b91c1c;
+  color: #ffffff;
+}
+
 .hero-btn-file input {
   display: none;
 }
@@ -855,6 +861,61 @@ span.selected-service-chip {
   padding: 0 10px;
   border-radius: 999px;
   background: #eef4ff;
+}
+
+.workspace-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.workspace-modal {
+  width: min(460px, 100%);
+  border-radius: 18px;
+  border: 1px solid #d7e3f4;
+  background: #ffffff;
+  box-shadow: 0 24px 44px rgba(15, 23, 42, 0.22);
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+}
+
+.workspace-modal-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.workspace-modal-kicker {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.workspace-modal h2 {
+  margin: 0;
+  font-size: 24px;
+  color: #0f172a;
+}
+
+.workspace-modal p {
+  margin: 0;
+  color: #587191;
+  line-height: 1.6;
+}
+
+.workspace-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 900px) {

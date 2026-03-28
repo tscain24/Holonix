@@ -77,6 +77,15 @@
             <div class="hero-actions hero-actions-hero">
               <button type="button" class="hero-btn hero-btn-secondary" *ngIf="!editingProfile" (click)="startProfileEdit()">Edit Business</button>
               <ng-container *ngIf="editingProfile">
+                <button
+                  type="button"
+                  class="hero-btn hero-btn-danger"
+                  *ngIf="canDeleteBusiness"
+                  (click)="openDeleteBusinessModal()"
+                  [disabled]="savingProfile || deletingBusiness"
+                >
+                  {{ deletingBusiness ? 'Deleting...' : 'Delete Business' }}
+                </button>
                 <button type="button" class="hero-btn hero-btn-secondary" (click)="cancelProfileEdit()" [disabled]="savingProfile">Cancel</button>
                 <button type="button" class="hero-btn hero-btn-primary" (click)="saveBusinessProfile()" [disabled]="savingProfile">
                   {{ savingProfile ? 'Saving...' : 'Save Changes' }}
@@ -377,3 +386,44 @@
     </ng-container>
   </div>
 </section>
+
+<div class="workspace-modal-overlay" *ngIf="deleteBusinessModalOpen" (click)="closeDeleteBusinessModal()">
+  <div
+    class="workspace-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="delete-business-modal-title"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="workspace-modal-copy">
+      <p class="workspace-modal-kicker">Delete Business</p>
+      <h2 id="delete-business-modal-title">Delete {{ businessWorkspace?.name }}?</h2>
+      <p>
+        This marks the business inactive and ends access for its current business members. Business records remain in the database.
+      </p>
+      <label class="hero-field">
+        <span>Type DELETE to confirm</span>
+        <input
+          type="text"
+          [value]="deleteBusinessConfirmation"
+          (input)="onDeleteBusinessConfirmationInput($event)"
+          [disabled]="deletingBusiness"
+        />
+      </label>
+    </div>
+
+    <div class="workspace-modal-actions">
+      <button type="button" class="hero-btn hero-btn-secondary" [disabled]="deletingBusiness" (click)="closeDeleteBusinessModal()">
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="hero-btn hero-btn-danger"
+        [disabled]="deletingBusiness || !canConfirmDeleteBusiness"
+        (click)="confirmDeleteBusiness()"
+      >
+        {{ deletingBusiness ? 'Deleting...' : 'Delete Business' }}
+      </button>
+    </div>
+  </div>
+</div>

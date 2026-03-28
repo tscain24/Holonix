@@ -125,7 +125,7 @@ public class BusinessController : ControllerBase
 
         var businesses = await _dbContext.Businesses
             .AsNoTracking()
-            .Where(business => businessIds.Contains(business.BusinessId))
+            .Where(business => businessIds.Contains(business.BusinessId) && business.InactiveDate == null)
             .Include(business => business.Details)
                 .ThenInclude(details => details!.Country)
             .OrderBy(business => business.Name)
@@ -217,7 +217,7 @@ public class BusinessController : ControllerBase
 
         var business = await _dbContext.Businesses
             .AsNoTracking()
-            .Where(item => item.BusinessId == businessId)
+            .Where(item => item.BusinessId == businessId && item.InactiveDate == null)
             .Include(item => item.Details)
                 .ThenInclude(details => details!.Country)
             .SingleOrDefaultAsync(cancellationToken);
@@ -455,7 +455,7 @@ public class BusinessController : ControllerBase
         var business = await _dbContext.Businesses
             .Include(item => item.Details)
             .ThenInclude(details => details!.Country)
-            .SingleOrDefaultAsync(item => item.BusinessId == businessId, cancellationToken);
+            .SingleOrDefaultAsync(item => item.BusinessId == businessId && item.InactiveDate == null, cancellationToken);
 
         if (business is null)
         {
@@ -537,7 +537,7 @@ public class BusinessController : ControllerBase
 
         var businessExists = await _dbContext.Businesses
             .AsNoTracking()
-            .AnyAsync(business => business.BusinessId == businessId, cancellationToken);
+            .AnyAsync(business => business.BusinessId == businessId && business.InactiveDate == null, cancellationToken);
 
         if (!businessExists)
         {
@@ -577,6 +577,78 @@ public class BusinessController : ControllerBase
             .OrderBy(item => item.Name)
             .Select(item => new BusinessWorkspaceServiceResponse(item.ServiceId, item.Name))
             .ToList());
+    }
+
+    [Authorize]
+    [HttpDelete("{businessId:int}")]
+    public async Task<IActionResult> DeleteBusiness(int businessId, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var isOwner = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId &&
+                businessUser.UserId == userId &&
+                businessUser.IsActive &&
+                businessUser.EndDate == null)
+            .Join(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRole) => businessUserRole.BusinessRoleId)
+            .Join(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                businessRoleId => businessRoleId,
+                businessRole => businessRole.BusinessRoleId,
+                (_, businessRole) => businessRole.Name)
+            .AnyAsync(roleName => roleName == BusinessRoleNames.Owner, cancellationToken);
+
+        if (!isOwner)
+        {
+            return Forbid();
+        }
+
+        var business = await _dbContext.Businesses
+            .Include(item => item.Details)
+            .SingleOrDefaultAsync(item => item.BusinessId == businessId && item.InactiveDate == null, cancellationToken);
+
+        if (business is null)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var businessUserIds = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser => businessUser.BusinessId == businessId)
+            .Select(businessUser => businessUser.BusinessUserId)
+            .ToListAsync(cancellationToken);
+
+        var endedAt = DateTime.UtcNow;
+        business.InactiveDate = endedAt;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        if (businessUserIds.Count > 0)
+        {
+            await _dbContext.BusinessUserRoles
+                .Where(item => businessUserIds.Contains(item.BusinessUserId) && item.EndDate == null)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(item => item.EndDate, endedAt), cancellationToken);
+
+            await _dbContext.BusinessUsers
+                .Where(item => item.BusinessId == businessId && (item.IsActive || item.EndDate == null))
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(item => item.IsActive, false)
+                    .SetProperty(item => item.EndDate, endedAt), cancellationToken);
+        }
+
+        return NoContent();
     }
 
     [Authorize]

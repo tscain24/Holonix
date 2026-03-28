@@ -111,6 +111,9 @@ namespace Holonix.Server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BusinessId"));
 
+                    b.Property<DateTime?>("InactiveDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<bool>("IsProductBased")
                         .HasColumnType("bit");
 

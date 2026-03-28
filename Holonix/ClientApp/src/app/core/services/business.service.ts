@@ -227,6 +227,18 @@ export class BusinessService {
     );
   }
 
+  deleteBusiness(businessId: number): Observable<void> {
+    return this.http.delete<void>(`${this.businessEndpoint}/${businessId}`).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryDeleteBusinessFallback(businessId, 0);
+      })
+    );
+  }
+
   private tryGetServicesFallback(index: number): Observable<BusinessServiceOption[]> {
     if (index >= this.fallbackOrigins.length) {
       return throwError(() => new Error('Business services endpoint not found on configured local origins.'));
@@ -347,6 +359,23 @@ export class BusinessService {
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
           return this.tryUpdateBusinessProfileFallback(businessId, payload, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryDeleteBusinessFallback(businessId: number, index: number): Observable<void> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Business delete endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}`;
+    return this.http.delete<void>(url).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryDeleteBusinessFallback(businessId, index + 1);
         }
 
         return throwError(() => err);

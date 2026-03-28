@@ -17,6 +17,7 @@ import { AuthSessionService } from '../../../core/services/auth-session.service'
 })
 export class BusinessWorkspaceComponent implements OnInit {
   private static readonly MaxVisibleServiceChips = 4;
+  private static readonly DeleteBusinessConfirmation = 'DELETE';
   displayName = 'User';
   initials = 'U';
   profileImageDataUrl = '';
@@ -26,6 +27,8 @@ export class BusinessWorkspaceComponent implements OnInit {
   savingServices = false;
   savingProfile = false;
   savingGeneralInformation = false;
+  deletingBusiness = false;
+  deleteBusinessModalOpen = false;
   servicesExpanded = false;
   serviceSearch = '';
   serviceDropdownOpen = false;
@@ -40,6 +43,7 @@ export class BusinessWorkspaceComponent implements OnInit {
   editState = '';
   editZipCode = '';
   editBusinessJobPercentage = 0;
+  deleteBusinessConfirmation = '';
   businessWorkspace: BusinessWorkspace | null = null;
   allServices: BusinessServiceOption[] = [];
 
@@ -181,6 +185,14 @@ export class BusinessWorkspaceComponent implements OnInit {
 
   get canViewGeneralInformation(): boolean {
     return this.canManageServices;
+  }
+
+  get canDeleteBusiness(): boolean {
+    return this.canManageServices;
+  }
+
+  get canConfirmDeleteBusiness(): boolean {
+    return this.deleteBusinessConfirmation.trim().toUpperCase() === BusinessWorkspaceComponent.DeleteBusinessConfirmation;
   }
 
   get filteredAvailableServices(): BusinessServiceOption[] {
@@ -494,6 +506,80 @@ export class BusinessWorkspaceComponent implements OnInit {
     });
   }
 
+  openDeleteBusinessModal(): void {
+    if (!this.businessWorkspace || this.deletingBusiness || !this.canDeleteBusiness) {
+      return;
+    }
+
+    this.deleteBusinessConfirmation = '';
+    this.deleteBusinessModalOpen = true;
+  }
+
+  closeDeleteBusinessModal(): void {
+    if (this.deletingBusiness) {
+      return;
+    }
+
+    this.deleteBusinessModalOpen = false;
+    this.deleteBusinessConfirmation = '';
+  }
+
+  onDeleteBusinessConfirmationInput(event: Event): void {
+    this.deleteBusinessConfirmation = (event.target as HTMLInputElement).value;
+  }
+
+  confirmDeleteBusiness(): void {
+    const workspace = this.businessWorkspace;
+    if (!workspace || this.deletingBusiness || !this.canDeleteBusiness || !this.canConfirmDeleteBusiness) {
+      return;
+    }
+
+    this.deletingBusiness = true;
+    this.businessService.deleteBusiness(workspace.businessId).subscribe({
+      next: () => {
+        this.deletingBusiness = false;
+        this.deleteBusinessModalOpen = false;
+        this.deleteBusinessConfirmation = '';
+        this.snackBar.open('Business Deleted.', 'Close', {
+          duration: 3000,
+          panelClass: ['snack-success'],
+        });
+        this.router.navigate(['/business']);
+      },
+      error: (err) => {
+        this.deletingBusiness = false;
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
+        if (err?.status === 403) {
+          this.snackBar.open('Only business owners can delete a business.', 'Close', {
+            duration: 3500,
+            panelClass: ['snack-error'],
+          });
+          return;
+        }
+
+        if (err?.status === 404) {
+          this.deleteBusinessModalOpen = false;
+          this.deleteBusinessConfirmation = '';
+          this.snackBar.open('That business could not be found.', 'Close', {
+            duration: 3500,
+            panelClass: ['snack-error'],
+          });
+          this.router.navigate(['/business']);
+          return;
+        }
+
+        const errors = err?.error?.errors as string[] | undefined;
+        this.snackBar.open(errors?.[0] ?? 'Could not delete the business.', 'Close', {
+          duration: 3500,
+          panelClass: ['snack-error'],
+        });
+      },
+    });
+  }
+
   formatMoney(value: number): string {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -538,6 +624,13 @@ export class BusinessWorkspaceComponent implements OnInit {
     const target = event.target as Node | null;
     if (target && !this.elementRef.nativeElement.contains(target)) {
       this.isUserMenuOpen = false;
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.deleteBusinessModalOpen && !this.deletingBusiness) {
+      this.closeDeleteBusinessModal();
     }
   }
 
