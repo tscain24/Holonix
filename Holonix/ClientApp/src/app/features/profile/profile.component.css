@@ -469,6 +469,30 @@
   line-height: 1.6;
 }
 
+.delete-account-business-impact {
+  border-radius: 12px;
+  border: 1px solid #f3c2c2;
+  background: #fff5f5;
+  padding: 12px 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.delete-account-business-impact-title {
+  margin: 0;
+  color: #7f1d1d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.delete-account-business-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #7f1d1d;
+  display: grid;
+  gap: 4px;
+}
+
 .business-profile-cta {
   border-radius: 20px;
   border: 1px solid #cbd9ee;

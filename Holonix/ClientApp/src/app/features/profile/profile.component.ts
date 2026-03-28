@@ -3,6 +3,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AuthSessionService } from '../../core/services/auth-session.service';
+import { BusinessService, UserBusinessSummary } from '../../core/services/business.service';
 
 interface JwtPayload {
   sub?: string;
@@ -29,6 +30,7 @@ export class ProfileComponent implements OnInit {
   userId = '';
   initials = 'U';
   isBusinessOwner = false;
+  ownedBusinesses: UserBusinessSummary[] = [];
   isUserMenuOpen = false;
   profileImageDataUrl = '';
   uploadingImage = false;
@@ -63,6 +65,7 @@ export class ProfileComponent implements OnInit {
     private router: Router,
     private elementRef: ElementRef<HTMLElement>,
     private auth: AuthService,
+    private businessService: BusinessService,
     private snackBar: MatSnackBar,
     private authSession: AuthSessionService
   ) {}
@@ -120,6 +123,20 @@ export class ProfileComponent implements OnInit {
         }
 
         // Keep local fallback values if profile fetch fails.
+      },
+    });
+
+    this.businessService.getMyBusinesses().subscribe({
+      next: (businesses) => {
+        this.ownedBusinesses = businesses.filter((business) => (business.roleName ?? '').toLowerCase() === 'owner');
+        this.isBusinessOwner = this.ownedBusinesses.length > 0 || this.isBusinessOwner;
+      },
+      error: () => {
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
+        this.ownedBusinesses = [];
       },
     });
   }

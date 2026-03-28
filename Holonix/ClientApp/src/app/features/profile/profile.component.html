@@ -161,7 +161,18 @@
   <div class="profile-image-modal-overlay" *ngIf="isDeleteAccountModalOpen">
     <div class="profile-image-modal delete-account-modal" role="dialog" aria-modal="true" aria-label="Delete account confirmation">
       <h2>Delete account?</h2>
-      <p>This permanently removes your account and signs you out. This action cannot be undone.</p>
+      <p>This deactivates your account and signs you out.</p>
+
+      <div class="delete-account-business-impact" *ngIf="ownedBusinesses.length > 0">
+        <p class="delete-account-business-impact-title">
+          The following businesses will also be marked inactive because you are their owner:
+        </p>
+        <ul class="delete-account-business-list">
+          <li *ngFor="let business of ownedBusinesses">{{ business.name }}</li>
+        </ul>
+      </div>
+
+      <p>This action cannot be undone.</p>
 
       <div class="profile-image-modal-actions">
         <button type="button" class="btn btn-secondary" [disabled]="deletingAccount" (click)="closeDeleteAccountModal()">

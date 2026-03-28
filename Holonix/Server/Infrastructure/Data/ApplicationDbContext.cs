@@ -41,8 +41,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasKey(user => user.Id);
             entity.Property(user => user.Id)
                 .HasColumnName("UsersId");
+            entity.Property(user => user.InactiveDate)
+                .HasColumnType("datetime2");
             entity.Property(user => user.ProfileImageBase64)
                 .HasColumnType("nvarchar(max)");
+            entity.HasIndex(user => user.NormalizedEmail)
+                .HasDatabaseName("EmailIndex")
+                .IsUnique()
+                .HasFilter("[NormalizedEmail] IS NOT NULL AND [InactiveDate] IS NULL");
         });
 
         builder.Entity<IdentityRole>(entity =>

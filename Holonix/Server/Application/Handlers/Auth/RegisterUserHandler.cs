@@ -13,11 +13,16 @@ namespace Holonix.Server.Application.Handlers.Auth;
 public sealed class RegisterUserHandler : IRegisterUserHandler
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IQueryableUserStore<ApplicationUser> _userStore;
     private readonly ILogger<RegisterUserHandler> _logger;
 
-    public RegisterUserHandler(UserManager<ApplicationUser> userManager, ILogger<RegisterUserHandler> logger)
+    public RegisterUserHandler(
+        UserManager<ApplicationUser> userManager,
+        IQueryableUserStore<ApplicationUser> userStore,
+        ILogger<RegisterUserHandler> logger)
     {
         _userManager = userManager;
+        _userStore = userStore;
         _logger = logger;
     }
 
@@ -44,10 +49,15 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
             dateOfBirth = parsedDob;
         }
 
+        var normalizedEmail = _userManager.NormalizeEmail(request.Email.Trim());
         ApplicationUser? existingUser;
         try
         {
-            existingUser = await _userManager.FindByEmailAsync(request.Email);
+            existingUser = await _userStore.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    user => user.NormalizedEmail == normalizedEmail && user.InactiveDate == null,
+                    cancellationToken);
         }
         catch (SqlException ex)
         {
@@ -71,8 +81,8 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
 
         var user = new ApplicationUser
         {
-            UserName = request.Email,
-            Email = request.Email,
+            UserName = request.Email.Trim(),
+            Email = request.Email.Trim(),
             FirstName = request.FirstName.Trim(),
             LastName = request.LastName.Trim(),
             DateOfBirth = dateOfBirth,

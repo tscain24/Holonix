@@ -70,7 +70,9 @@ public class AuthController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
-        var user = await _userManager.FindByIdAsync(userId);
+        var user = await _userManager.Users
+            .SingleOrDefaultAsync(candidate => candidate.Id == userId && candidate.InactiveDate == null, cancellationToken);
+
         if (user is null)
         {
             return NotFound(new { errors = new[] { "User not found." } });
@@ -93,58 +95,44 @@ public class AuthController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
-        var user = await _userManager.FindByIdAsync(userId);
+        var user = await _userManager.Users
+            .SingleOrDefaultAsync(candidate => candidate.Id == userId && candidate.InactiveDate == null, cancellationToken);
+
         if (user is null)
         {
             return NotFound(new { errors = new[] { "User not found." } });
         }
 
+        var endedAt = DateTime.UtcNow;
         var businessUsers = await _dbContext.BusinessUsers
             .Where(x => x.UserId == userId)
             .Select(x => x.BusinessUserId)
             .ToListAsync(cancellationToken);
 
-        var linkedJobs = await _dbContext.Jobs
-            .Where(job => job.UserId == userId || (job.BusinessUserId.HasValue && businessUsers.Contains(job.BusinessUserId.Value)))
-            .ToListAsync(cancellationToken);
-
-        foreach (var job in linkedJobs)
-        {
-            if (job.UserId == userId)
-            {
-                job.UserId = null;
-            }
-
-            if (job.BusinessUserId.HasValue && businessUsers.Contains(job.BusinessUserId.Value))
-            {
-                job.BusinessUserId = null;
-            }
-        }
-
         if (businessUsers.Count > 0)
         {
-            var businessUserRoles = await _dbContext.BusinessUserRoles
-                .Where(x => businessUsers.Contains(x.BusinessUserId))
-                .ToListAsync(cancellationToken);
-            var businessUserAvailabilities = await _dbContext.BusinessUserAvailabilities
-                .Where(x => businessUsers.Contains(x.BusinessUserId))
-                .ToListAsync(cancellationToken);
-            var businessUserTimeOffs = await _dbContext.BusinessUserTimeOffs
-                .Where(x => businessUsers.Contains(x.BusinessUserId))
-                .ToListAsync(cancellationToken);
-            var businessUserEntities = await _dbContext.BusinessUsers
-                .Where(x => businessUsers.Contains(x.BusinessUserId))
-                .ToListAsync(cancellationToken);
+            await _dbContext.BusinessUserRoles
+                .Where(x => businessUsers.Contains(x.BusinessUserId) && x.EndDate == null)
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(role => role.EndDate, endedAt),
+                    cancellationToken);
 
-            _dbContext.BusinessUserRoles.RemoveRange(businessUserRoles);
-            _dbContext.BusinessUserAvailabilities.RemoveRange(businessUserAvailabilities);
-            _dbContext.BusinessUserTimeOffs.RemoveRange(businessUserTimeOffs);
-            _dbContext.BusinessUsers.RemoveRange(businessUserEntities);
+            await _dbContext.BusinessUsers
+                .Where(x => businessUsers.Contains(x.BusinessUserId) && (x.IsActive || x.EndDate == null))
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(businessUser => businessUser.IsActive, false)
+                        .SetProperty(businessUser => businessUser.EndDate, endedAt),
+                    cancellationToken);
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        user.InactiveDate = endedAt;
+        user.LockoutEnabled = true;
+        user.LockoutEnd = DateTimeOffset.MaxValue;
+        user.UserName = $"deleted::{user.Id}::{Guid.NewGuid():N}";
+        user.NormalizedUserName = _userManager.NormalizeName(user.UserName);
 
-        var result = await _userManager.DeleteAsync(user);
+        var result = await _userManager.UpdateAsync(user);
         if (!result.Succeeded)
         {
             var errors = result.Errors.Select(error => error.Description).ToArray();
@@ -166,7 +154,9 @@ public class AuthController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
-        var user = await _userManager.FindByIdAsync(userId);
+        var user = await _userManager.Users
+            .SingleOrDefaultAsync(candidate => candidate.Id == userId && candidate.InactiveDate == null, cancellationToken);
+
         if (user is null)
         {
             return NotFound(new { errors = new[] { "User not found." } });
@@ -210,7 +200,9 @@ public class AuthController : ControllerBase
             parsedDob = dob;
         }
 
-        var user = await _userManager.FindByIdAsync(userId);
+        var user = await _userManager.Users
+            .SingleOrDefaultAsync(candidate => candidate.Id == userId && candidate.InactiveDate == null, cancellationToken);
+
         if (user is null)
         {
             return NotFound(new { errors = new[] { "User not found." } });
@@ -249,7 +241,9 @@ public class AuthController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
-        var user = await _userManager.FindByIdAsync(userId);
+        var user = await _userManager.Users
+            .SingleOrDefaultAsync(candidate => candidate.Id == userId && candidate.InactiveDate == null, cancellationToken);
+
         if (user is null)
         {
             return NotFound(new { errors = new[] { "User not found." } });

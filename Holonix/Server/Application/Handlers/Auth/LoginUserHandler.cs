@@ -10,11 +10,16 @@ namespace Holonix.Server.Application.Handlers.Auth;
 public sealed class LoginUserHandler : ILoginUserHandler
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IQueryableUserStore<ApplicationUser> _userStore;
     private readonly ITokenService _tokenService;
 
-    public LoginUserHandler(UserManager<ApplicationUser> userManager, ITokenService tokenService)
+    public LoginUserHandler(
+        UserManager<ApplicationUser> userManager,
+        IQueryableUserStore<ApplicationUser> userStore,
+        ITokenService tokenService)
     {
         _userManager = userManager;
+        _userStore = userStore;
         _tokenService = tokenService;
     }
 
@@ -25,7 +30,13 @@ public sealed class LoginUserHandler : ILoginUserHandler
             return HandlerResult<AuthResponse>.Fail(StatusCodes.Status400BadRequest, "Email and password are required.");
         }
 
-        var user = await _userManager.FindByEmailAsync(request.Email);
+        var normalizedEmail = _userManager.NormalizeEmail(request.Email.Trim());
+        var user = await _userStore.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                candidate => candidate.NormalizedEmail == normalizedEmail && candidate.InactiveDate == null,
+                cancellationToken);
+
         if (user is null)
         {
             return HandlerResult<AuthResponse>.Fail(StatusCodes.Status401Unauthorized, "Invalid credentials.");
