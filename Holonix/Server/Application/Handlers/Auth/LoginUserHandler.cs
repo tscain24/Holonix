@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Holonix.Server.Application.Interfaces;
 using Holonix.Server.Application.Results;
 using Holonix.Server.Contracts.Auth;
@@ -10,16 +11,13 @@ namespace Holonix.Server.Application.Handlers.Auth;
 public sealed class LoginUserHandler : ILoginUserHandler
 {
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IQueryableUserStore<ApplicationUser> _userStore;
     private readonly ITokenService _tokenService;
 
     public LoginUserHandler(
         UserManager<ApplicationUser> userManager,
-        IQueryableUserStore<ApplicationUser> userStore,
         ITokenService tokenService)
     {
         _userManager = userManager;
-        _userStore = userStore;
         _tokenService = tokenService;
     }
 
@@ -31,7 +29,7 @@ public sealed class LoginUserHandler : ILoginUserHandler
         }
 
         var normalizedEmail = _userManager.NormalizeEmail(request.Email.Trim());
-        var user = await _userStore.Users
+        var user = await _userManager.Users
             .AsNoTracking()
             .FirstOrDefaultAsync(
                 candidate => candidate.NormalizedEmail == normalizedEmail && candidate.InactiveDate == null,

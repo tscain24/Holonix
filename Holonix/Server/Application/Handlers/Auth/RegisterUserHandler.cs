@@ -13,16 +13,13 @@ namespace Holonix.Server.Application.Handlers.Auth;
 public sealed class RegisterUserHandler : IRegisterUserHandler
 {
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IQueryableUserStore<ApplicationUser> _userStore;
     private readonly ILogger<RegisterUserHandler> _logger;
 
     public RegisterUserHandler(
         UserManager<ApplicationUser> userManager,
-        IQueryableUserStore<ApplicationUser> userStore,
         ILogger<RegisterUserHandler> logger)
     {
         _userManager = userManager;
-        _userStore = userStore;
         _logger = logger;
     }
 
@@ -53,7 +50,7 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
         ApplicationUser? existingUser;
         try
         {
-            existingUser = await _userStore.Users
+            existingUser = await _userManager.Users
                 .AsNoTracking()
                 .FirstOrDefaultAsync(
                     user => user.NormalizedEmail == normalizedEmail && user.InactiveDate == null,

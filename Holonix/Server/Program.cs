@@ -117,6 +117,7 @@ var app = builder.Build();
 
 await BusinessRoleSeeder.SeedAsync(app.Services);
 await ServiceSeeder.SeedAsync(app.Services);
+await WorkloadReferenceSeeder.SeedAsync(app.Services);
 
 if (app.Environment.IsDevelopment())
 {

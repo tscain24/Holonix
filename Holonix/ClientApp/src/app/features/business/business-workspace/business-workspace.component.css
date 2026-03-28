@@ -167,7 +167,7 @@
 }
 
 .workspace-shell {
-  width: min(1180px, calc(100% - 32px));
+  width: min(1440px, calc(100% - 40px));
   margin: 0 auto;
   padding: 24px clamp(16px, 2.6vw, 34px) 34px;
   display: grid;

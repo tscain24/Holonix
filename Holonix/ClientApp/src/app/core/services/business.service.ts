@@ -102,6 +102,14 @@ export interface BusinessWorkspaceJob {
   assignedEmployeeName?: string | null;
 }
 
+export interface BusinessEmployeeInvite {
+  workloadId: number;
+  email: string;
+  invitedByDisplayName: string;
+  invitedAt: string;
+  status: string;
+}
+
 export interface BusinessWorkspace {
   businessId: number;
   name: string;
@@ -196,6 +204,30 @@ export class BusinessService {
         }
 
         return this.tryGetBusinessWorkspaceFallback(businessId, 0);
+      })
+    );
+  }
+
+  getEmployeeInvites(businessId: number): Observable<BusinessEmployeeInvite[]> {
+    return this.http.get<BusinessEmployeeInvite[]>(`${this.businessEndpoint}/${businessId}/employee-invites`).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryGetEmployeeInvitesFallback(businessId, 0);
+      })
+    );
+  }
+
+  createEmployeeInvite(businessId: number, email: string): Observable<BusinessEmployeeInvite> {
+    return this.http.post<BusinessEmployeeInvite>(`${this.businessEndpoint}/${businessId}/employee-invites`, { email }).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryCreateEmployeeInviteFallback(businessId, email, 0);
       })
     );
   }
@@ -317,6 +349,44 @@ export class BusinessService {
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
           return this.tryGetBusinessWorkspaceFallback(businessId, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryGetEmployeeInvitesFallback(indexBusinessId: number, index: number): Observable<BusinessEmployeeInvite[]> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Employee invites endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${indexBusinessId}/employee-invites`;
+    return this.http.get<BusinessEmployeeInvite[]>(url).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryGetEmployeeInvitesFallback(indexBusinessId, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryCreateEmployeeInviteFallback(
+    businessId: number,
+    email: string,
+    index: number
+  ): Observable<BusinessEmployeeInvite> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Employee invite creation endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}/employee-invites`;
+    return this.http.post<BusinessEmployeeInvite>(url, { email }).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryCreateEmployeeInviteFallback(businessId, email, index + 1);
         }
 
         return throwError(() => err);

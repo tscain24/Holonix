@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 
 namespace Holonix.Server.Controllers;
@@ -396,6 +397,190 @@ public class BusinessController : ControllerBase
             jobResponses);
 
         return Ok(response);
+    }
+
+    [Authorize]
+    [HttpGet("{businessId:int}/employee-invites")]
+    public async Task<IActionResult> GetEmployeeInvites(int businessId, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var currentRoleName = await GetActiveBusinessRoleNameAsync(businessId, userId, cancellationToken);
+        if (currentRoleName is null)
+        {
+            return Forbid();
+        }
+
+        var invites = await _dbContext.Workloads
+            .AsNoTracking()
+            .Where(workload =>
+                workload.BusinessId == businessId &&
+                workload.WorkloadType.Type == WorkloadTypeNames.EmployeeInvite)
+            .OrderByDescending(workload => workload.CreatedDate)
+            .Select(workload => new BusinessEmployeeInviteResponse(
+                workload.WorkloadId,
+                workload.TargetEmail ?? string.Empty,
+                BuildDisplayName(
+                    workload.CreatedByUser.FirstName,
+                    workload.CreatedByUser.LastName,
+                    "Workspace User"),
+                workload.CreatedDate,
+                workload.WorkloadStatus.Status))
+            .ToListAsync(cancellationToken);
+
+        return Ok(invites);
+    }
+
+    [Authorize]
+    [HttpPost("{businessId:int}/employee-invites")]
+    public async Task<IActionResult> CreateEmployeeInvite(
+        int businessId,
+        CreateEmployeeInviteRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var currentRoleName = await GetActiveBusinessRoleNameAsync(businessId, userId, cancellationToken);
+        if (!CanManageEmployeeInvites(currentRoleName))
+        {
+            return Forbid();
+        }
+
+        var businessExists = await _dbContext.Businesses
+            .AsNoTracking()
+            .AnyAsync(
+                business => business.BusinessId == businessId && business.InactiveDate == null,
+                cancellationToken);
+
+        if (!businessExists)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var email = request.Email?.Trim();
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return BadRequest(new { errors = new[] { "Email is required." } });
+        }
+
+        var emailAddressAttribute = new EmailAddressAttribute();
+        if (!emailAddressAttribute.IsValid(email))
+        {
+            return BadRequest(new { errors = new[] { "A valid email address is required." } });
+        }
+
+        var normalizedEmail = _userManager.NormalizeEmail(email);
+        if (string.IsNullOrWhiteSpace(normalizedEmail))
+        {
+            return BadRequest(new { errors = new[] { "A valid email address is required." } });
+        }
+
+        var pendingInviteStatus = await _dbContext.WorkloadStatuses
+            .AsNoTracking()
+            .Where(workloadStatus =>
+                workloadStatus.Status == WorkloadStatusNames.PendingInvite &&
+                workloadStatus.WorkloadType.Type == WorkloadTypeNames.EmployeeInvite)
+            .Select(workloadStatus => new
+            {
+                workloadStatus.WorkloadStatusId,
+                workloadStatus.WorkloadTypeId,
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (pendingInviteStatus is null)
+        {
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new { errors = new[] { "Employee invite workflow is unavailable." } });
+        }
+
+        var existingUser = await _dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.NormalizedEmail == normalizedEmail && user.InactiveDate == null)
+            .Select(user => new
+            {
+                user.Id,
+                user.FirstName,
+                user.LastName,
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (existingUser is not null)
+        {
+            var isAlreadyActiveEmployee = await _dbContext.BusinessUsers
+                .AsNoTracking()
+                .AnyAsync(
+                    businessUser =>
+                        businessUser.BusinessId == businessId &&
+                        businessUser.UserId == existingUser.Id &&
+                        businessUser.IsActive &&
+                        businessUser.EndDate == null,
+                    cancellationToken);
+
+            if (isAlreadyActiveEmployee)
+            {
+                return BadRequest(new { errors = new[] { "That user is already an active employee of this business." } });
+            }
+        }
+
+        var pendingInviteExists = await _dbContext.Workloads
+            .AsNoTracking()
+            .AnyAsync(
+                workload =>
+                    workload.BusinessId == businessId &&
+                    workload.NormalizedTargetEmail == normalizedEmail &&
+                    workload.WorkloadTypeId == pendingInviteStatus.WorkloadTypeId &&
+                    workload.WorkloadStatusId == pendingInviteStatus.WorkloadStatusId,
+                cancellationToken);
+
+        if (pendingInviteExists)
+        {
+            return BadRequest(new { errors = new[] { "A pending invite already exists for that email." } });
+        }
+
+        var workload = new Workload
+        {
+            BusinessId = businessId,
+            CreatedDate = DateTime.UtcNow,
+            CreatedByUserId = userId,
+            TargetUserId = existingUser?.Id,
+            TargetEmail = email,
+            NormalizedTargetEmail = normalizedEmail,
+            WorkloadTypeId = pendingInviteStatus.WorkloadTypeId,
+            WorkloadStatusId = pendingInviteStatus.WorkloadStatusId,
+        };
+
+        _dbContext.Workloads.Add(workload);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var currentUser = await _dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => new
+            {
+                user.FirstName,
+                user.LastName,
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return Ok(new BusinessEmployeeInviteResponse(
+            workload.WorkloadId,
+            workload.TargetEmail,
+            BuildDisplayName(currentUser?.FirstName, currentUser?.LastName, "Workspace User"),
+            workload.CreatedDate,
+            WorkloadStatusNames.PendingInvite));
     }
 
     [Authorize]
@@ -824,5 +1009,48 @@ public class BusinessController : ControllerBase
         return markerIndex >= 0
             ? trimmed[(markerIndex + marker.Length)..]
             : trimmed;
+    }
+
+    private async Task<string?> GetActiveBusinessRoleNameAsync(
+        int businessId,
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        return await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId &&
+                businessUser.UserId == userId &&
+                businessUser.IsActive &&
+                businessUser.EndDate == null)
+            .Join(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (_, businessUserRole) => businessUserRole.BusinessRoleId)
+            .Join(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                businessRoleId => businessRoleId,
+                businessRole => businessRole.BusinessRoleId,
+                (_, businessRole) => new
+                {
+                    businessRole.Name,
+                    businessRole.HierarchyNumber,
+                })
+            .OrderByDescending(businessRole => businessRole.HierarchyNumber)
+            .Select(businessRole => businessRole.Name)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private static bool CanManageEmployeeInvites(string? roleName)
+    {
+        return string.Equals(roleName, BusinessRoleNames.Owner, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(roleName, BusinessRoleNames.Administrator, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildDisplayName(string? firstName, string? lastName, string fallback)
+    {
+        var displayName = $"{firstName} {lastName}".Trim();
+        return string.IsNullOrWhiteSpace(displayName) ? fallback : displayName;
     }
 }

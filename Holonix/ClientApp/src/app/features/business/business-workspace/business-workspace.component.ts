@@ -124,6 +124,15 @@ export class BusinessWorkspaceComponent implements OnInit {
     this.router.navigate(['/business']);
   }
 
+  goToEmployees(): void {
+    const businessId = this.businessWorkspace?.businessId;
+    if (!businessId) {
+      return;
+    }
+
+    this.router.navigate(['/business', businessId, 'employees']);
+  }
+
   goToProfile(): void {
     this.router.navigate(['/profile']);
   }

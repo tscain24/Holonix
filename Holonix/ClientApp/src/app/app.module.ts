@@ -22,6 +22,7 @@ import { RecentActivityComponent } from './features/profile/components/recent-ac
 import { CreateBusinessComponent } from './features/business/create-business/create-business.component';
 import { BusinessOverviewComponent } from './features/business/business-overview/business-overview.component';
 import { BusinessWorkspaceComponent } from './features/business/business-workspace/business-workspace.component';
+import { BusinessEmployeesComponent } from './features/business/business-employees/business-employees.component';
 import { AuthInterceptor } from './core/services/auth.interceptor';
 
 @NgModule({
@@ -35,7 +36,8 @@ import { AuthInterceptor } from './core/services/auth.interceptor';
     RecentActivityComponent,
     CreateBusinessComponent,
     BusinessOverviewComponent,
-    BusinessWorkspaceComponent
+    BusinessWorkspaceComponent,
+    BusinessEmployeesComponent
   ],
   imports: [
     BrowserModule,

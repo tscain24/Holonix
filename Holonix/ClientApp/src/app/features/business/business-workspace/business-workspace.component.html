@@ -317,9 +317,14 @@
       </section>
 
       <section class="workspace-section">
-        <div class="section-heading">
-          <h2>Employees</h2>
-          <p>Team members currently associated with this business, their title, and employment status.</p>
+        <div class="section-heading section-heading-actions">
+          <div>
+            <h2>Employees</h2>
+            <p>Team members currently associated with this business, their title, and employment status.</p>
+          </div>
+          <div class="hero-actions" *ngIf="business.employees.length > 0">
+            <button type="button" class="hero-btn hero-btn-secondary" (click)="goToEmployees()">View All</button>
+          </div>
         </div>
 
         <div class="section-state" *ngIf="business.employees.length === 0">No employees are associated with this business yet.</div>

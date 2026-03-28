@@ -1,0 +1,175 @@
+<section class="employees-page" aria-label="Business employees page">
+  <header class="top-nav">
+    <div class="brand-mark brand-button" (click)="goHome()" role="button" tabindex="0" aria-label="Go to home">
+      <img src="/assets/holonix-logo-blue.svg" alt="Holonix logo" width="32" height="32" />
+      <span>Holonix</span>
+    </div>
+
+    <nav class="top-links" aria-label="Primary">
+      <a routerLink="/home" routerLinkActive="top-link-active" class="top-link">Home</a>
+      <a routerLink="/business" routerLinkActive="top-link-active" class="top-link">Business</a>
+    </nav>
+
+    <div class="auth-actions auth-actions-logged-in">
+      <button type="button" class="profile-menu-trigger" (click)="toggleUserMenu($event)" aria-label="Open profile menu">
+        <img
+          *ngIf="profileImageDataUrl"
+          [src]="profileImageDataUrl"
+          alt="Profile picture"
+          class="profile-menu-image"
+          width="34"
+          height="34"
+        />
+        <span *ngIf="!profileImageDataUrl" class="profile-menu-initials">{{ initials }}</span>
+        <span class="profile-menu-name">{{ displayName }}</span>
+        <span class="profile-menu-caret" aria-hidden="true">&#9662;</span>
+      </button>
+
+      <div class="user-menu" *ngIf="isUserMenuOpen">
+        <button type="button" class="user-menu-item" (click)="goToProfile()">View Profile</button>
+        <button type="button" class="user-menu-item danger" (click)="signOut()">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="employees-shell">
+    <div class="page-state" *ngIf="loadingWorkspace">Loading employees...</div>
+
+    <ng-container *ngIf="!loadingWorkspace && businessWorkspace as business">
+      <div class="employees-back-row">
+        <button type="button" class="back-btn" (click)="goToWorkspace()">Back to Workspace</button>
+      </div>
+
+      <section class="employees-hero">
+        <p class="employees-kicker">Business Workspace</p>
+        <h1>{{ business.name }} Employees</h1>
+        <p>All employees currently associated with this business workspace.</p>
+      </section>
+
+      <section class="employees-section">
+        <div class="section-heading section-heading-row">
+          <div>
+            <h2>Employee Invites</h2>
+            <p>Pending and historical invite workloads created from this workspace.</p>
+          </div>
+
+          <button type="button" class="action-btn" *ngIf="canInviteEmployees" (click)="openInviteModal()">
+            Invite Employee
+          </button>
+        </div>
+
+        <div class="page-state" *ngIf="loadingInvites">Loading employee invites...</div>
+
+        <div class="page-state" *ngIf="!loadingInvites && employeeInvites.length === 0">
+          No employee invites have been created for this business yet.
+        </div>
+
+        <div class="employee-table-shell" *ngIf="!loadingInvites && employeeInvites.length > 0">
+          <table class="employee-table">
+            <thead>
+              <tr>
+                <th scope="col">Email</th>
+                <th scope="col">Invited By</th>
+                <th scope="col">Invited On</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let invite of employeeInvites; trackBy: trackInvite">
+                <td class="employee-table-name">{{ invite.email }}</td>
+                <td>{{ invite.invitedByDisplayName }}</td>
+                <td>{{ formatInviteDate(invite.invitedAt) }}</td>
+                <td>
+                  <span class="status-chip status-chip-pending">{{ invite.status }}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="employees-section">
+        <div class="section-heading section-heading-row">
+          <div>
+            <h2>Employees</h2>
+            <p>{{ business.employees.length }} team member{{ business.employees.length === 1 ? '' : 's' }}</p>
+          </div>
+        </div>
+
+        <div class="page-state" *ngIf="business.employees.length === 0">No employees are associated with this business yet.</div>
+
+        <div class="employee-table-shell" *ngIf="business.employees.length > 0">
+          <table class="employee-table">
+            <thead>
+              <tr>
+                <th scope="col">Employee</th>
+                <th scope="col">Role</th>
+                <th scope="col">Hired</th>
+                <th scope="col">Status</th>
+                <th scope="col" class="employee-table-number">Assigned Jobs</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let employee of business.employees; trackBy: trackEmployee">
+                <td class="employee-table-name">{{ employee.displayName }}</td>
+                <td>{{ employee.roleName || 'Team Member' }}</td>
+                <td>{{ formatHiredDate(employee.hiredDate) }}</td>
+                <td>
+                  <span class="status-chip" [class.status-chip-inactive]="!employee.isActive">
+                    {{ employee.isActive ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+                <td class="employee-table-number">{{ employee.assignedJobCount }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </ng-container>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="inviteModalOpen">
+    <section
+      class="invite-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="employee-invite-title"
+      aria-describedby="employee-invite-description"
+    >
+      <div class="modal-header">
+        <div>
+          <p class="modal-kicker">Employee Invite</p>
+          <h2 id="employee-invite-title">Invite an employee</h2>
+        </div>
+        <button type="button" class="modal-close" (click)="closeInviteModal()" [disabled]="sendingInvite" aria-label="Close invite modal">
+          ×
+        </button>
+      </div>
+
+      <p id="employee-invite-description" class="modal-copy">
+        Send a workspace invite by email. This creates an employee invite workload with a <strong>Pending Invite</strong> status.
+      </p>
+
+      <label class="modal-field">
+        <span>Email address</span>
+        <input
+          type="email"
+          [formControl]="inviteEmailControl"
+          placeholder="employee@example.com"
+          [class.modal-input-invalid]="inviteEmailControl.invalid && inviteEmailControl.touched"
+        />
+      </label>
+
+      <p class="modal-error" *ngIf="inviteEmailControl.hasError('required') && inviteEmailControl.touched">Email is required.</p>
+      <p class="modal-error" *ngIf="inviteEmailControl.hasError('email') && inviteEmailControl.touched">Enter a valid email address.</p>
+      <p class="modal-error" *ngIf="inviteEmailControl.hasError('maxlength') && inviteEmailControl.touched">Email must be 256 characters or fewer.</p>
+
+      <div class="modal-actions">
+        <button type="button" class="secondary-btn" (click)="closeInviteModal()" [disabled]="sendingInvite">Cancel</button>
+        <button type="button" class="action-btn" (click)="submitInvite()" [disabled]="!canSubmitInvite">
+          {{ sendingInvite ? 'Sending...' : 'Send Invite' }}
+        </button>
+      </div>
+    </section>
+  </div>
+</section>

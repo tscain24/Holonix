@@ -186,9 +186,17 @@ public class Workload
 {
     public long WorkloadId { get; set; }
     public DateTime CreatedDate { get; set; }
+    public int BusinessId { get; set; }
+    public string CreatedByUserId { get; set; } = string.Empty;
+    public string? TargetUserId { get; set; }
+    public string? TargetEmail { get; set; }
+    public string? NormalizedTargetEmail { get; set; }
     public long WorkloadTypeId { get; set; }
     public long WorkloadStatusId { get; set; }
 
+    public Business Business { get; set; } = null!;
+    public ApplicationUser CreatedByUser { get; set; } = null!;
+    public ApplicationUser? TargetUser { get; set; }
     public WorkloadType WorkloadType { get; set; } = null!;
     public WorkloadStatus WorkloadStatus { get; set; } = null!;
 }
@@ -199,6 +207,11 @@ public class WorkloadType
     public string Type { get; set; } = string.Empty;
 }
 
+public static class WorkloadTypeNames
+{
+    public const string EmployeeInvite = "Employee Invite";
+}
+
 public class WorkloadStatus
 {
     public long WorkloadStatusId { get; set; }
@@ -206,4 +219,9 @@ public class WorkloadStatus
     public string Status { get; set; } = string.Empty;
 
     public WorkloadType WorkloadType { get; set; } = null!;
+}
+
+public static class WorkloadStatusNames
+{
+    public const string PendingInvite = "Pending Invite";
 }

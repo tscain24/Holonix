@@ -270,6 +270,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.ToTable("WorkloadType", "work");
             entity.HasKey(x => x.WorkloadTypeId);
             entity.Property(x => x.Type).IsRequired().HasMaxLength(120);
+            entity.HasIndex(x => x.Type).IsUnique();
         });
 
         builder.Entity<WorkloadStatus>(entity =>
@@ -277,6 +278,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.ToTable("WorkloadStatus", "work");
             entity.HasKey(x => x.WorkloadStatusId);
             entity.Property(x => x.Status).IsRequired().HasMaxLength(120);
+            entity.HasIndex(x => new { x.WorkloadStatusId, x.WorkloadTypeId }).IsUnique();
+            entity.HasIndex(x => new { x.WorkloadTypeId, x.Status }).IsUnique();
             entity.HasOne(x => x.WorkloadType)
                 .WithMany()
                 .HasForeignKey(x => x.WorkloadTypeId)
@@ -287,13 +290,34 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         {
             entity.ToTable("Workload", "work");
             entity.HasKey(x => x.WorkloadId);
+            entity.Property(x => x.CreatedByUserId).IsRequired().HasMaxLength(450);
+            entity.Property(x => x.TargetUserId).HasMaxLength(450);
+            entity.Property(x => x.TargetEmail).HasMaxLength(256);
+            entity.Property(x => x.NormalizedTargetEmail).HasMaxLength(256);
+            entity.HasIndex(x => x.BusinessId);
+            entity.HasIndex(x => x.CreatedByUserId);
+            entity.HasIndex(x => x.TargetUserId);
+            entity.HasIndex(x => x.NormalizedTargetEmail);
+            entity.HasOne(x => x.Business)
+                .WithMany()
+                .HasForeignKey(x => x.BusinessId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.TargetUser)
+                .WithMany()
+                .HasForeignKey(x => x.TargetUserId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.WorkloadType)
                 .WithMany()
                 .HasForeignKey(x => x.WorkloadTypeId)
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.WorkloadStatus)
                 .WithMany()
-                .HasForeignKey(x => x.WorkloadStatusId)
+                .HasForeignKey(x => new { x.WorkloadStatusId, x.WorkloadTypeId })
+                .HasPrincipalKey(x => new { x.WorkloadStatusId, x.WorkloadTypeId })
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }
