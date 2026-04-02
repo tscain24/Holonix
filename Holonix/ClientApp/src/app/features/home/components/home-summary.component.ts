@@ -1,12 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
-
-interface UsageMonth {
-  month: string;
-  searches: number;
-  leads: number;
-  bookings: number;
-  saves: number;
-}
+import { HomeService, PendingInvite } from '../../../core/services/home.service';
+import { AuthSessionService } from '../../../core/services/auth-session.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-home-summary',
@@ -16,56 +11,157 @@ interface UsageMonth {
 export class HomeSummaryComponent implements OnInit {
   @Input() firstName = 'User';
 
-  usageMonths: UsageMonth[] = [];
-  totalSearches = 0;
-  totalLeads = 0;
-  totalBookings = 0;
-  totalSaves = 0;
-  avgMonthlySearches = 0;
-  bookingRate = 0;
-  maxActivity = 1;
+  loadingPendingInvites = true;
+  pendingInvites: PendingInvite[] = [];
+  selectedInvite: PendingInvite | null = null;
+  updatingInvite = false;
+
+  constructor(
+    private readonly homeService: HomeService,
+    private readonly authSession: AuthSessionService,
+    private readonly snackBar: MatSnackBar
+  ) {}
 
   ngOnInit(): void {
-    this.usageMonths = this.buildUsageMonths();
-    this.totalSearches = this.usageMonths.reduce((sum, month) => sum + month.searches, 0);
-    this.totalLeads = this.usageMonths.reduce((sum, month) => sum + month.leads, 0);
-    this.totalBookings = this.usageMonths.reduce((sum, month) => sum + month.bookings, 0);
-    this.totalSaves = this.usageMonths.reduce((sum, month) => sum + month.saves, 0);
-    this.avgMonthlySearches = Math.round(this.totalSearches / this.usageMonths.length);
-    this.bookingRate = this.totalSearches > 0
-      ? Math.round((this.totalBookings / this.totalSearches) * 100)
-      : 0;
-    this.maxActivity = Math.max(...this.usageMonths.map((month) => this.activityValue(month)), 1);
-  }
+    this.homeService.getPendingInvites().subscribe({
+      next: (pendingInvites) => {
+        this.pendingInvites = pendingInvites;
+        this.loadingPendingInvites = false;
+      },
+      error: () => {
+        this.loadingPendingInvites = false;
 
-  activityValue(month: UsageMonth): number {
-    return month.searches + month.leads * 2 + month.bookings * 4 + month.saves;
-  }
-
-  activityPercent(month: UsageMonth): number {
-    return Math.max(18, Math.round((this.activityValue(month) / this.maxActivity) * 100));
-  }
-
-  private buildUsageMonths(): UsageMonth[] {
-    const profile = [
-      { searches: 18, leads: 6, bookings: 2, saves: 4 },
-      { searches: 24, leads: 8, bookings: 3, saves: 5 },
-      { searches: 29, leads: 10, bookings: 4, saves: 6 },
-      { searches: 33, leads: 12, bookings: 4, saves: 8 },
-      { searches: 39, leads: 14, bookings: 5, saves: 9 },
-      { searches: 44, leads: 17, bookings: 6, saves: 11 },
-    ];
-
-    const formatter = new Intl.DateTimeFormat('en-US', { month: 'short' });
-
-    return profile.map((value, index) => {
-      const offset = 5 - index;
-      const monthDate = new Date();
-      monthDate.setMonth(monthDate.getMonth() - offset);
-      return {
-        month: formatter.format(monthDate),
-        ...value,
-      };
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+      },
     });
+  }
+
+  formatInviteDate(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return 'Unavailable';
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(date);
+  }
+
+  formatInviteTime(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return 'Unavailable';
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(date);
+  }
+
+  formatInvitedBy(invite: PendingInvite): string {
+    const displayName = invite.invitedByDisplayName?.trim();
+    const email = invite.invitedByEmail?.trim();
+
+    if (displayName && email) {
+      return `${displayName} (${email})`;
+    }
+
+    return displayName || email || 'Workspace User';
+  }
+
+  trackPendingInvite(_: number, invite: PendingInvite): number {
+    return invite.workloadId;
+  }
+
+  openInviteDetails(invite: PendingInvite): void {
+    this.selectedInvite = invite;
+  }
+
+  closeInviteDetails(): void {
+    if (this.updatingInvite) {
+      return;
+    }
+
+    this.selectedInvite = null;
+  }
+
+  viewButtonLabel(invite: PendingInvite): string {
+    if (invite.inviteType.toLowerCase() === 'employee invite') {
+      return 'View';
+    }
+
+    return 'View';
+  }
+
+  acceptSelectedInvite(): void {
+    if (!this.selectedInvite || this.updatingInvite) {
+      return;
+    }
+
+    this.updatingInvite = true;
+    this.homeService.acceptPendingInvite(this.selectedInvite.workloadId).subscribe({
+      next: () => {
+        const workloadId = this.selectedInvite?.workloadId;
+        this.pendingInvites = this.pendingInvites.filter((invite) => invite.workloadId !== workloadId);
+        this.selectedInvite = null;
+        this.updatingInvite = false;
+        this.snackBar.open('Invite accepted.', 'Close', {
+          duration: 3000,
+          panelClass: ['snack-success'],
+        });
+      },
+      error: (err) => {
+        this.updatingInvite = false;
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
+        this.snackBar.open(this.extractErrors(err)[0] ?? 'Could not accept invite.', 'Close', {
+          duration: 3500,
+          panelClass: ['snack-error'],
+        });
+      },
+    });
+  }
+
+  denySelectedInvite(): void {
+    if (!this.selectedInvite || this.updatingInvite) {
+      return;
+    }
+
+    this.updatingInvite = true;
+    this.homeService.denyPendingInvite(this.selectedInvite.workloadId).subscribe({
+      next: () => {
+        const workloadId = this.selectedInvite?.workloadId;
+        this.pendingInvites = this.pendingInvites.filter((invite) => invite.workloadId !== workloadId);
+        this.selectedInvite = null;
+        this.updatingInvite = false;
+        this.snackBar.open('Invite denied.', 'Close', {
+          duration: 3000,
+          panelClass: ['snack-success'],
+        });
+      },
+      error: (err) => {
+        this.updatingInvite = false;
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
+        this.snackBar.open(this.extractErrors(err)[0] ?? 'Could not deny invite.', 'Close', {
+          duration: 3500,
+          panelClass: ['snack-error'],
+        });
+      },
+    });
+  }
+
+  private extractErrors(err: unknown): string[] {
+    const apiErrors = (err as { error?: { errors?: unknown } } | null | undefined)?.error?.errors;
+    return Array.isArray(apiErrors) ? apiErrors.filter((value): value is string => typeof value === 'string') : [];
   }
 }

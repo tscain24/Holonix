@@ -109,7 +109,8 @@ export class BusinessOverviewComponent implements OnInit {
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as Node | null;
-    if (target && !this.elementRef.nativeElement.contains(target)) {
+    const element = target instanceof Element ? target : target?.parentElement;
+    if (!element?.closest('.auth-actions-logged-in')) {
       this.isUserMenuOpen = false;
     }
   }

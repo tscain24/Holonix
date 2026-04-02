@@ -1,5 +1,4 @@
 namespace Holonix.Server.Contracts.Business;
 
-public sealed record CreateEmployeeInviteRequest(
-    string Email,
+public sealed record UpdateEmployeeRoleRequest(
     string RoleName);

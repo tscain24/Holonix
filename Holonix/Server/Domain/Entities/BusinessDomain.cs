@@ -182,21 +182,39 @@ public class JobRecurrenceException
     public JobRecurrence JobRecurrence { get; set; } = null!;
 }
 
+public class EmployeeInvite
+{
+    public long EmployeeInviteId { get; set; }
+    public int BusinessId { get; set; }
+    public string TargetEmail { get; set; } = string.Empty;
+    public string NormalizedTargetEmail { get; set; } = string.Empty;
+    public string? TargetUserId { get; set; }
+    public long? TargetBusinessRoleId { get; set; }
+
+    public Business Business { get; set; } = null!;
+    public ApplicationUser? TargetUser { get; set; }
+    public BusinessRole? TargetBusinessRole { get; set; }
+}
+
+public class EmployeeInviteWorkload
+{
+    public long EmployeeInviteWorkloadId { get; set; }
+    public long WorkloadId { get; set; }
+    public long EmployeeInviteId { get; set; }
+
+    public Workload Workload { get; set; } = null!;
+    public EmployeeInvite EmployeeInvite { get; set; } = null!;
+}
+
 public class Workload
 {
     public long WorkloadId { get; set; }
     public DateTime CreatedDate { get; set; }
-    public int BusinessId { get; set; }
     public string CreatedByUserId { get; set; } = string.Empty;
-    public string? TargetUserId { get; set; }
-    public string? TargetEmail { get; set; }
-    public string? NormalizedTargetEmail { get; set; }
     public long WorkloadTypeId { get; set; }
     public long WorkloadStatusId { get; set; }
 
-    public Business Business { get; set; } = null!;
     public ApplicationUser CreatedByUser { get; set; } = null!;
-    public ApplicationUser? TargetUser { get; set; }
     public WorkloadType WorkloadType { get; set; } = null!;
     public WorkloadStatus WorkloadStatus { get; set; } = null!;
 }
@@ -224,4 +242,7 @@ public class WorkloadStatus
 public static class WorkloadStatusNames
 {
     public const string PendingInvite = "Pending Invite";
+    public const string Active = "Active";
+    public const string Denied = "Denied";
+    public const string Closed = "Closed";
 }

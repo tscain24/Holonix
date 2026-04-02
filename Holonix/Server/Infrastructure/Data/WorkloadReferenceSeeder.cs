@@ -7,6 +7,9 @@ public static class WorkloadReferenceSeeder
 {
     private const string EmployeeInviteTypeName = WorkloadTypeNames.EmployeeInvite;
     private const string PendingInviteStatusName = WorkloadStatusNames.PendingInvite;
+    private const string ActiveStatusName = WorkloadStatusNames.Active;
+    private const string DeniedStatusName = WorkloadStatusNames.Denied;
+    private const string ClosedStatusName = WorkloadStatusNames.Closed;
 
     public static async Task SeedAsync(IServiceProvider services, CancellationToken cancellationToken = default)
     {
@@ -29,23 +32,55 @@ public static class WorkloadReferenceSeeder
             await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        var hasPendingInviteStatus = await dbContext.WorkloadStatuses
-            .AnyAsync(
-                workloadStatus =>
-                    workloadStatus.WorkloadTypeId == employeeInviteType.WorkloadTypeId &&
-                    workloadStatus.Status == PendingInviteStatusName,
-                cancellationToken);
+        var existingStatuses = await dbContext.WorkloadStatuses
+            .AsNoTracking()
+            .Where(workloadStatus => workloadStatus.WorkloadTypeId == employeeInviteType.WorkloadTypeId)
+            .Select(workloadStatus => workloadStatus.Status)
+            .ToListAsync(cancellationToken);
 
-        if (hasPendingInviteStatus)
+        if (existingStatuses.Contains(PendingInviteStatusName, StringComparer.OrdinalIgnoreCase) &&
+            existingStatuses.Contains(ActiveStatusName, StringComparer.OrdinalIgnoreCase) &&
+            existingStatuses.Contains(DeniedStatusName, StringComparer.OrdinalIgnoreCase) &&
+            existingStatuses.Contains(ClosedStatusName, StringComparer.OrdinalIgnoreCase))
         {
             return;
         }
 
-        dbContext.WorkloadStatuses.Add(new WorkloadStatus
+        if (!existingStatuses.Contains(PendingInviteStatusName, StringComparer.OrdinalIgnoreCase))
         {
-            WorkloadTypeId = employeeInviteType.WorkloadTypeId,
-            Status = PendingInviteStatusName,
-        });
+            dbContext.WorkloadStatuses.Add(new WorkloadStatus
+            {
+                WorkloadTypeId = employeeInviteType.WorkloadTypeId,
+                Status = PendingInviteStatusName,
+            });
+        }
+
+        if (!existingStatuses.Contains(ActiveStatusName, StringComparer.OrdinalIgnoreCase))
+        {
+            dbContext.WorkloadStatuses.Add(new WorkloadStatus
+            {
+                WorkloadTypeId = employeeInviteType.WorkloadTypeId,
+                Status = ActiveStatusName,
+            });
+        }
+
+        if (!existingStatuses.Contains(DeniedStatusName, StringComparer.OrdinalIgnoreCase))
+        {
+            dbContext.WorkloadStatuses.Add(new WorkloadStatus
+            {
+                WorkloadTypeId = employeeInviteType.WorkloadTypeId,
+                Status = DeniedStatusName,
+            });
+        }
+
+        if (!existingStatuses.Contains(ClosedStatusName, StringComparer.OrdinalIgnoreCase))
+        {
+            dbContext.WorkloadStatuses.Add(new WorkloadStatus
+            {
+                WorkloadTypeId = employeeInviteType.WorkloadTypeId,
+                Status = ClosedStatusName,
+            });
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }

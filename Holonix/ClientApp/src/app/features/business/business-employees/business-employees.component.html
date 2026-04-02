@@ -48,7 +48,7 @@
 
       <section class="employees-section">
         <div class="section-heading section-heading-row">
-          <div>
+          <div class="section-heading-copy">
             <h2>Employee Invites</h2>
             <p>Pending and historical invite workloads created from this workspace.</p>
           </div>
@@ -60,27 +60,40 @@
 
         <div class="page-state" *ngIf="loadingInvites">Loading employee invites...</div>
 
-        <div class="page-state" *ngIf="!loadingInvites && employeeInvites.length === 0">
+        <div class="page-state invite-empty-state" *ngIf="!loadingInvites && employeeInvites.length === 0">
           No employee invites have been created for this business yet.
         </div>
 
-        <div class="employee-table-shell" *ngIf="!loadingInvites && employeeInvites.length > 0">
+        <div class="employee-table-shell" *ngIf="!loadingInvites && employeeInvites.length > 0" (scroll)="closeEmployeeMenu()">
           <table class="employee-table">
             <thead>
               <tr>
                 <th scope="col">Email</th>
+                <th scope="col">Role</th>
                 <th scope="col">Invited By</th>
                 <th scope="col">Invited On</th>
                 <th scope="col">Status</th>
+                <th scope="col" *ngIf="canInviteEmployees">Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let invite of employeeInvites; trackBy: trackInvite">
                 <td class="employee-table-name">{{ invite.email }}</td>
-                <td>{{ invite.invitedByDisplayName }}</td>
+                <td>{{ invite.roleName }}</td>
+                <td>{{ formatInvitedBy(invite) }}</td>
                 <td>{{ formatInviteDate(invite.invitedAt) }}</td>
                 <td>
-                  <span class="status-chip status-chip-pending">{{ invite.status }}</span>
+                  <span class="status-chip" [ngClass]="inviteStatusClass(invite.status)">{{ invite.status }}</span>
+                </td>
+                <td *ngIf="canInviteEmployees" class="employee-table-actions">
+                  <button
+                    *ngIf="canCloseInvite(invite)"
+                    type="button"
+                    class="table-action-btn"
+                    (click)="closeInvite(invite)"
+                    [disabled]="isClosingInvite(invite.workloadId)">
+                    {{ isClosingInvite(invite.workloadId) ? 'Closing...' : 'Close Invite' }}
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -90,15 +103,16 @@
 
       <section class="employees-section">
         <div class="section-heading section-heading-row">
-          <div>
+          <div class="section-heading-copy">
             <h2>Employees</h2>
-            <p>{{ business.employees.length }} team member{{ business.employees.length === 1 ? '' : 's' }}</p>
           </div>
         </div>
 
-        <div class="page-state" *ngIf="business.employees.length === 0">No employees are associated with this business yet.</div>
+        <div class="page-state" *ngIf="loadingEmployees">Loading employees...</div>
 
-        <div class="employee-table-shell" *ngIf="business.employees.length > 0">
+        <div class="page-state" *ngIf="!loadingEmployees && totalEmployeeCount === 0">No employees are associated with this business yet.</div>
+
+        <div class="employee-table-shell" *ngIf="!loadingEmployees && totalEmployeeCount > 0" (scroll)="closeEmployeeMenu()">
           <table class="employee-table">
             <thead>
               <tr>
@@ -107,10 +121,11 @@
                 <th scope="col">Hired</th>
                 <th scope="col">Status</th>
                 <th scope="col" class="employee-table-number">Assigned Jobs</th>
+                <th scope="col" *ngIf="canInviteEmployees">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let employee of business.employees; trackBy: trackEmployee">
+              <tr *ngFor="let employee of employees; trackBy: trackEmployee">
                 <td class="employee-table-name">{{ employee.displayName }}</td>
                 <td>{{ employee.roleName || 'Team Member' }}</td>
                 <td>{{ formatHiredDate(employee.hiredDate) }}</td>
@@ -120,9 +135,56 @@
                   </span>
                 </td>
                 <td class="employee-table-number">{{ employee.assignedJobCount }}</td>
+                <td *ngIf="canInviteEmployees" class="employee-table-actions">
+                  <div class="row-action-menu" *ngIf="hasEmployeeActions(employee)">
+                    <button
+                      type="button"
+                      class="menu-trigger-btn"
+                      (click)="toggleEmployeeMenu($event, employee)"
+                      aria-label="Open employee actions">
+                      ⋯
+                    </button>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div
+          class="row-action-popover row-action-popover-overlay"
+          *ngIf="selectedEmployeeForMenu && openEmployeeMenuId === selectedEmployeeForMenu.businessUserId"
+          [style.top.px]="employeeMenuTop"
+          [style.left.px]="employeeMenuLeft">
+          <button
+            *ngIf="canUpdateEmployeeRole(selectedEmployeeForMenu)"
+            type="button"
+            class="row-action-item"
+            (click)="openUpdateRoleModal(selectedEmployeeForMenu)">
+            Update Role
+          </button>
+          <button
+            *ngIf="canDeactivateEmployee(selectedEmployeeForMenu)"
+            type="button"
+            class="row-action-item row-action-item-danger"
+            (click)="deactivateEmployee(selectedEmployeeForMenu)"
+            [disabled]="isDeactivatingEmployee(selectedEmployeeForMenu.businessUserId)">
+            {{ isDeactivatingEmployee(selectedEmployeeForMenu.businessUserId) ? 'Deactivating...' : 'Deactivate' }}
+          </button>
+        </div>
+
+        <div class="table-pagination" *ngIf="!loadingEmployees && totalEmployeeCount > 0">
+          <span class="table-pagination-copy">
+            Showing {{ employeePageStart }}-{{ employeePageEnd }} of {{ totalEmployeeCount }}
+          </span>
+          <div class="table-pagination-actions">
+            <button type="button" class="secondary-btn" (click)="goToPreviousEmployeePage()" [disabled]="!hasPreviousEmployeePage || loadingEmployees">
+              Previous
+            </button>
+            <button type="button" class="secondary-btn" (click)="goToNextEmployeePage()" [disabled]="!hasNextEmployeePage || loadingEmployees">
+              Next
+            </button>
+          </div>
         </div>
       </section>
     </ng-container>
@@ -160,14 +222,68 @@
         />
       </label>
 
+      <label class="modal-field">
+        <span>Role</span>
+        <select [formControl]="inviteRoleControl" [class.modal-input-invalid]="inviteRoleControl.invalid && inviteRoleControl.touched">
+          <option value="" disabled>Select a role</option>
+          <option *ngFor="let role of businessWorkspace?.availableEmployeeRoles ?? []" [value]="role">{{ role }}</option>
+        </select>
+      </label>
+
       <p class="modal-error" *ngIf="inviteEmailControl.hasError('required') && inviteEmailControl.touched">Email is required.</p>
       <p class="modal-error" *ngIf="inviteEmailControl.hasError('email') && inviteEmailControl.touched">Enter a valid email address.</p>
       <p class="modal-error" *ngIf="inviteEmailControl.hasError('maxlength') && inviteEmailControl.touched">Email must be 256 characters or fewer.</p>
+      <p class="modal-error" *ngIf="inviteRoleControl.hasError('required') && inviteRoleControl.touched">Role is required.</p>
 
       <div class="modal-actions">
         <button type="button" class="secondary-btn" (click)="closeInviteModal()" [disabled]="sendingInvite">Cancel</button>
         <button type="button" class="action-btn" (click)="submitInvite()" [disabled]="!canSubmitInvite">
           {{ sendingInvite ? 'Sending...' : 'Send Invite' }}
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="roleModalOpen">
+    <section
+      class="invite-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="employee-role-title"
+      aria-describedby="employee-role-description">
+      <div class="modal-header">
+        <div>
+          <p class="modal-kicker">Employee Role</p>
+          <h2 id="employee-role-title">Update employee role</h2>
+        </div>
+        <button
+          type="button"
+          class="modal-close"
+          (click)="closeUpdateRoleModal()"
+          [disabled]="updatingEmployeeRole"
+          aria-label="Close role update modal">
+          ×
+        </button>
+      </div>
+
+      <p id="employee-role-description" class="modal-copy">
+        Update the workspace role for <strong>{{ selectedEmployeeForRoleUpdate?.displayName || 'this employee' }}</strong>.
+      </p>
+
+      <label class="modal-field">
+        <span>Role</span>
+        <select [formControl]="employeeRoleControl" [class.modal-input-invalid]="employeeRoleControl.invalid && employeeRoleControl.touched">
+          <option value="" disabled>Select a role</option>
+          <option *ngFor="let role of businessWorkspace?.availableEmployeeRoles ?? []" [value]="role">{{ role }}</option>
+        </select>
+      </label>
+
+      <p class="modal-error" *ngIf="employeeRoleControl.hasError('required') && employeeRoleControl.touched">Role is required.</p>
+
+      <div class="modal-actions">
+        <button type="button" class="secondary-btn" (click)="closeUpdateRoleModal()" [disabled]="updatingEmployeeRole">Cancel</button>
+        <button type="button" class="action-btn" (click)="submitEmployeeRoleUpdate()" [disabled]="!canSubmitEmployeeRoleUpdate">
+          {{ updatingEmployeeRole ? 'Saving...' : 'Update Role' }}
         </button>
       </div>
     </section>

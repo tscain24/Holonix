@@ -207,8 +207,10 @@ public class BusinessController : ControllerBase
                 {
                     joined.BusinessUserId,
                     RoleName = businessRole != null ? businessRole.Name : null,
+                    RoleHierarchyNumber = businessRole != null ? businessRole.HierarchyNumber : (long?)null,
                 })
-            .OrderBy(item => item.RoleName)
+            .OrderByDescending(item => item.RoleHierarchyNumber)
+            .ThenBy(item => item.RoleName)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (currentMembership is null)
@@ -242,6 +244,16 @@ public class BusinessController : ControllerBase
                 })
             .OrderBy(item => item.Name)
             .Select(item => new BusinessWorkspaceServiceResponse(item.ServiceId, item.Name))
+            .ToListAsync(cancellationToken);
+
+        var availableEmployeeRoles = await _dbContext.BusinessRoles
+            .AsNoTracking()
+            .Where(role =>
+                currentMembership.RoleHierarchyNumber.HasValue &&
+                role.HierarchyNumber <= currentMembership.RoleHierarchyNumber.Value)
+            .OrderByDescending(role => role.HierarchyNumber)
+            .ThenBy(role => role.Name)
+            .Select(role => role.Name)
             .ToListAsync(cancellationToken);
 
         var employeeRoleRows = await _dbContext.BusinessUsers
@@ -290,6 +302,7 @@ public class BusinessController : ControllerBase
                     joined.joined.FirstName,
                     joined.joined.LastName,
                     RoleName = businessRole != null ? businessRole.Name : null,
+                    RoleHierarchyNumber = businessRole != null ? businessRole.HierarchyNumber : (long?)null,
                 })
             .ToListAsync(cancellationToken);
 
@@ -300,7 +313,7 @@ public class BusinessController : ControllerBase
             .Select(group => new { BusinessUserId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(item => item.BusinessUserId, item => item.Count, cancellationToken);
 
-        var employees = employeeRoleRows
+        var orderedEmployees = employeeRoleRows
             .GroupBy(item => item.BusinessUserId)
             .Select(group =>
             {
@@ -316,16 +329,52 @@ public class BusinessController : ControllerBase
                     .OrderBy(name => name)
                     .FirstOrDefault();
 
-                return new BusinessWorkspaceEmployeeResponse(
-                    group.Key,
-                    string.IsNullOrWhiteSpace(displayName) ? "Team Member" : displayName,
-                    roleName,
-                    first.StartDate,
-                    first.IsActive,
-                    assignedJobCounts.TryGetValue(group.Key, out var assignedJobCount) ? assignedJobCount : 0);
+                var roleHierarchyNumber = group
+                    .Where(item => item.RoleHierarchyNumber.HasValue)
+                    .Select(item => item.RoleHierarchyNumber)
+                    .OrderByDescending(value => value)
+                    .FirstOrDefault();
+
+                var canDeactivate = CanManageEmployeeInvites(currentMembership.RoleName)
+                    && first.IsActive
+                    && group.Key != currentMembership.BusinessUserId
+                    && currentMembership.RoleHierarchyNumber.HasValue
+                    && roleHierarchyNumber.HasValue
+                    && roleHierarchyNumber.Value < currentMembership.RoleHierarchyNumber.Value;
+
+                var canUpdateRole = CanManageEmployeeInvites(currentMembership.RoleName)
+                    && first.IsActive
+                    && group.Key != currentMembership.BusinessUserId
+                    && currentMembership.RoleHierarchyNumber.HasValue
+                    && roleHierarchyNumber.HasValue
+                    && roleHierarchyNumber.Value < currentMembership.RoleHierarchyNumber.Value;
+
+                var sortLastName = first.LastName?.Trim() ?? string.Empty;
+                var sortFirstName = first.FirstName?.Trim() ?? string.Empty;
+
+                return new
+                {
+                    SortLastName = sortLastName,
+                    SortFirstName = sortFirstName,
+                    Employee = new BusinessWorkspaceEmployeeResponse(
+                        group.Key,
+                        string.IsNullOrWhiteSpace(displayName) ? "Team Member" : displayName,
+                        roleName,
+                        first.StartDate,
+                        first.IsActive,
+                        assignedJobCounts.TryGetValue(group.Key, out var assignedJobCount) ? assignedJobCount : 0,
+                        canDeactivate,
+                        canUpdateRole),
+                };
             })
-            .OrderByDescending(item => item.IsActive)
-            .ThenBy(item => item.DisplayName)
+            .OrderByDescending(item => item.Employee.IsActive)
+            .ThenBy(item => string.IsNullOrWhiteSpace(item.SortLastName) ? item.Employee.DisplayName : item.SortLastName)
+            .ThenBy(item => string.IsNullOrWhiteSpace(item.SortFirstName) ? item.Employee.DisplayName : item.SortFirstName)
+            .Select(item => item.Employee)
+            .ToList();
+
+        var employees = orderedEmployees
+            .Take(5)
             .ToList();
 
         var jobs = await _dbContext.Jobs
@@ -345,7 +394,7 @@ public class BusinessController : ControllerBase
             .Take(8)
             .ToListAsync(cancellationToken);
 
-        var employeeNameByBusinessUserId = employees.ToDictionary(
+        var employeeNameByBusinessUserId = orderedEmployees.ToDictionary(
             employee => employee.BusinessUserId,
             employee => employee.DisplayName);
 
@@ -372,7 +421,7 @@ public class BusinessController : ControllerBase
             .AsNoTracking()
             .CountAsync(job => job.BusinessId == businessId, cancellationToken);
 
-        var activeEmployeeCount = employees.Count(employee => employee.IsActive);
+        var activeEmployeeCount = orderedEmployees.Count(employee => employee.IsActive);
 
         var response = new BusinessWorkspaceResponse(
             business.BusinessId,
@@ -388,6 +437,7 @@ public class BusinessController : ControllerBase
             business.Details?.BusinessJobPercentage ?? 0,
             business.IsProductBased,
             currentMembership.RoleName,
+            availableEmployeeRoles,
             services.Count,
             services,
             activeEmployeeCount,
@@ -397,6 +447,196 @@ public class BusinessController : ControllerBase
             jobResponses);
 
         return Ok(response);
+    }
+
+    [Authorize]
+    [HttpGet("{businessId:int}/employees")]
+    public async Task<IActionResult> GetEmployees(
+        int businessId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        if (pageNumber < 1)
+        {
+          pageNumber = 1;
+        }
+
+        pageSize = Math.Clamp(pageSize, 1, 10);
+
+        var currentMembership = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId &&
+                businessUser.UserId == userId &&
+                businessUser.IsActive &&
+                businessUser.EndDate == null)
+            .GroupJoin(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRoles) => new { businessUser.BusinessUserId, businessUserRoles })
+            .SelectMany(
+                joined => joined.businessUserRoles.DefaultIfEmpty(),
+                (joined, businessUserRole) => new
+                {
+                    joined.BusinessUserId,
+                    BusinessRoleId = businessUserRole != null ? businessUserRole.BusinessRoleId : (long?)null,
+                })
+            .GroupJoin(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                joined => joined.BusinessRoleId,
+                businessRole => (long?)businessRole.BusinessRoleId,
+                (joined, businessRoles) => new { joined.BusinessUserId, businessRoles })
+            .SelectMany(
+                joined => joined.businessRoles.DefaultIfEmpty(),
+                (joined, businessRole) => new
+                {
+                    joined.BusinessUserId,
+                    RoleName = businessRole != null ? businessRole.Name : null,
+                    RoleHierarchyNumber = businessRole != null ? businessRole.HierarchyNumber : (long?)null,
+                })
+            .OrderByDescending(item => item.RoleHierarchyNumber)
+            .ThenBy(item => item.RoleName)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (currentMembership is null)
+        {
+            return Forbid();
+        }
+
+        var employeeRoleRows = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser => businessUser.BusinessId == businessId && businessUser.EndDate == null)
+            .Join(
+                _dbContext.Users.AsNoTracking(),
+                businessUser => businessUser.UserId,
+                user => user.Id,
+                (businessUser, user) => new
+                {
+                    businessUser.BusinessUserId,
+                    businessUser.IsActive,
+                    businessUser.StartDate,
+                    user.FirstName,
+                    user.LastName,
+                })
+            .GroupJoin(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRoles) => new { businessUser, businessUserRoles })
+            .SelectMany(
+                joined => joined.businessUserRoles.DefaultIfEmpty(),
+                (joined, businessUserRole) => new
+                {
+                    joined.businessUser.BusinessUserId,
+                    joined.businessUser.IsActive,
+                    joined.businessUser.StartDate,
+                    joined.businessUser.FirstName,
+                    joined.businessUser.LastName,
+                    BusinessRoleId = businessUserRole != null ? businessUserRole.BusinessRoleId : (long?)null,
+                })
+            .GroupJoin(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                joined => joined.BusinessRoleId,
+                businessRole => (long?)businessRole.BusinessRoleId,
+                (joined, businessRoles) => new { joined, businessRoles })
+            .SelectMany(
+                joined => joined.businessRoles.DefaultIfEmpty(),
+                (joined, businessRole) => new
+                {
+                    joined.joined.BusinessUserId,
+                    joined.joined.IsActive,
+                    joined.joined.StartDate,
+                    joined.joined.FirstName,
+                    joined.joined.LastName,
+                    RoleName = businessRole != null ? businessRole.Name : null,
+                    RoleHierarchyNumber = businessRole != null ? businessRole.HierarchyNumber : (long?)null,
+                })
+            .ToListAsync(cancellationToken);
+
+        var assignedJobCounts = await _dbContext.Jobs
+            .AsNoTracking()
+            .Where(job => job.BusinessId == businessId && job.BusinessUserId.HasValue)
+            .GroupBy(job => job.BusinessUserId!.Value)
+            .Select(group => new { BusinessUserId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.BusinessUserId, item => item.Count, cancellationToken);
+
+        var orderedEmployees = employeeRoleRows
+            .GroupBy(item => item.BusinessUserId)
+            .Select(group =>
+            {
+                var first = group
+                    .OrderByDescending(item => item.IsActive)
+                    .ThenBy(item => item.StartDate)
+                    .First();
+
+                var displayName = $"{first.FirstName} {first.LastName}".Trim();
+                var roleName = group
+                    .Where(item => !string.IsNullOrWhiteSpace(item.RoleName))
+                    .Select(item => item.RoleName!)
+                    .OrderBy(name => name)
+                    .FirstOrDefault();
+
+                var roleHierarchyNumber = group
+                    .Where(item => item.RoleHierarchyNumber.HasValue)
+                    .Select(item => item.RoleHierarchyNumber)
+                    .OrderByDescending(value => value)
+                    .FirstOrDefault();
+
+                var canDeactivate = CanManageEmployeeInvites(currentMembership.RoleName)
+                    && first.IsActive
+                    && group.Key != currentMembership.BusinessUserId
+                    && currentMembership.RoleHierarchyNumber.HasValue
+                    && roleHierarchyNumber.HasValue
+                    && roleHierarchyNumber.Value < currentMembership.RoleHierarchyNumber.Value;
+
+                var canUpdateRole = CanManageEmployeeInvites(currentMembership.RoleName)
+                    && first.IsActive
+                    && group.Key != currentMembership.BusinessUserId
+                    && currentMembership.RoleHierarchyNumber.HasValue
+                    && roleHierarchyNumber.HasValue
+                    && roleHierarchyNumber.Value < currentMembership.RoleHierarchyNumber.Value;
+
+                var sortLastName = first.LastName?.Trim() ?? string.Empty;
+                var sortFirstName = first.FirstName?.Trim() ?? string.Empty;
+
+                return new
+                {
+                    SortLastName = sortLastName,
+                    SortFirstName = sortFirstName,
+                    Employee = new BusinessWorkspaceEmployeeResponse(
+                        group.Key,
+                        string.IsNullOrWhiteSpace(displayName) ? "Team Member" : displayName,
+                        roleName,
+                        first.StartDate,
+                        first.IsActive,
+                        assignedJobCounts.TryGetValue(group.Key, out var assignedJobCount) ? assignedJobCount : 0,
+                        canDeactivate,
+                        canUpdateRole),
+                };
+            })
+            .OrderByDescending(item => item.Employee.IsActive)
+            .ThenBy(item => string.IsNullOrWhiteSpace(item.SortLastName) ? item.Employee.DisplayName : item.SortLastName)
+            .ThenBy(item => string.IsNullOrWhiteSpace(item.SortFirstName) ? item.Employee.DisplayName : item.SortFirstName)
+            .Select(item => item.Employee)
+            .ToList();
+
+        var totalCount = orderedEmployees.Count;
+        var employees = orderedEmployees
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        return Ok(new BusinessWorkspaceEmployeePageResponse(pageNumber, pageSize, totalCount, employees));
     }
 
     [Authorize]
@@ -417,24 +657,89 @@ public class BusinessController : ControllerBase
             return Forbid();
         }
 
-        var invites = await _dbContext.Workloads
+        var invites = await _dbContext.EmployeeInviteWorkloads
             .AsNoTracking()
-            .Where(workload =>
-                workload.BusinessId == businessId &&
-                workload.WorkloadType.Type == WorkloadTypeNames.EmployeeInvite)
-            .OrderByDescending(workload => workload.CreatedDate)
-            .Select(workload => new BusinessEmployeeInviteResponse(
-                workload.WorkloadId,
-                workload.TargetEmail ?? string.Empty,
+            .Where(item =>
+                item.EmployeeInvite.BusinessId == businessId &&
+                item.Workload.WorkloadType.Type == WorkloadTypeNames.EmployeeInvite &&
+                (
+                    item.Workload.WorkloadStatus.Status == WorkloadStatusNames.PendingInvite ||
+                    item.Workload.WorkloadStatus.Status == WorkloadStatusNames.Denied
+                ))
+            .OrderByDescending(item => item.Workload.CreatedDate)
+            .Select(item => new BusinessEmployeeInviteResponse(
+                item.Workload.WorkloadId,
+                item.EmployeeInvite.TargetEmail,
+                item.EmployeeInvite.TargetBusinessRole != null ? item.EmployeeInvite.TargetBusinessRole.Name : BusinessRoleNames.Employee,
                 BuildDisplayName(
-                    workload.CreatedByUser.FirstName,
-                    workload.CreatedByUser.LastName,
+                    item.Workload.CreatedByUser.FirstName,
+                    item.Workload.CreatedByUser.LastName,
                     "Workspace User"),
-                workload.CreatedDate,
-                workload.WorkloadStatus.Status))
+                item.Workload.CreatedByUser.Email,
+                item.Workload.CreatedDate,
+                item.Workload.WorkloadStatus.Status))
             .ToListAsync(cancellationToken);
 
         return Ok(invites);
+    }
+
+    [Authorize]
+    [HttpPost("{businessId:int}/employee-invites/{workloadId:long}/close")]
+    public async Task<IActionResult> CloseEmployeeInvite(
+        int businessId,
+        long workloadId,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var currentRoleName = await GetActiveBusinessRoleNameAsync(businessId, userId, cancellationToken);
+        if (!CanManageEmployeeInvites(currentRoleName))
+        {
+            return Forbid();
+        }
+
+        var invite = await _dbContext.EmployeeInviteWorkloads
+            .Include(item => item.Workload)
+            .Where(item =>
+                item.WorkloadId == workloadId &&
+                item.EmployeeInvite.BusinessId == businessId &&
+                item.Workload.WorkloadType.Type == WorkloadTypeNames.EmployeeInvite &&
+                (
+                    item.Workload.WorkloadStatus.Status == WorkloadStatusNames.PendingInvite ||
+                    item.Workload.WorkloadStatus.Status == WorkloadStatusNames.Denied
+                ))
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (invite is null)
+        {
+            return NotFound(new { errors = new[] { "Employee invite not found." } });
+        }
+
+        var closedStatus = await _dbContext.WorkloadStatuses
+            .AsNoTracking()
+            .Where(status =>
+                status.WorkloadTypeId == invite.Workload.WorkloadTypeId &&
+                status.Status == WorkloadStatusNames.Closed)
+            .Select(status => new { status.WorkloadStatusId })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (closedStatus is null)
+        {
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new { errors = new[] { "Employee invite closed status is unavailable." } });
+        }
+
+        invite.Workload.WorkloadStatusId = closedStatus.WorkloadStatusId;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
     }
 
     [Authorize]
@@ -475,6 +780,12 @@ public class BusinessController : ControllerBase
             return BadRequest(new { errors = new[] { "Email is required." } });
         }
 
+        var roleName = request.RoleName?.Trim();
+        if (string.IsNullOrWhiteSpace(roleName))
+        {
+            return BadRequest(new { errors = new[] { "Role is required." } });
+        }
+
         var emailAddressAttribute = new EmailAddressAttribute();
         if (!emailAddressAttribute.IsValid(email))
         {
@@ -485,6 +796,26 @@ public class BusinessController : ControllerBase
         if (string.IsNullOrWhiteSpace(normalizedEmail))
         {
             return BadRequest(new { errors = new[] { "A valid email address is required." } });
+        }
+
+        var targetBusinessRole = await _dbContext.BusinessRoles
+            .AsNoTracking()
+            .SingleOrDefaultAsync(role => role.Name == roleName, cancellationToken);
+
+        if (targetBusinessRole is null)
+        {
+            return BadRequest(new { errors = new[] { "A valid employee role is required." } });
+        }
+
+        var currentRoleHierarchy = await _dbContext.BusinessRoles
+            .AsNoTracking()
+            .Where(role => role.Name == currentRoleName)
+            .Select(role => (long?)role.HierarchyNumber)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!currentRoleHierarchy.HasValue || targetBusinessRole.HierarchyNumber > currentRoleHierarchy.Value)
+        {
+            return Forbid();
         }
 
         var pendingInviteStatus = await _dbContext.WorkloadStatuses
@@ -508,41 +839,48 @@ public class BusinessController : ControllerBase
 
         var existingUser = await _dbContext.Users
             .AsNoTracking()
-            .Where(user => user.NormalizedEmail == normalizedEmail && user.InactiveDate == null)
+            .Where(user => user.NormalizedEmail == normalizedEmail)
             .Select(user => new
             {
                 user.Id,
                 user.FirstName,
                 user.LastName,
+                user.InactiveDate,
             })
             .SingleOrDefaultAsync(cancellationToken);
 
-        if (existingUser is not null)
+        if (existingUser is null)
         {
-            var isAlreadyActiveEmployee = await _dbContext.BusinessUsers
-                .AsNoTracking()
-                .AnyAsync(
-                    businessUser =>
-                        businessUser.BusinessId == businessId &&
-                        businessUser.UserId == existingUser.Id &&
-                        businessUser.IsActive &&
-                        businessUser.EndDate == null,
-                    cancellationToken);
-
-            if (isAlreadyActiveEmployee)
-            {
-                return BadRequest(new { errors = new[] { "That user is already an active employee of this business." } });
-            }
+            return BadRequest(new { errors = new[] { "That email does not belong to an active Holonix user." } });
         }
 
-        var pendingInviteExists = await _dbContext.Workloads
+        if (existingUser.InactiveDate is not null)
+        {
+            return BadRequest(new { errors = new[] { "That Holonix user account is inactive." } });
+        }
+
+        var isAlreadyActiveEmployee = await _dbContext.BusinessUsers
             .AsNoTracking()
             .AnyAsync(
-                workload =>
-                    workload.BusinessId == businessId &&
-                    workload.NormalizedTargetEmail == normalizedEmail &&
-                    workload.WorkloadTypeId == pendingInviteStatus.WorkloadTypeId &&
-                    workload.WorkloadStatusId == pendingInviteStatus.WorkloadStatusId,
+                businessUser =>
+                    businessUser.BusinessId == businessId &&
+                    businessUser.UserId == existingUser.Id &&
+                    businessUser.IsActive &&
+                    businessUser.EndDate == null,
+                cancellationToken);
+
+        if (isAlreadyActiveEmployee)
+        {
+            return BadRequest(new { errors = new[] { "That user is already an active employee of this business." } });
+        }
+
+        var pendingInviteExists = await _dbContext.EmployeeInviteWorkloads
+            .AsNoTracking()
+            .AnyAsync(item =>
+                    item.EmployeeInvite.BusinessId == businessId &&
+                    item.EmployeeInvite.NormalizedTargetEmail == normalizedEmail &&
+                    item.Workload.WorkloadTypeId == pendingInviteStatus.WorkloadTypeId &&
+                    item.Workload.WorkloadStatusId == pendingInviteStatus.WorkloadStatusId,
                 cancellationToken);
 
         if (pendingInviteExists)
@@ -552,17 +890,32 @@ public class BusinessController : ControllerBase
 
         var workload = new Workload
         {
-            BusinessId = businessId,
             CreatedDate = DateTime.UtcNow,
             CreatedByUserId = userId,
-            TargetUserId = existingUser?.Id,
-            TargetEmail = email,
-            NormalizedTargetEmail = normalizedEmail,
             WorkloadTypeId = pendingInviteStatus.WorkloadTypeId,
             WorkloadStatusId = pendingInviteStatus.WorkloadStatusId,
         };
 
         _dbContext.Workloads.Add(workload);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var employeeInvite = new EmployeeInvite
+        {
+            BusinessId = businessId,
+            TargetEmail = email,
+            NormalizedTargetEmail = normalizedEmail,
+            TargetUserId = existingUser.Id,
+            TargetBusinessRoleId = targetBusinessRole.BusinessRoleId,
+        };
+
+        _dbContext.EmployeeInvites.Add(employeeInvite);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _dbContext.EmployeeInviteWorkloads.Add(new EmployeeInviteWorkload
+        {
+            WorkloadId = workload.WorkloadId,
+            EmployeeInviteId = employeeInvite.EmployeeInviteId,
+        });
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         var currentUser = await _dbContext.Users
@@ -572,15 +925,337 @@ public class BusinessController : ControllerBase
             {
                 user.FirstName,
                 user.LastName,
+                user.Email,
             })
             .SingleOrDefaultAsync(cancellationToken);
 
         return Ok(new BusinessEmployeeInviteResponse(
             workload.WorkloadId,
-            workload.TargetEmail,
+            employeeInvite.TargetEmail,
+            targetBusinessRole.Name,
             BuildDisplayName(currentUser?.FirstName, currentUser?.LastName, "Workspace User"),
+            currentUser?.Email,
             workload.CreatedDate,
             WorkloadStatusNames.PendingInvite));
+    }
+
+    [Authorize]
+    [HttpPost("{businessId:int}/employees/{businessUserId:long}/deactivate")]
+    public async Task<IActionResult> DeactivateEmployee(
+        int businessId,
+        long businessUserId,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var currentMembership = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId &&
+                businessUser.UserId == userId &&
+                businessUser.IsActive &&
+                businessUser.EndDate == null)
+            .GroupJoin(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRoles) => new { businessUser.BusinessUserId, businessUserRoles })
+            .SelectMany(
+                joined => joined.businessUserRoles.DefaultIfEmpty(),
+                (joined, businessUserRole) => new
+                {
+                    joined.BusinessUserId,
+                    BusinessRoleId = businessUserRole != null ? businessUserRole.BusinessRoleId : (long?)null,
+                })
+            .GroupJoin(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                joined => joined.BusinessRoleId,
+                businessRole => (long?)businessRole.BusinessRoleId,
+                (joined, businessRoles) => new { joined.BusinessUserId, businessRoles })
+            .SelectMany(
+                joined => joined.businessRoles.DefaultIfEmpty(),
+                (joined, businessRole) => new
+                {
+                    joined.BusinessUserId,
+                    RoleName = businessRole != null ? businessRole.Name : null,
+                    RoleHierarchyNumber = businessRole != null ? businessRole.HierarchyNumber : (long?)null,
+                })
+            .OrderByDescending(item => item.RoleHierarchyNumber)
+            .ThenBy(item => item.RoleName)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (currentMembership is null || !CanManageEmployeeInvites(currentMembership.RoleName))
+        {
+            return Forbid();
+        }
+
+        if (currentMembership.BusinessUserId == businessUserId)
+        {
+            return BadRequest(new { errors = new[] { "You cannot deactivate your own employee record." } });
+        }
+
+        var targetMembership = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId &&
+                businessUser.BusinessUserId == businessUserId &&
+                businessUser.EndDate == null)
+            .GroupJoin(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRoles) => new
+                {
+                    businessUser.BusinessUserId,
+                    businessUser.IsActive,
+                    businessUserRoles,
+                })
+            .SelectMany(
+                joined => joined.businessUserRoles.DefaultIfEmpty(),
+                (joined, businessUserRole) => new
+                {
+                    joined.BusinessUserId,
+                    joined.IsActive,
+                    BusinessRoleId = businessUserRole != null ? businessUserRole.BusinessRoleId : (long?)null,
+                })
+            .GroupJoin(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                joined => joined.BusinessRoleId,
+                businessRole => (long?)businessRole.BusinessRoleId,
+                (joined, businessRoles) => new { joined.BusinessUserId, joined.IsActive, businessRoles })
+            .SelectMany(
+                joined => joined.businessRoles.DefaultIfEmpty(),
+                (joined, businessRole) => new
+                {
+                    joined.BusinessUserId,
+                    joined.IsActive,
+                    RoleHierarchyNumber = businessRole != null ? businessRole.HierarchyNumber : (long?)null,
+                })
+            .OrderByDescending(item => item.RoleHierarchyNumber)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (targetMembership is null)
+        {
+            return NotFound(new { errors = new[] { "Employee not found." } });
+        }
+
+        if (!targetMembership.IsActive)
+        {
+            return BadRequest(new { errors = new[] { "That employee is already inactive." } });
+        }
+
+        if (!currentMembership.RoleHierarchyNumber.HasValue ||
+            !targetMembership.RoleHierarchyNumber.HasValue ||
+            targetMembership.RoleHierarchyNumber.Value >= currentMembership.RoleHierarchyNumber.Value)
+        {
+            return Forbid();
+        }
+
+        var membership = await _dbContext.BusinessUsers
+            .SingleOrDefaultAsync(
+                businessUser => businessUser.BusinessId == businessId &&
+                                businessUser.BusinessUserId == businessUserId &&
+                                businessUser.EndDate == null,
+                cancellationToken);
+
+        if (membership is null)
+        {
+            return NotFound(new { errors = new[] { "Employee not found." } });
+        }
+
+        membership.IsActive = false;
+        var endedAt = DateTime.UtcNow;
+
+        var activeRoles = await _dbContext.BusinessUserRoles
+            .Where(role => role.BusinessUserId == businessUserId && role.EndDate == null)
+            .ToListAsync(cancellationToken);
+
+        foreach (var activeRole in activeRoles)
+        {
+            activeRole.EndDate = endedAt;
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
+    [Authorize]
+    [HttpPut("{businessId:int}/employees/{businessUserId:long}/role")]
+    public async Task<IActionResult> UpdateEmployeeRole(
+        int businessId,
+        long businessUserId,
+        UpdateEmployeeRoleRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var currentMembership = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId &&
+                businessUser.UserId == userId &&
+                businessUser.IsActive &&
+                businessUser.EndDate == null)
+            .GroupJoin(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRoles) => new { businessUser.BusinessUserId, businessUserRoles })
+            .SelectMany(
+                joined => joined.businessUserRoles.DefaultIfEmpty(),
+                (joined, businessUserRole) => new
+                {
+                    joined.BusinessUserId,
+                    BusinessRoleId = businessUserRole != null ? businessUserRole.BusinessRoleId : (long?)null,
+                })
+            .GroupJoin(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                joined => joined.BusinessRoleId,
+                businessRole => (long?)businessRole.BusinessRoleId,
+                (joined, businessRoles) => new { joined.BusinessUserId, businessRoles })
+            .SelectMany(
+                joined => joined.businessRoles.DefaultIfEmpty(),
+                (joined, businessRole) => new
+                {
+                    joined.BusinessUserId,
+                    RoleName = businessRole != null ? businessRole.Name : null,
+                    RoleHierarchyNumber = businessRole != null ? businessRole.HierarchyNumber : (long?)null,
+                })
+            .OrderByDescending(item => item.RoleHierarchyNumber)
+            .ThenBy(item => item.RoleName)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (currentMembership is null || !CanManageEmployeeInvites(currentMembership.RoleName))
+        {
+            return Forbid();
+        }
+
+        if (currentMembership.BusinessUserId == businessUserId)
+        {
+            return BadRequest(new { errors = new[] { "You cannot update your own role." } });
+        }
+
+        var roleName = request.RoleName?.Trim();
+        if (string.IsNullOrWhiteSpace(roleName))
+        {
+            return BadRequest(new { errors = new[] { "Role is required." } });
+        }
+
+        var targetBusinessRole = await _dbContext.BusinessRoles
+            .AsNoTracking()
+            .SingleOrDefaultAsync(role => role.Name == roleName, cancellationToken);
+
+        if (targetBusinessRole is null)
+        {
+            return BadRequest(new { errors = new[] { "A valid employee role is required." } });
+        }
+
+        if (!currentMembership.RoleHierarchyNumber.HasValue ||
+            targetBusinessRole.HierarchyNumber > currentMembership.RoleHierarchyNumber.Value)
+        {
+            return Forbid();
+        }
+
+        var targetMembership = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId &&
+                businessUser.BusinessUserId == businessUserId &&
+                businessUser.EndDate == null)
+            .GroupJoin(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRoles) => new
+                {
+                    businessUser.BusinessUserId,
+                    businessUser.IsActive,
+                    businessUserRoles,
+                })
+            .SelectMany(
+                joined => joined.businessUserRoles.DefaultIfEmpty(),
+                (joined, businessUserRole) => new
+                {
+                    joined.BusinessUserId,
+                    joined.IsActive,
+                    BusinessRoleId = businessUserRole != null ? businessUserRole.BusinessRoleId : (long?)null,
+                })
+            .GroupJoin(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                joined => joined.BusinessRoleId,
+                businessRole => (long?)businessRole.BusinessRoleId,
+                (joined, businessRoles) => new { joined.BusinessUserId, joined.IsActive, businessRoles })
+            .SelectMany(
+                joined => joined.businessRoles.DefaultIfEmpty(),
+                (joined, businessRole) => new
+                {
+                    joined.BusinessUserId,
+                    joined.IsActive,
+                    RoleName = businessRole != null ? businessRole.Name : null,
+                    RoleHierarchyNumber = businessRole != null ? businessRole.HierarchyNumber : (long?)null,
+                })
+            .OrderByDescending(item => item.RoleHierarchyNumber)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (targetMembership is null)
+        {
+            return NotFound(new { errors = new[] { "Employee not found." } });
+        }
+
+        if (!targetMembership.IsActive)
+        {
+            return BadRequest(new { errors = new[] { "Only active employees can have their role updated." } });
+        }
+
+        if (!targetMembership.RoleHierarchyNumber.HasValue ||
+            targetMembership.RoleHierarchyNumber.Value >= currentMembership.RoleHierarchyNumber.Value)
+        {
+            return Forbid();
+        }
+
+        if (string.Equals(targetMembership.RoleName, targetBusinessRole.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { errors = new[] { "That employee already has that role." } });
+        }
+
+        var activeRoles = await _dbContext.BusinessUserRoles
+            .Where(role => role.BusinessUserId == businessUserId && role.EndDate == null)
+            .ToListAsync(cancellationToken);
+
+        if (activeRoles.Count == 0)
+        {
+            return BadRequest(new { errors = new[] { "That employee does not have an active role to update." } });
+        }
+
+        var changedAt = DateTime.UtcNow;
+        foreach (var activeRole in activeRoles)
+        {
+            activeRole.EndDate = changedAt;
+        }
+
+        _dbContext.BusinessUserRoles.Add(new BusinessUserRole
+        {
+            BusinessUserId = businessUserId,
+            BusinessRoleId = targetBusinessRole.BusinessRoleId,
+            StartDate = changedAt,
+        });
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
     }
 
     [Authorize]

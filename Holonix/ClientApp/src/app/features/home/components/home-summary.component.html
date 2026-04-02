@@ -1,58 +1,149 @@
-<section class="summary-shell" aria-label="Holonix six month summary">
+<section class="summary-shell" aria-label="Pending invites">
   <div class="summary-hero">
     <div class="summary-heading">
-      <p class="summary-kicker">Your Holonix Journey</p>
+      <p class="summary-kicker">Your Holonix Home</p>
       <h2>Welcome, {{ firstName }}!</h2>
-      <p class="summary-subtitle">Here is how you have discovered and booked trusted local help over the last 6 months.</p>
+      <p class="summary-subtitle">Pending invites sent to your account appear here.</p>
     </div>
 
     <div class="summary-highlight">
-      <span class="highlight-label">Booking Confidence</span>
-      <strong class="highlight-value">{{ bookingRate }}%</strong>
-      <span class="highlight-note">searches that led to bookings</span>
+      <span class="highlight-label">Pending Invites</span>
+      <strong class="highlight-value">{{ pendingInvites.length }}</strong>
+      <span class="highlight-note">awaiting your response</span>
     </div>
   </div>
 
-  <div class="summary-kpis">
-    <article class="kpi-card">
-      <span class="kpi-label">Searches Started</span>
-      <strong class="kpi-value">{{ totalSearches }}</strong>
-      <span class="kpi-meta">Avg {{ avgMonthlySearches }}/month</span>
-    </article>
-
-    <article class="kpi-card">
-      <span class="kpi-label">Pros Contacted</span>
-      <strong class="kpi-value">{{ totalLeads }}</strong>
-      <span class="kpi-meta">Providers you reached out to</span>
-    </article>
-
-    <article class="kpi-card">
-      <span class="kpi-label">Services Booked</span>
-      <strong class="kpi-value">{{ totalBookings }}</strong>
-      <span class="kpi-meta">Completed through Holonix</span>
-    </article>
-
-    <article class="kpi-card">
-      <span class="kpi-label">Favorites Saved</span>
-      <strong class="kpi-value">{{ totalSaves }}</strong>
-      <span class="kpi-meta">Trusted options to revisit</span>
-    </article>
-  </div>
-
-  <section class="summary-trend">
-    <div class="trend-head">
-      <h3>Your Activity Trend</h3>
-      <span class="trend-pill">Last 6 Months</span>
+  <section class="summary-panel">
+    <div class="panel-head">
+      <h3>Pending Invites</h3>
+      <span class="panel-pill">For You</span>
     </div>
 
-    <div class="trend-bars" aria-label="Monthly usage chart">
-      <div class="bar-column" *ngFor="let month of usageMonths">
-        <span class="bar-score">{{ activityValue(month) }}</span>
-        <div class="bar-track">
-          <span class="bar-fill" [style.height.%]="activityPercent(month)"></span>
-        </div>
-        <span class="bar-month">{{ month.month }}</span>
-      </div>
+    <div class="summary-state" *ngIf="loadingPendingInvites">Loading pending invites...</div>
+
+    <div class="summary-state" *ngIf="!loadingPendingInvites && pendingInvites.length === 0">
+      No pending invites have been sent to you.
+    </div>
+
+    <div class="pending-table-shell" *ngIf="!loadingPendingInvites && pendingInvites.length > 0">
+      <table class="pending-table">
+        <thead>
+          <tr>
+            <th scope="col">Type</th>
+            <th scope="col">Date</th>
+            <th scope="col">Time</th>
+            <th scope="col">Company</th>
+            <th scope="col">Status</th>
+            <th scope="col">Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let invite of pendingInvites; trackBy: trackPendingInvite">
+            <td class="pending-table-primary">{{ invite.inviteType }}</td>
+            <td>{{ formatInviteDate(invite.inviteDate) }}</td>
+            <td>{{ formatInviteTime(invite.inviteDate) }}</td>
+            <td>{{ invite.inviteCompany }}</td>
+            <td>
+              <span class="status-chip">{{ invite.status }}</span>
+            </td>
+            <td>
+              <button type="button" class="view-btn" (click)="openInviteDetails(invite)">{{ viewButtonLabel(invite) }}</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </section>
 </section>
+
+<div class="invite-modal-backdrop" *ngIf="selectedInvite">
+  <section
+    class="invite-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="pending-invite-title"
+  >
+    <div class="invite-modal-header">
+      <div>
+        <p class="invite-modal-kicker">{{ selectedInvite.inviteType }}</p>
+        <h3 id="pending-invite-title">Invite Details</h3>
+      </div>
+      <button type="button" class="invite-modal-close" (click)="closeInviteDetails()" aria-label="Close invite details">
+        ×
+      </button>
+    </div>
+
+    <div class="invite-modal-hero">
+      <div class="invite-modal-hero-copy">
+        <span class="invite-modal-eyebrow">Invite Company</span>
+        <h4>{{ selectedInvite.inviteCompany }}</h4>
+        <p *ngIf="selectedInvite.inviteType === 'Employee Invite'; else genericInviteCopy">
+          This invite would place you into the workspace as
+          <strong>{{ selectedInvite.inviteRole || 'an employee' }}</strong>.
+        </p>
+        <ng-template #genericInviteCopy>
+          <p>Review the invite details below before taking action.</p>
+        </ng-template>
+      </div>
+
+      <div class="invite-status-card">
+        <span>Status</span>
+        <strong>{{ selectedInvite.status }}</strong>
+        <small>{{ formatInviteDate(selectedInvite.inviteDate) }}</small>
+      </div>
+    </div>
+
+    <div class="invite-detail-list" *ngIf="selectedInvite.inviteType === 'Employee Invite'; else genericInviteDetails">
+      <div class="invite-detail-row">
+        <span>Invite Type</span>
+        <strong>{{ selectedInvite.inviteType }}</strong>
+      </div>
+      <div class="invite-detail-row">
+        <span>Invited By</span>
+        <strong>{{ formatInvitedBy(selectedInvite) }}</strong>
+      </div>
+      <div class="invite-detail-row">
+        <span>Employee Role</span>
+        <strong>{{ selectedInvite.inviteRole || 'Not specified' }}</strong>
+      </div>
+      <div class="invite-detail-row">
+        <span>Invite Date</span>
+        <strong>{{ formatInviteDate(selectedInvite.inviteDate) }}</strong>
+      </div>
+      <div class="invite-detail-row">
+        <span>Invite Time</span>
+        <strong>{{ formatInviteTime(selectedInvite.inviteDate) }}</strong>
+      </div>
+    </div>
+
+    <ng-template #genericInviteDetails>
+      <div class="invite-detail-list">
+        <div class="invite-detail-row">
+          <span>Invite Type</span>
+          <strong>{{ selectedInvite.inviteType }}</strong>
+        </div>
+        <div class="invite-detail-row">
+          <span>Invited By</span>
+          <strong>{{ formatInvitedBy(selectedInvite) }}</strong>
+        </div>
+        <div class="invite-detail-row">
+          <span>Invite Date</span>
+          <strong>{{ formatInviteDate(selectedInvite.inviteDate) }}</strong>
+        </div>
+        <div class="invite-detail-row">
+          <span>Invite Time</span>
+          <strong>{{ formatInviteTime(selectedInvite.inviteDate) }}</strong>
+        </div>
+      </div>
+    </ng-template>
+
+    <div class="invite-modal-actions" *ngIf="selectedInvite.inviteType === 'Employee Invite'">
+      <button type="button" class="invite-action-secondary" (click)="denySelectedInvite()" [disabled]="updatingInvite">
+        {{ updatingInvite ? 'Working...' : 'Deny Invite' }}
+      </button>
+      <button type="button" class="invite-action-primary" (click)="acceptSelectedInvite()" [disabled]="updatingInvite">
+        {{ updatingInvite ? 'Working...' : 'Accept Invite' }}
+      </button>
+    </div>
+  </section>
+</div>

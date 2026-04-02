@@ -115,6 +115,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
 await BusinessRoleSeeder.SeedAsync(app.Services);
 await ServiceSeeder.SeedAsync(app.Services);
 await WorkloadReferenceSeeder.SeedAsync(app.Services);

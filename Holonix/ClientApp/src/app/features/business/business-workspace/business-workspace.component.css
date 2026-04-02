@@ -429,8 +429,7 @@
   line-height: 1.6;
 }
 
-.info-grid,
-.employee-grid {
+.info-grid {
   display: grid;
   gap: 14px;
 }
@@ -445,7 +444,6 @@
 }
 
 .info-card,
-.employee-card,
 .job-card {
   border-radius: 18px;
   border: 1px solid #dbe5f2;
@@ -683,25 +681,6 @@ span.selected-service-chip {
   color: #647b9d;
 }
 
-.employee-card {
-  padding: 16px;
-  display: grid;
-  gap: 12px;
-}
-
-.employee-card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.employee-card-copy {
-  display: grid;
-  gap: 8px;
-}
-
-.employee-card h3,
 .job-card h3 {
   margin: 0;
   font-size: 18px;
@@ -712,26 +691,6 @@ span.selected-service-chip {
   margin: 6px 0 0;
   color: #587191;
   line-height: 1.5;
-}
-
-.employee-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  color: #587191;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.employee-meta span {
-  position: relative;
-}
-
-.employee-meta span + span::before {
-  content: '•';
-  position: absolute;
-  left: -10px;
-  color: #a3b4cf;
 }
 
 .status-chip {
@@ -752,57 +711,57 @@ span.selected-service-chip {
   color: #6b7280;
 }
 
-.employee-details {
-  border-top: 1px solid #dee7f4;
-  padding-top: 10px;
+.workspace-table-shell {
+  overflow-x: auto;
+  border-radius: 18px;
+  border: 1px solid #dbe5f2;
+  background: #f9fbff;
 }
 
-.employee-details-summary {
-  list-style: none;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  cursor: pointer;
-  color: #173057;
+.workspace-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
 }
 
-.employee-details-summary::-webkit-details-marker {
-  display: none;
+.workspace-table th,
+.workspace-table td {
+  padding: 16px 18px;
+  border-bottom: 1px solid #e4ebf6;
+  text-align: left;
+  vertical-align: middle;
 }
 
-.employee-details-summary::after {
-  content: '▾';
-  margin-left: 6px;
+.workspace-table thead th {
+  background: #eff5ff;
   color: #5d7499;
   font-size: 12px;
-}
-
-.employee-details[open] .employee-details-summary::after {
-  content: '▴';
-}
-
-.employee-details-body {
-  padding-top: 8px;
-}
-
-.employee-detail-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #ffffff;
-  border: 1px solid #e1e9f5;
-}
-
-.employee-details-trigger {
-  color: #5d7499;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
+  font-weight: 900;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workspace-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.workspace-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.workspace-table td {
+  color: #587191;
+  font-size: 14px;
+}
+
+.workspace-table-primary {
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.workspace-table-number {
+  text-align: right;
 }
 
 .employee-details-label,
@@ -959,10 +918,6 @@ span.selected-service-chip {
   }
 
   .info-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .employee-grid {
     grid-template-columns: 1fr;
   }
 

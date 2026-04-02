@@ -407,6 +407,116 @@ namespace Holonix.Server.Migrations
                     b.ToTable("Country", "reference");
                 });
 
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.EmployeeInvite", b =>
+                {
+                    b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Holonix.Server.Domain.Entities.BusinessRole", "TargetBusinessRole")
+                        .WithMany()
+                        .HasForeignKey("TargetBusinessRoleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Holonix.Server.Domain.Entities.ApplicationUser", "TargetUser")
+                        .WithMany()
+                        .HasForeignKey("TargetUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Business");
+
+                    b.Navigation("TargetBusinessRole");
+
+                    b.Navigation("TargetUser");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.EmployeeInviteWorkload", b =>
+                {
+                    b.HasOne("Holonix.Server.Domain.Entities.EmployeeInvite", "EmployeeInvite")
+                        .WithMany()
+                        .HasForeignKey("EmployeeInviteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Holonix.Server.Domain.Entities.Workload", "Workload")
+                        .WithMany()
+                        .HasForeignKey("WorkloadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("EmployeeInvite");
+
+                    b.Navigation("Workload");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.EmployeeInvite", b =>
+                {
+                    b.Property<long>("EmployeeInviteId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("EmployeeInviteId"));
+
+                    b.Property<int>("BusinessId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NormalizedTargetEmail")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("TargetEmail")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<long?>("TargetBusinessRoleId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("TargetUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("EmployeeInviteId");
+
+                    b.HasIndex("BusinessId");
+
+                    b.HasIndex("NormalizedTargetEmail");
+
+                    b.HasIndex("TargetBusinessRoleId");
+
+                    b.HasIndex("TargetUserId");
+
+                    b.ToTable("EmployeeInvite", "business");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.EmployeeInviteWorkload", b =>
+                {
+                    b.Property<long>("EmployeeInviteWorkloadId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("EmployeeInviteWorkloadId"));
+
+                    b.Property<long>("EmployeeInviteId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("WorkloadId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("EmployeeInviteWorkloadId");
+
+                    b.HasIndex("EmployeeInviteId")
+                        .IsUnique();
+
+                    b.HasIndex("WorkloadId")
+                        .IsUnique();
+
+                    b.ToTable("EmployeeInviteWorkload", "work");
+                });
+
             modelBuilder.Entity("Holonix.Server.Domain.Entities.Job", b =>
                 {
                     b.Property<long>("JobId")
@@ -573,9 +683,6 @@ namespace Holonix.Server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("WorkloadId"));
 
-                    b.Property<int>("BusinessId")
-                        .HasColumnType("int");
-
                     b.Property<string>("CreatedByUserId")
                         .IsRequired()
                         .HasMaxLength(450)
@@ -583,18 +690,6 @@ namespace Holonix.Server.Migrations
 
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("NormalizedTargetEmail")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("TargetEmail")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("TargetUserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
 
                     b.Property<long>("WorkloadStatusId")
                         .HasColumnType("bigint");
@@ -604,13 +699,7 @@ namespace Holonix.Server.Migrations
 
                     b.HasKey("WorkloadId");
 
-                    b.HasIndex("BusinessId");
-
                     b.HasIndex("CreatedByUserId");
-
-                    b.HasIndex("NormalizedTargetEmail");
-
-                    b.HasIndex("TargetUserId");
 
                     b.HasIndex("WorkloadTypeId");
 
@@ -968,22 +1057,11 @@ namespace Holonix.Server.Migrations
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.Workload", b =>
                 {
-                    b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
-                        .WithMany()
-                        .HasForeignKey("BusinessId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("Holonix.Server.Domain.Entities.ApplicationUser", "CreatedByUser")
                         .WithMany()
                         .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("Holonix.Server.Domain.Entities.ApplicationUser", "TargetUser")
-                        .WithMany()
-                        .HasForeignKey("TargetUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Holonix.Server.Domain.Entities.WorkloadType", "WorkloadType")
                         .WithMany()
@@ -998,11 +1076,7 @@ namespace Holonix.Server.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Business");
-
                     b.Navigation("CreatedByUser");
-
-                    b.Navigation("TargetUser");
 
                     b.Navigation("WorkloadStatus");
 

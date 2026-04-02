@@ -14,6 +14,7 @@ public sealed record BusinessWorkspaceResponse(
     decimal BusinessJobPercentage,
     bool IsProductBased,
     string? CurrentUserRoleName,
+    IReadOnlyList<string> AvailableEmployeeRoles,
     int ServiceCount,
     IReadOnlyList<BusinessWorkspaceServiceResponse> Services,
     int ActiveEmployeeCount,
@@ -32,7 +33,9 @@ public sealed record BusinessWorkspaceEmployeeResponse(
     string? RoleName,
     DateTime HiredDate,
     bool IsActive,
-    int AssignedJobCount);
+    int AssignedJobCount,
+    bool CanDeactivate,
+    bool CanUpdateRole);
 
 public sealed record BusinessWorkspaceJobResponse(
     long JobId,
