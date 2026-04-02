@@ -5,6 +5,8 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { AuthSessionService } from '../../../core/services/auth-session.service';
 import {
   BusinessEmployeeInvite,
+  EmployeeFilter,
+  EmployeeSort,
   BusinessService,
   BusinessWorkspace,
   BusinessWorkspaceEmployeePage,
@@ -18,6 +20,8 @@ import {
 })
 export class BusinessEmployeesComponent implements OnInit {
   private static readonly EmployeePageSize = 10;
+  readonly employeeStatusOptions = ['Active', 'Inactive'];
+  readonly filterMultiSelectFields: EmployeeFilter['field'][] = ['role', 'status'];
   displayName = 'User';
   initials = 'U';
   profileImageDataUrl = '';
@@ -32,6 +36,8 @@ export class BusinessEmployeesComponent implements OnInit {
   closingInviteIds = new Set<number>();
   deactivatingEmployeeIds = new Set<number>();
   openEmployeeMenuId: number | null = null;
+  filterMenuOpen = false;
+  openFilterMultiSelectIndex: number | null = null;
   selectedEmployeeForMenu: BusinessWorkspaceEmployee | null = null;
   employeeMenuTop = 0;
   employeeMenuLeft = 0;
@@ -41,6 +47,9 @@ export class BusinessEmployeesComponent implements OnInit {
   employeeInvites: BusinessEmployeeInvite[] = [];
   currentEmployeePage = 1;
   totalEmployeeCount = 0;
+  activeFilters: EmployeeFilter[] = [];
+  activeSort: EmployeeSort | null = null;
+  draftFilters: EmployeeFilter[] = [{ field: 'employee', operator: 'contains', value: '' }];
   readonly inviteEmailControl = new FormControl('', {
     validators: [Validators.required, Validators.email, Validators.maxLength(256)],
     nonNullable: true,
@@ -245,6 +254,22 @@ export class BusinessEmployeesComponent implements OnInit {
     return this.employeePageEnd < this.totalEmployeeCount;
   }
 
+  get hasActiveFilters(): boolean {
+    return this.activeFilters.length > 0;
+  }
+
+  get hasActiveSort(): boolean {
+    return !!this.activeSort;
+  }
+
+  get canApplyDraftFilters(): boolean {
+    return this.draftFilters.some((filter) => filter.value.trim().length > 0);
+  }
+
+  get employeeRoleOptions(): string[] {
+    return this.businessWorkspace?.filterEmployeeRoles ?? [];
+  }
+
   toggleEmployeeMenu(event: MouseEvent, employee: BusinessWorkspaceEmployee): void {
     event.stopPropagation();
     if (this.openEmployeeMenuId === employee.businessUserId) {
@@ -262,6 +287,208 @@ export class BusinessEmployeesComponent implements OnInit {
     this.selectedEmployeeForMenu = employee;
     this.employeeMenuTop = rect.bottom + 8;
     this.employeeMenuLeft = Math.max(16, rect.right - 160);
+  }
+
+  toggleFilterMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.filterMenuOpen = !this.filterMenuOpen;
+  }
+
+  addDraftFilter(): void {
+    this.draftFilters = [...this.draftFilters, { field: 'employee', operator: 'contains', value: '' }];
+  }
+
+  updateDraftFilterField(index: number, field: EmployeeFilter['field']): void {
+    this.draftFilters = this.draftFilters.map((filter, filterIndex) =>
+      filterIndex === index
+        ? {
+            ...filter,
+            field,
+            operator: field === 'status' || field === 'role' ? 'is' : filter.operator,
+            value:
+              field === 'status'
+                ? (this.employeeStatusOptions.includes(filter.value) ? filter.value : '')
+                : field === 'role'
+                  ? (this.employeeRoleOptions.includes(filter.value) ? filter.value : '')
+                  : filter.value,
+          }
+        : filter
+    );
+  }
+
+  updateDraftFilterOperator(index: number, operator: EmployeeFilter['operator']): void {
+    this.draftFilters = this.draftFilters.map((filter, filterIndex) =>
+      filterIndex === index ? { ...filter, operator } : filter
+    );
+  }
+
+  updateDraftFilterValue(index: number, value: string): void {
+    this.draftFilters = this.draftFilters.map((filter, filterIndex) =>
+      filterIndex === index ? { ...filter, value } : filter
+    );
+  }
+
+  isMultiSelectFilterField(field: EmployeeFilter['field']): boolean {
+    return this.filterMultiSelectFields.includes(field);
+  }
+
+  isSelectedDraftMultiValue(index: number, value: string): boolean {
+    const selectedValues = this.draftFilters[index]?.value.split('|').filter(Boolean) ?? [];
+    return selectedValues.includes(value);
+  }
+
+  toggleDraftMultiValue(index: number, value: string): void {
+    const filter = this.draftFilters[index];
+    if (!filter) {
+      return;
+    }
+
+    const selectedValues = filter.value.split('|').filter(Boolean);
+    const nextValues = selectedValues.includes(value)
+      ? selectedValues.filter((item) => item !== value)
+      : [...selectedValues, value];
+
+    this.updateDraftFilterValue(index, nextValues.join('|'));
+  }
+
+  toggleFilterMultiSelect(event: MouseEvent, index: number): void {
+    event.stopPropagation();
+    this.openFilterMultiSelectIndex = this.openFilterMultiSelectIndex === index ? null : index;
+  }
+
+  selectedDraftMultiValueLabel(index: number, emptyLabel: string): string {
+    const values = this.draftFilters[index]?.value.split('|').filter(Boolean) ?? [];
+    if (values.length === 0) {
+      return emptyLabel;
+    }
+
+    if (values.length === 1) {
+      return values[0];
+    }
+
+    return `${values.length} selected`;
+  }
+
+  filterPillLabel(filter: EmployeeFilter): string {
+    const values = filter.value.split('|').filter(Boolean);
+    const renderedValue = values.join(', ');
+    return `${this.filterFieldLabel(filter.field)} ${this.filterOperatorLabel(filter.operator)} ${renderedValue}`;
+  }
+
+  removeDraftFilter(index: number): void {
+    this.draftFilters = this.draftFilters.filter((_, filterIndex) => filterIndex !== index);
+    if (this.draftFilters.length === 0) {
+      this.draftFilters = [{ field: 'employee', operator: 'contains', value: '' }];
+    }
+  }
+
+  applyFilters(): void {
+    const businessId = this.businessWorkspace?.businessId;
+    if (!businessId) {
+      return;
+    }
+
+    this.activeFilters = this.draftFilters
+      .map((filter) => ({ ...filter, value: filter.value.trim() }))
+      .filter((filter) => filter.value.length > 0);
+    this.filterMenuOpen = false;
+    this.loadEmployeesPage(businessId, 1);
+  }
+
+  clearAllFilters(): void {
+    const businessId = this.businessWorkspace?.businessId;
+    if (!businessId) {
+      return;
+    }
+
+    this.activeFilters = [];
+    this.draftFilters = [{ field: 'employee', operator: 'contains', value: '' }];
+    this.filterMenuOpen = false;
+    this.loadEmployeesPage(businessId, 1);
+  }
+
+  removeFilter(index: number): void {
+    const businessId = this.businessWorkspace?.businessId;
+    if (!businessId) {
+      return;
+    }
+
+    this.activeFilters = this.activeFilters.filter((_, filterIndex) => filterIndex !== index);
+    this.draftFilters = this.activeFilters.length > 0
+      ? this.activeFilters.map((filter) => ({ ...filter }))
+      : [{ field: 'employee', operator: 'contains', value: '' }];
+    this.loadEmployeesPage(businessId, 1);
+  }
+
+  clearSort(): void {
+    const businessId = this.businessWorkspace?.businessId;
+    if (!businessId) {
+      return;
+    }
+
+    this.activeSort = null;
+    this.loadEmployeesPage(businessId, 1);
+  }
+
+  toggleColumnSort(field: EmployeeSort['field']): void {
+    const businessId = this.businessWorkspace?.businessId;
+    if (!businessId) {
+      return;
+    }
+
+    if (!this.activeSort || this.activeSort.field !== field) {
+      this.activeSort = { field, direction: 'asc' };
+    } else if (this.activeSort.direction === 'asc') {
+      this.activeSort = { field, direction: 'desc' };
+    } else {
+      this.activeSort = null;
+    }
+
+    this.loadEmployeesPage(businessId, 1);
+  }
+
+  sortIndicator(field: EmployeeSort['field']): string {
+    if (!this.activeSort || this.activeSort.field !== field) {
+      return '';
+    }
+
+    return this.activeSort.direction === 'asc' ? '▴' : '▾';
+  }
+
+  filterFieldLabel(field: EmployeeFilter['field']): string {
+    if (field === 'employee') {
+      return 'Employee';
+    }
+
+    if (field === 'role') {
+      return 'Role';
+    }
+
+    return 'Status';
+  }
+
+  filterOperatorLabel(operator: EmployeeFilter['operator']): string {
+    return operator === 'is' ? 'is' : 'contains';
+  }
+
+  sortFieldLabel(field: EmployeeSort['field']): string {
+    if (field === 'employee') {
+      return 'Employee';
+    }
+
+    if (field === 'role') {
+      return 'Role';
+    }
+
+    if (field === 'hiredDate') {
+      return 'Hired';
+    }
+
+    if (field === 'status') {
+      return 'Status';
+    }
+
+    return 'Assigned Jobs';
   }
 
   openUpdateRoleModal(employee: BusinessWorkspaceEmployee): void {
@@ -538,6 +765,15 @@ export class BusinessEmployeesComponent implements OnInit {
     if (!element?.closest('.row-action-menu') && !element?.closest('.row-action-popover')) {
       this.closeEmployeeMenu();
     }
+
+    if (!element?.closest('.table-toolbar-menu') && !element?.closest('.toolbar-btn')) {
+      this.filterMenuOpen = false;
+      this.openFilterMultiSelectIndex = null;
+    }
+
+    if (!element?.closest('.filter-multi-select-shell')) {
+      this.openFilterMultiSelectIndex = null;
+    }
   }
 
   @HostListener('window:scroll')
@@ -609,7 +845,9 @@ export class BusinessEmployeesComponent implements OnInit {
   private loadEmployeesPage(businessId: number, pageNumber: number): void {
     this.loadingEmployees = true;
     this.openEmployeeMenuId = null;
-    this.businessService.getEmployees(businessId, pageNumber, BusinessEmployeesComponent.EmployeePageSize).subscribe({
+    this.businessService
+      .getEmployees(businessId, pageNumber, BusinessEmployeesComponent.EmployeePageSize, this.activeFilters, this.activeSort)
+      .subscribe({
       next: (employeePage: BusinessWorkspaceEmployeePage) => {
         this.employees = employeePage.employees;
         this.currentEmployeePage = employeePage.pageNumber;
@@ -628,7 +866,7 @@ export class BusinessEmployeesComponent implements OnInit {
           panelClass: ['snack-error'],
         });
       },
-    });
+      });
   }
 
   private reloadWorkspace(businessId: number): void {

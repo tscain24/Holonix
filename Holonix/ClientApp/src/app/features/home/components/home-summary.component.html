@@ -1,22 +1,17 @@
 <section class="summary-shell" aria-label="Pending invites">
   <div class="summary-hero">
     <div class="summary-heading">
-      <p class="summary-kicker">Your Holonix Home</p>
+      <p class="summary-kicker">Your Holonix Summary</p>
       <h2>Welcome, {{ firstName }}!</h2>
-      <p class="summary-subtitle">Pending invites sent to your account appear here.</p>
-    </div>
-
-    <div class="summary-highlight">
-      <span class="highlight-label">Pending Invites</span>
-      <strong class="highlight-value">{{ pendingInvites.length }}</strong>
-      <span class="highlight-note">awaiting your response</span>
     </div>
   </div>
 
   <section class="summary-panel">
     <div class="panel-head">
-      <h3>Pending Invites</h3>
-      <span class="panel-pill">For You</span>
+      <h3 class="panel-head-title">
+        <span>Pending Invites</span>
+        <span class="panel-head-count">{{ pendingInvites.length }}</span>
+      </h3>
     </div>
 
     <div class="summary-state" *ngIf="loadingPendingInvites">Loading pending invites...</div>

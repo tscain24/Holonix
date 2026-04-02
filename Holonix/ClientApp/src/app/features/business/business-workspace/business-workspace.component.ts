@@ -28,7 +28,9 @@ export class BusinessWorkspaceComponent implements OnInit {
   savingProfile = false;
   savingGeneralInformation = false;
   deletingBusiness = false;
+  leavingBusiness = false;
   deleteBusinessModalOpen = false;
+  leaveBusinessModalOpen = false;
   servicesExpanded = false;
   serviceSearch = '';
   serviceDropdownOpen = false;
@@ -198,6 +200,11 @@ export class BusinessWorkspaceComponent implements OnInit {
 
   get canDeleteBusiness(): boolean {
     return this.canManageServices;
+  }
+
+  get canLeaveBusiness(): boolean {
+    const role = (this.businessWorkspace?.currentUserRoleName ?? '').trim().toLowerCase();
+    return role.length > 0 && role !== 'owner';
   }
 
   get canConfirmDeleteBusiness(): boolean {
@@ -533,6 +540,22 @@ export class BusinessWorkspaceComponent implements OnInit {
     this.deleteBusinessConfirmation = '';
   }
 
+  openLeaveBusinessModal(): void {
+    if (!this.businessWorkspace || this.leavingBusiness || !this.canLeaveBusiness) {
+      return;
+    }
+
+    this.leaveBusinessModalOpen = true;
+  }
+
+  closeLeaveBusinessModal(): void {
+    if (this.leavingBusiness) {
+      return;
+    }
+
+    this.leaveBusinessModalOpen = false;
+  }
+
   onDeleteBusinessConfirmationInput(event: Event): void {
     this.deleteBusinessConfirmation = (event.target as HTMLInputElement).value;
   }
@@ -582,6 +605,38 @@ export class BusinessWorkspaceComponent implements OnInit {
 
         const errors = err?.error?.errors as string[] | undefined;
         this.snackBar.open(errors?.[0] ?? 'Could not delete the business.', 'Close', {
+          duration: 3500,
+          panelClass: ['snack-error'],
+        });
+      },
+    });
+  }
+
+  confirmLeaveBusiness(): void {
+    const workspace = this.businessWorkspace;
+    if (!workspace || this.leavingBusiness || !this.canLeaveBusiness) {
+      return;
+    }
+
+    this.leavingBusiness = true;
+    this.businessService.leaveBusiness(workspace.businessId).subscribe({
+      next: () => {
+        this.leavingBusiness = false;
+        this.leaveBusinessModalOpen = false;
+        this.snackBar.open('You left the business.', 'Close', {
+          duration: 3000,
+          panelClass: ['snack-success'],
+        });
+        this.router.navigate(['/business']);
+      },
+      error: (err) => {
+        this.leavingBusiness = false;
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
+        const errors = err?.error?.errors as string[] | undefined;
+        this.snackBar.open(errors?.[0] ?? 'Could not leave the business.', 'Close', {
           duration: 3500,
           panelClass: ['snack-error'],
         });
@@ -641,6 +696,10 @@ export class BusinessWorkspaceComponent implements OnInit {
   onEscapeKey(): void {
     if (this.deleteBusinessModalOpen && !this.deletingBusiness) {
       this.closeDeleteBusinessModal();
+    }
+
+    if (this.leaveBusinessModalOpen && !this.leavingBusiness) {
+      this.closeLeaveBusinessModal();
     }
   }
 

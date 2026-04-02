@@ -243,10 +243,27 @@
   color: #ffffff;
 }
 
+.employee-view-all-btn {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.employee-view-all-btn:hover {
+  background: #eff6ff;
+}
+
 .hero-btn-danger {
   background: linear-gradient(135deg, #dc2626, #b91c1c);
   border-color: #b91c1c;
   color: #ffffff;
+}
+
+.hero-btn-danger-soft {
+  background: #fff5f5;
+  border-color: #fecaca;
+  color: #b91c1c;
 }
 
 .hero-btn-file input {

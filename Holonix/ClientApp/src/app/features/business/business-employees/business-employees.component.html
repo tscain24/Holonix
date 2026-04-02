@@ -41,7 +41,7 @@
       </div>
 
       <section class="employees-hero">
-        <p class="employees-kicker">Business Workspace</p>
+        <p class="employees-kicker" style="color: #2563eb;">Business Workspace</p>
         <h1>{{ business.name }} Employees</h1>
         <p>All employees currently associated with this business workspace.</p>
       </section>
@@ -50,7 +50,7 @@
         <div class="section-heading section-heading-row">
           <div class="section-heading-copy">
             <h2>Employee Invites</h2>
-            <p>Pending and historical invite workloads created from this workspace.</p>
+            <p>Pending invite created from this workspace.</p>
           </div>
 
           <button type="button" class="action-btn" *ngIf="canInviteEmployees" (click)="openInviteModal()">
@@ -106,6 +106,90 @@
           <div class="section-heading-copy">
             <h2>Employees</h2>
           </div>
+          <div class="table-toolbar">
+            <div class="table-toolbar-actions">
+              <div class="table-toolbar-anchor">
+                <button type="button" class="toolbar-btn" (click)="toggleFilterMenu($event)">
+                  Filter
+                </button>
+                <div class="table-toolbar-menu" *ngIf="filterMenuOpen">
+                  <div class="table-toolbar-menu-header">Show employees where</div>
+                  <div class="filter-builder-row" *ngFor="let filter of draftFilters; let i = index">
+                    <select [value]="filter.field" (change)="updateDraftFilterField(i, $any($event.target).value)">
+                      <option value="employee">Employee</option>
+                      <option value="role">Role</option>
+                      <option value="status">Status</option>
+                    </select>
+                    <ng-container *ngIf="filter.field === 'status' || filter.field === 'role'; else editableOperator">
+                      <div class="filter-operator-readonly">is</div>
+                    </ng-container>
+                    <ng-template #editableOperator>
+                      <select [value]="filter.operator" (change)="updateDraftFilterOperator(i, $any($event.target).value)">
+                        <option value="contains">contains</option>
+                        <option value="is">is</option>
+                      </select>
+                    </ng-template>
+                    <ng-container *ngIf="filter.field === 'status'; else roleOrTextFilterValue">
+                      <div class="filter-multi-select-shell">
+                        <button type="button" class="filter-multi-trigger" (click)="toggleFilterMultiSelect($event, i)">
+                          {{ selectedDraftMultiValueLabel(i, 'Select status') }}
+                        </button>
+                        <div class="filter-multi-dropdown" *ngIf="openFilterMultiSelectIndex === i">
+                          <label class="filter-checkbox-option" *ngFor="let status of employeeStatusOptions">
+                            <input
+                              type="checkbox"
+                              [checked]="isSelectedDraftMultiValue(i, status)"
+                              (change)="toggleDraftMultiValue(i, status)" />
+                            <span>{{ status }}</span>
+                          </label>
+                        </div>
+                      </div>
+                    </ng-container>
+                    <ng-template #roleOrTextFilterValue>
+                      <ng-container *ngIf="filter.field === 'role'; else textFilterValue">
+                        <div class="filter-multi-select-shell">
+                          <button type="button" class="filter-multi-trigger" (click)="toggleFilterMultiSelect($event, i)">
+                            {{ selectedDraftMultiValueLabel(i, 'Select role') }}
+                          </button>
+                          <div class="filter-multi-dropdown" *ngIf="openFilterMultiSelectIndex === i">
+                            <label class="filter-checkbox-option" *ngFor="let role of employeeRoleOptions">
+                              <input
+                                type="checkbox"
+                                [checked]="isSelectedDraftMultiValue(i, role)"
+                                (change)="toggleDraftMultiValue(i, role)" />
+                              <span>{{ role }}</span>
+                            </label>
+                          </div>
+                        </div>
+                      </ng-container>
+                    </ng-template>
+                    <ng-template #textFilterValue>
+                      <input
+                        type="text"
+                        [value]="filter.value"
+                        (input)="updateDraftFilterValue(i, $any($event.target).value)"
+                        placeholder="Enter value..." />
+                    </ng-template>
+                    <button type="button" class="filter-remove-btn" (click)="removeDraftFilter(i)" aria-label="Remove filter">×</button>
+                  </div>
+                  <div class="table-toolbar-menu-actions">
+                    <button type="button" class="menu-link-btn" (click)="addDraftFilter()">+ Add filter</button>
+                    <button type="button" class="menu-link-btn" (click)="clearAllFilters()" *ngIf="hasActiveFilters">Clear all filters</button>
+                  </div>
+                  <div class="table-toolbar-menu-footer">
+                    <button type="button" class="secondary-btn" (click)="applyFilters()" [disabled]="!canApplyDraftFilters">Apply</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="active-filter-pills" *ngIf="hasActiveFilters">
+          <button type="button" class="filter-pill" *ngFor="let filter of activeFilters; let i = index" (click)="removeFilter(i)">
+            {{ filterPillLabel(filter) }}
+            <span aria-hidden="true">×</span>
+          </button>
         </div>
 
         <div class="page-state" *ngIf="loadingEmployees">Loading employees...</div>
@@ -116,11 +200,36 @@
           <table class="employee-table">
             <thead>
               <tr>
-                <th scope="col">Employee</th>
-                <th scope="col">Role</th>
-                <th scope="col">Hired</th>
-                <th scope="col">Status</th>
-                <th scope="col" class="employee-table-number">Assigned Jobs</th>
+                <th scope="col">
+                  <button type="button" class="table-sort-btn" (click)="toggleColumnSort('employee')">
+                    <span>Employee</span>
+                    <span class="table-sort-indicator">{{ sortIndicator('employee') }}</span>
+                  </button>
+                </th>
+                <th scope="col">
+                  <button type="button" class="table-sort-btn" (click)="toggleColumnSort('role')">
+                    <span>Role</span>
+                    <span class="table-sort-indicator">{{ sortIndicator('role') }}</span>
+                  </button>
+                </th>
+                <th scope="col">
+                  <button type="button" class="table-sort-btn" (click)="toggleColumnSort('hiredDate')">
+                    <span>Hired</span>
+                    <span class="table-sort-indicator">{{ sortIndicator('hiredDate') }}</span>
+                  </button>
+                </th>
+                <th scope="col">
+                  <button type="button" class="table-sort-btn" (click)="toggleColumnSort('status')">
+                    <span>Status</span>
+                    <span class="table-sort-indicator">{{ sortIndicator('status') }}</span>
+                  </button>
+                </th>
+                <th scope="col" class="employee-table-number">
+                  <button type="button" class="table-sort-btn table-sort-btn-number" (click)="toggleColumnSort('assignedJobCount')">
+                    <span>Assigned Jobs</span>
+                    <span class="table-sort-indicator">{{ sortIndicator('assignedJobCount') }}</span>
+                  </button>
+                </th>
                 <th scope="col" *ngIf="canInviteEmployees">Actions</th>
               </tr>
             </thead>

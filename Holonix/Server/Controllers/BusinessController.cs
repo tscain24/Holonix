@@ -373,6 +373,16 @@ public class BusinessController : ControllerBase
             .Select(item => item.Employee)
             .ToList();
 
+        var filterEmployeeRoles = employeeRoleRows
+            .Where(item => !string.IsNullOrWhiteSpace(item.RoleName))
+            .Select(item => item.RoleName!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(roleName => roleName.Equals(BusinessRoleNames.Owner, StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(roleName => roleName.Equals(BusinessRoleNames.Administrator, StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(roleName => roleName.Equals("Manager", StringComparison.OrdinalIgnoreCase))
+            .ThenBy(roleName => roleName)
+            .ToList();
+
         var employees = orderedEmployees
             .Take(5)
             .ToList();
@@ -438,6 +448,7 @@ public class BusinessController : ControllerBase
             business.IsProductBased,
             currentMembership.RoleName,
             availableEmployeeRoles,
+            filterEmployeeRoles,
             services.Count,
             services,
             activeEmployeeCount,
@@ -455,6 +466,9 @@ public class BusinessController : ControllerBase
         int businessId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
+        [FromQuery] string? filters = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
         CancellationToken cancellationToken = default)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
@@ -570,7 +584,7 @@ public class BusinessController : ControllerBase
             .Select(group => new { BusinessUserId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(item => item.BusinessUserId, item => item.Count, cancellationToken);
 
-        var orderedEmployees = employeeRoleRows
+        var filteredEmployees = employeeRoleRows
             .GroupBy(item => item.BusinessUserId)
             .Select(group =>
             {
@@ -609,11 +623,10 @@ public class BusinessController : ControllerBase
                 var sortLastName = first.LastName?.Trim() ?? string.Empty;
                 var sortFirstName = first.FirstName?.Trim() ?? string.Empty;
 
-                return new
-                {
-                    SortLastName = sortLastName,
-                    SortFirstName = sortFirstName,
-                    Employee = new BusinessWorkspaceEmployeeResponse(
+                return new EmployeeListItem(
+                    sortLastName,
+                    sortFirstName,
+                    new BusinessWorkspaceEmployeeResponse(
                         group.Key,
                         string.IsNullOrWhiteSpace(displayName) ? "Team Member" : displayName,
                         roleName,
@@ -621,17 +634,50 @@ public class BusinessController : ControllerBase
                         first.IsActive,
                         assignedJobCounts.TryGetValue(group.Key, out var assignedJobCount) ? assignedJobCount : 0,
                         canDeactivate,
-                        canUpdateRole),
-                };
+                        canUpdateRole));
             })
-            .OrderByDescending(item => item.Employee.IsActive)
-            .ThenBy(item => string.IsNullOrWhiteSpace(item.SortLastName) ? item.Employee.DisplayName : item.SortLastName)
-            .ThenBy(item => string.IsNullOrWhiteSpace(item.SortFirstName) ? item.Employee.DisplayName : item.SortFirstName)
-            .Select(item => item.Employee)
             .ToList();
 
-        var totalCount = orderedEmployees.Count;
-        var employees = orderedEmployees
+        var activeFilters = ParseEmployeeFilters(filters);
+        foreach (var filterGroup in activeFilters.GroupBy(filter => filter.Field, StringComparer.OrdinalIgnoreCase))
+        {
+            filteredEmployees = filteredEmployees
+                .Where(item => filterGroup.Any(filter => MatchesEmployeeFilter(item, filter)))
+                .ToList();
+        }
+
+        var normalizedSortBy = (sortBy ?? string.Empty).Trim().ToLowerInvariant();
+        var normalizedSortDirection = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "desc" : "asc";
+
+        var orderedEmployees = normalizedSortBy switch
+        {
+            "role" => normalizedSortDirection == "desc"
+                ? filteredEmployees.OrderByDescending(item => item.Employee.RoleName ?? string.Empty).ThenBy(item => item.Employee.DisplayName).ToList()
+                : filteredEmployees.OrderBy(item => item.Employee.RoleName ?? string.Empty).ThenBy(item => item.Employee.DisplayName).ToList(),
+            "hireddate" => normalizedSortDirection == "desc"
+                ? filteredEmployees.OrderByDescending(item => item.Employee.HiredDate).ThenBy(item => item.Employee.DisplayName).ToList()
+                : filteredEmployees.OrderBy(item => item.Employee.HiredDate).ThenBy(item => item.Employee.DisplayName).ToList(),
+            "status" => normalizedSortDirection == "desc"
+                ? filteredEmployees.OrderByDescending(item => item.Employee.IsActive).ThenBy(item => item.Employee.DisplayName).ToList()
+                : filteredEmployees.OrderBy(item => item.Employee.IsActive).ThenBy(item => item.Employee.DisplayName).ToList(),
+            "assignedjobcount" => normalizedSortDirection == "desc"
+                ? filteredEmployees.OrderByDescending(item => item.Employee.AssignedJobCount).ThenBy(item => item.Employee.DisplayName).ToList()
+                : filteredEmployees.OrderBy(item => item.Employee.AssignedJobCount).ThenBy(item => item.Employee.DisplayName).ToList(),
+            _ => normalizedSortDirection == "desc"
+                ? filteredEmployees
+                    .OrderByDescending(item => string.IsNullOrWhiteSpace(item.SortLastName) ? item.Employee.DisplayName : item.SortLastName)
+                    .ThenByDescending(item => string.IsNullOrWhiteSpace(item.SortFirstName) ? item.Employee.DisplayName : item.SortFirstName)
+                    .ToList()
+                : filteredEmployees
+                    .OrderBy(item => string.IsNullOrWhiteSpace(item.SortLastName) ? item.Employee.DisplayName : item.SortLastName)
+                    .ThenBy(item => string.IsNullOrWhiteSpace(item.SortFirstName) ? item.Employee.DisplayName : item.SortFirstName)
+                    .ToList(),
+        };
+
+        var employeesOnly = orderedEmployees.Select(item => item.Employee).ToList();
+
+        var totalCount = employeesOnly.Count;
+        var employees = employeesOnly
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToList();
@@ -1074,6 +1120,79 @@ public class BusinessController : ControllerBase
 
         var activeRoles = await _dbContext.BusinessUserRoles
             .Where(role => role.BusinessUserId == businessUserId && role.EndDate == null)
+            .ToListAsync(cancellationToken);
+
+        foreach (var activeRole in activeRoles)
+        {
+            activeRole.EndDate = endedAt;
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
+    [Authorize]
+    [HttpPost("{businessId:int}/leave")]
+    public async Task<IActionResult> LeaveBusiness(int businessId, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var currentMembership = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId &&
+                businessUser.UserId == userId &&
+                businessUser.IsActive &&
+                businessUser.EndDate == null)
+            .GroupJoin(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRoles) => new { businessUser.BusinessUserId, businessUserRoles })
+            .SelectMany(
+                joined => joined.businessUserRoles.DefaultIfEmpty(),
+                (joined, businessUserRole) => new
+                {
+                    joined.BusinessUserId,
+                    RoleName = businessUserRole != null ? businessUserRole.BusinessRole.Name : null,
+                })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (currentMembership is null)
+        {
+            return NotFound(new { errors = new[] { "Active business membership not found." } });
+        }
+
+        if (string.Equals(currentMembership.RoleName, BusinessRoleNames.Owner, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { errors = new[] { "Business owners cannot leave the business." } });
+        }
+
+        var membership = await _dbContext.BusinessUsers
+            .SingleOrDefaultAsync(
+                businessUser => businessUser.BusinessId == businessId &&
+                                businessUser.UserId == userId &&
+                                businessUser.IsActive &&
+                                businessUser.EndDate == null,
+                cancellationToken);
+
+        if (membership is null)
+        {
+            return NotFound(new { errors = new[] { "Active business membership not found." } });
+        }
+
+        membership.IsActive = false;
+        var endedAt = DateTime.UtcNow;
+
+        var activeRoles = await _dbContext.BusinessUserRoles
+            .Where(role => role.BusinessUserId == membership.BusinessUserId && role.EndDate == null)
             .ToListAsync(cancellationToken);
 
         foreach (var activeRole in activeRoles)
@@ -1723,9 +1842,62 @@ public class BusinessController : ControllerBase
             || string.Equals(roleName, BusinessRoleNames.Administrator, StringComparison.OrdinalIgnoreCase);
     }
 
+    private static List<EmployeeFilterQuery> ParseEmployeeFilters(string? filters)
+    {
+        if (string.IsNullOrWhiteSpace(filters))
+        {
+            return [];
+        }
+
+        return filters
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(segment => segment.Split('~', 3, StringSplitOptions.TrimEntries))
+            .Where(parts => parts.Length == 3)
+            .Select(parts => new EmployeeFilterQuery(parts[0], parts[1], Uri.UnescapeDataString(parts[2])))
+            .Where(filter => !string.IsNullOrWhiteSpace(filter.Value))
+            .ToList();
+    }
+
+    private static bool MatchesEmployeeFilter(EmployeeListItem employee, EmployeeFilterQuery filter)
+    {
+        var field = filter.Field.Trim().ToLowerInvariant();
+        var op = filter.Operator.Trim().ToLowerInvariant();
+        var values = filter.Value
+            .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(value => value.Trim())
+            .Where(value => value.Length > 0)
+            .ToList();
+
+        if (values.Count == 0)
+        {
+            return false;
+        }
+
+        var candidate = field switch
+        {
+            "employee" => employee.Employee.DisplayName as string ?? string.Empty,
+            "role" => employee.Employee.RoleName as string ?? string.Empty,
+            "status" => employee.Employee.IsActive ? "Active" : "Inactive",
+            _ => string.Empty,
+        };
+
+        return op switch
+        {
+            "is" => values.Any(value => string.Equals(candidate, value, StringComparison.OrdinalIgnoreCase)),
+            _ => values.Any(value => candidate.Contains(value, StringComparison.OrdinalIgnoreCase)),
+        };
+    }
+
     private static string BuildDisplayName(string? firstName, string? lastName, string fallback)
     {
         var displayName = $"{firstName} {lastName}".Trim();
         return string.IsNullOrWhiteSpace(displayName) ? fallback : displayName;
     }
+
+    private sealed record EmployeeListItem(
+        string SortLastName,
+        string SortFirstName,
+        BusinessWorkspaceEmployeeResponse Employee);
+
+    private sealed record EmployeeFilterQuery(string Field, string Operator, string Value);
 }

@@ -73,9 +73,18 @@
             </div>
           </div>
 
-          <div class="workspace-hero-aside" *ngIf="canEditBusinessProfile">
+          <div class="workspace-hero-aside" *ngIf="canEditBusinessProfile || canLeaveBusiness">
             <div class="hero-actions hero-actions-hero">
-              <button type="button" class="hero-btn hero-btn-secondary" *ngIf="!editingProfile" (click)="startProfileEdit()">Edit Business</button>
+              <button
+                type="button"
+                class="hero-btn hero-btn-danger hero-btn-danger-soft"
+                *ngIf="canLeaveBusiness"
+                (click)="openLeaveBusinessModal()"
+                [disabled]="leavingBusiness || editingProfile"
+              >
+                {{ leavingBusiness ? 'Leaving...' : 'Leave Business' }}
+              </button>
+              <button type="button" class="hero-btn hero-btn-primary" *ngIf="!editingProfile" (click)="startProfileEdit()">Edit Business</button>
               <ng-container *ngIf="editingProfile">
                 <button
                   type="button"
@@ -323,7 +332,7 @@
             <p>Team members currently associated with this business, their title, and employment status.</p>
           </div>
           <div class="hero-actions" *ngIf="business.employees.length > 0">
-            <button type="button" class="hero-btn hero-btn-secondary" (click)="goToEmployees()">
+            <button type="button" class="hero-btn hero-btn-secondary employee-view-all-btn" (click)="goToEmployees()">
               {{ business.employees.length > 5 ? 'See More' : 'View All' }}
             </button>
           </div>
@@ -427,6 +436,38 @@
         (click)="confirmDeleteBusiness()"
       >
         {{ deletingBusiness ? 'Deleting...' : 'Delete Business' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="workspace-modal-overlay" *ngIf="leaveBusinessModalOpen" (click)="closeLeaveBusinessModal()">
+  <div
+    class="workspace-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="leave-business-modal-title"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="workspace-modal-copy">
+      <p class="workspace-modal-kicker">Leave Business</p>
+      <h2 id="leave-business-modal-title">Leave {{ businessWorkspace?.name }}?</h2>
+      <p>
+        This removes your active membership from the business and marks you inactive with the company.
+      </p>
+    </div>
+
+    <div class="workspace-modal-actions">
+      <button type="button" class="hero-btn hero-btn-secondary" [disabled]="leavingBusiness" (click)="closeLeaveBusinessModal()">
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="hero-btn hero-btn-danger"
+        [disabled]="leavingBusiness"
+        (click)="confirmLeaveBusiness()"
+      >
+        {{ leavingBusiness ? 'Leaving...' : 'Leave Business' }}
       </button>
     </div>
   </div>

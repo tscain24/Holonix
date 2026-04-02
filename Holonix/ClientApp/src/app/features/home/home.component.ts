@@ -2,6 +2,7 @@ import { Component, ElementRef, HostListener } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { AuthSessionService } from '../../core/services/auth-session.service';
+import { BusinessService } from '../../core/services/business.service';
 
 interface JwtPayload {
   role?: string | string[];
@@ -27,7 +28,8 @@ export class HomeComponent {
     private router: Router,
     private elementRef: ElementRef<HTMLElement>,
     private snackBar: MatSnackBar,
-    private authSession: AuthSessionService
+    private authSession: AuthSessionService,
+    private businessService: BusinessService
   ) {}
 
   ngOnInit(): void {
@@ -54,6 +56,19 @@ export class HomeComponent {
     this.profileImageDataUrl = savedProfileImage
       ? `data:image/*;base64,${savedProfileImage.trim()}`
       : '';
+
+    if (this.isLoggedIn) {
+      this.businessService.getMyBusinesses().subscribe({
+        next: (businesses) => {
+          this.hasBusiness = businesses.length > 0;
+        },
+        error: () => {
+          if (this.authSession.hasSessionExpiredFlag()) {
+            return;
+          }
+        },
+      });
+    }
   }
 
   toggleUserMenu(event: MouseEvent): void {

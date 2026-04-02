@@ -129,6 +129,7 @@ export interface BusinessWorkspace {
   isProductBased: boolean;
   currentUserRoleName?: string | null;
   availableEmployeeRoles: string[];
+  filterEmployeeRoles: string[];
   serviceCount: number;
   services: BusinessWorkspaceService[];
   activeEmployeeCount: number;
@@ -143,6 +144,17 @@ export interface BusinessWorkspaceEmployeePage {
   pageSize: number;
   totalCount: number;
   employees: BusinessWorkspaceEmployee[];
+}
+
+export interface EmployeeFilter {
+  field: 'employee' | 'role' | 'status';
+  operator: 'contains' | 'is';
+  value: string;
+}
+
+export interface EmployeeSort {
+  field: 'employee' | 'role' | 'hiredDate' | 'status' | 'assignedJobCount';
+  direction: 'asc' | 'desc';
 }
 
 @Injectable({
@@ -232,16 +244,36 @@ export class BusinessService {
     );
   }
 
-  getEmployees(businessId: number, pageNumber: number, pageSize: number): Observable<BusinessWorkspaceEmployeePage> {
+  getEmployees(
+    businessId: number,
+    pageNumber: number,
+    pageSize: number,
+    filters: EmployeeFilter[] = [],
+    sort?: EmployeeSort | null
+  ): Observable<BusinessWorkspaceEmployeePage> {
+    const query = new URLSearchParams({
+      pageNumber: pageNumber.toString(),
+      pageSize: pageSize.toString(),
+    });
+
+    if (filters.length > 0) {
+      query.set('filters', filters.map((filter) => `${filter.field}~${filter.operator}~${encodeURIComponent(filter.value)}`).join(';'));
+    }
+
+    if (sort) {
+      query.set('sortBy', sort.field);
+      query.set('sortDirection', sort.direction);
+    }
+
     return this.http
-      .get<BusinessWorkspaceEmployeePage>(`${this.businessEndpoint}/${businessId}/employees?pageNumber=${pageNumber}&pageSize=${pageSize}`)
+      .get<BusinessWorkspaceEmployeePage>(`${this.businessEndpoint}/${businessId}/employees?${query.toString()}`)
       .pipe(
         catchError((err) => {
           if (!this.shouldTryNextOrigin(err)) {
             return throwError(() => err);
           }
 
-          return this.tryGetEmployeesFallback(businessId, pageNumber, pageSize, 0);
+          return this.tryGetEmployeesFallback(businessId, pageNumber, pageSize, filters, sort, 0);
         })
       );
   }
@@ -278,6 +310,18 @@ export class BusinessService {
         }
 
         return this.tryUpdateEmployeeRoleFallback(businessId, businessUserId, roleName, 0);
+      })
+    );
+  }
+
+  leaveBusiness(businessId: number): Observable<void> {
+    return this.http.post<void>(`${this.businessEndpoint}/${businessId}/leave`, {}).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryLeaveBusinessFallback(businessId, 0);
       })
     );
   }
@@ -439,18 +483,33 @@ export class BusinessService {
     businessId: number,
     pageNumber: number,
     pageSize: number,
+    filters: EmployeeFilter[],
+    sort: EmployeeSort | null | undefined,
     index: number
   ): Observable<BusinessWorkspaceEmployeePage> {
     if (index >= this.fallbackOrigins.length) {
       return throwError(() => new Error('Employees endpoint not found on configured local origins.'));
     }
 
-    const url =
-      `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}/employees?pageNumber=${pageNumber}&pageSize=${pageSize}`;
+    const query = new URLSearchParams({
+      pageNumber: pageNumber.toString(),
+      pageSize: pageSize.toString(),
+    });
+
+    if (filters.length > 0) {
+      query.set('filters', filters.map((filter) => `${filter.field}~${filter.operator}~${encodeURIComponent(filter.value)}`).join(';'));
+    }
+
+    if (sort) {
+      query.set('sortBy', sort.field);
+      query.set('sortDirection', sort.direction);
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}/employees?${query.toString()}`;
     return this.http.get<BusinessWorkspaceEmployeePage>(url).pipe(
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
-          return this.tryGetEmployeesFallback(businessId, pageNumber, pageSize, index + 1);
+          return this.tryGetEmployeesFallback(businessId, pageNumber, pageSize, filters, sort, index + 1);
         }
 
         return throwError(() => err);
@@ -529,6 +588,23 @@ export class BusinessService {
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
           return this.tryUpdateEmployeeRoleFallback(businessId, businessUserId, roleName, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryLeaveBusinessFallback(businessId: number, index: number): Observable<void> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Leave business endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}/leave`;
+    return this.http.post<void>(url, {}).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryLeaveBusinessFallback(businessId, index + 1);
         }
 
         return throwError(() => err);

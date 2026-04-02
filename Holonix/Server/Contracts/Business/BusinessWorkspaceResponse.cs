@@ -15,6 +15,7 @@ public sealed record BusinessWorkspaceResponse(
     bool IsProductBased,
     string? CurrentUserRoleName,
     IReadOnlyList<string> AvailableEmployeeRoles,
+    IReadOnlyList<string> FilterEmployeeRoles,
     int ServiceCount,
     IReadOnlyList<BusinessWorkspaceServiceResponse> Services,
     int ActiveEmployeeCount,
