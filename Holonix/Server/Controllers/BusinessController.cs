@@ -252,9 +252,29 @@ public class BusinessController : ControllerBase
                     service.ServiceId,
                     service.Name,
                 })
-            .OrderBy(item => item.Name)
-            .Select(item => new BusinessWorkspaceServiceResponse(item.ServiceId, item.Name))
             .ToListAsync(cancellationToken);
+
+        var subServicesByServiceId = await _dbContext.BusinessSubServices
+            .AsNoTracking()
+            .Where(item => item.BusinessId == businessId.Value && item.InactiveDate == null)
+            .OrderBy(item => item.Name)
+            .GroupBy(item => item.ServiceId)
+            .ToDictionaryAsync(
+                group => group.Key,
+                group => (IReadOnlyList<BusinessWorkspaceSubServiceResponse>)group
+                    .Select(item => new BusinessWorkspaceSubServiceResponse(item.BusinessSubServiceId, item.Name, item.EffectiveDate))
+                    .ToList(),
+                cancellationToken);
+
+        var serviceResponses = services
+            .OrderBy(item => item.Name)
+            .Select(item => new BusinessWorkspaceServiceResponse(
+                item.ServiceId,
+                item.Name,
+                subServicesByServiceId.TryGetValue(item.ServiceId, out var subServices)
+                    ? subServices
+                    : Array.Empty<BusinessWorkspaceSubServiceResponse>()))
+            .ToList();
 
         var availableEmployeeRoles = await _dbContext.BusinessRoles
             .AsNoTracking()
@@ -472,8 +492,8 @@ public class BusinessController : ControllerBase
             currentMembership.RoleName,
             availableEmployeeRoles,
             filterEmployeeRoles,
-            services.Count,
-            services,
+            serviceResponses.Count,
+            serviceResponses,
             activeEmployeeCount,
             totalJobs,
             totalRevenue,
@@ -1645,6 +1665,11 @@ public class BusinessController : ControllerBase
             .Where(item => item.BusinessId == businessId.Value)
             .ToListAsync(cancellationToken);
 
+        var removedServiceIds = existingServices
+            .Select(item => item.ServiceId)
+            .Except(serviceIds)
+            .ToArray();
+
         _dbContext.BusinessServices.RemoveRange(existingServices);
         _dbContext.BusinessServices.AddRange(
             serviceIds.Select(serviceId => new BusinessService
@@ -1653,12 +1678,164 @@ public class BusinessController : ControllerBase
                 ServiceId = serviceId,
             }));
 
+        if (removedServiceIds.Length > 0)
+        {
+            var endedAt = DateTime.UtcNow;
+            await _dbContext.BusinessSubServices
+                .Where(item =>
+                    item.BusinessId == businessId.Value &&
+                    removedServiceIds.Contains(item.ServiceId) &&
+                    item.InactiveDate == null)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(item => item.InactiveDate, endedAt), cancellationToken);
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var activeSubServices = await _dbContext.BusinessSubServices
+            .AsNoTracking()
+            .Where(item =>
+                item.BusinessId == businessId.Value &&
+                item.InactiveDate == null &&
+                serviceIds.Contains(item.ServiceId))
+            .OrderBy(item => item.Name)
+            .GroupBy(item => item.ServiceId)
+            .ToDictionaryAsync(
+                group => group.Key,
+                group => (IReadOnlyList<BusinessWorkspaceSubServiceResponse>)group
+                    .Select(item => new BusinessWorkspaceSubServiceResponse(item.BusinessSubServiceId, item.Name, item.EffectiveDate))
+                    .ToList(),
+                cancellationToken);
 
         return Ok(validServices
             .OrderBy(item => item.Name)
-            .Select(item => new BusinessWorkspaceServiceResponse(item.ServiceId, item.Name))
+            .Select(item => new BusinessWorkspaceServiceResponse(
+                item.ServiceId,
+                item.Name,
+                activeSubServices.TryGetValue(item.ServiceId, out var subServices)
+                    ? subServices
+                    : Array.Empty<BusinessWorkspaceSubServiceResponse>()))
             .ToList());
+    }
+
+    [Authorize]
+    [HttpPost("{businessCode}/services/{serviceId:int}/sub-services")]
+    public async Task<IActionResult> CreateBusinessSubService(
+        string businessCode,
+        int serviceId,
+        CreateBusinessSubServiceRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var currentRoleName = await GetActiveBusinessRoleNameAsync(businessId.Value, userId, cancellationToken);
+        if (!CanManageBusinessSubServices(currentRoleName))
+        {
+            return Forbid();
+        }
+
+        var normalizedName = NormalizeOptional(request.Name);
+        if (string.IsNullOrWhiteSpace(normalizedName))
+        {
+            return BadRequest(new { errors = new[] { "Sub-service name is required." } });
+        }
+
+        var parentServiceExists = await _dbContext.BusinessServices
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.BusinessId == businessId.Value && item.ServiceId == serviceId,
+                cancellationToken);
+
+        if (!parentServiceExists)
+        {
+            return NotFound(new { errors = new[] { "Parent service not found for this business." } });
+        }
+
+        var duplicateExists = await _dbContext.BusinessSubServices
+            .AsNoTracking()
+            .AnyAsync(
+                item =>
+                    item.BusinessId == businessId.Value &&
+                    item.ServiceId == serviceId &&
+                    item.InactiveDate == null &&
+                    item.Name == normalizedName,
+                cancellationToken);
+
+        if (duplicateExists)
+        {
+            return BadRequest(new { errors = new[] { "That sub-service already exists." } });
+        }
+
+        var subService = new BusinessSubService
+        {
+            BusinessId = businessId.Value,
+            ServiceId = serviceId,
+            Name = normalizedName,
+            EffectiveDate = request.EffectiveDate,
+        };
+
+        _dbContext.BusinessSubServices.Add(subService);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new BusinessWorkspaceSubServiceResponse(subService.BusinessSubServiceId, subService.Name, subService.EffectiveDate));
+    }
+
+    [Authorize]
+    [HttpDelete("{businessCode}/sub-services/{businessSubServiceId:long}")]
+    public async Task<IActionResult> DeleteBusinessSubService(
+        string businessCode,
+        long businessSubServiceId,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var currentRoleName = await GetActiveBusinessRoleNameAsync(businessId.Value, userId, cancellationToken);
+        if (!CanManageBusinessSubServices(currentRoleName))
+        {
+            return Forbid();
+        }
+
+        var subService = await _dbContext.BusinessSubServices
+            .SingleOrDefaultAsync(
+                item =>
+                    item.BusinessSubServiceId == businessSubServiceId &&
+                    item.BusinessId == businessId.Value &&
+                    item.InactiveDate == null,
+                cancellationToken);
+
+        if (subService is null)
+        {
+            return NotFound(new { errors = new[] { "Sub-service not found." } });
+        }
+
+        subService.InactiveDate = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
     }
 
     [Authorize]
@@ -2017,6 +2194,12 @@ public class BusinessController : ControllerBase
     }
 
     private static bool CanManageEmployeeInvites(string? roleName)
+    {
+        return string.Equals(roleName, BusinessRoleNames.Owner, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(roleName, BusinessRoleNames.Administrator, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool CanManageBusinessSubServices(string? roleName)
     {
         return string.Equals(roleName, BusinessRoleNames.Owner, StringComparison.OrdinalIgnoreCase)
             || string.Equals(roleName, BusinessRoleNames.Administrator, StringComparison.OrdinalIgnoreCase);

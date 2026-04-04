@@ -9,6 +9,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 {
     public DbSet<Service> Services => Set<Service>();
     public DbSet<BusinessService> BusinessServices => Set<BusinessService>();
+    public DbSet<BusinessSubService> BusinessSubServices => Set<BusinessSubService>();
     public DbSet<Business> Businesses => Set<Business>();
     public DbSet<BusinessDetails> BusinessDetails => Set<BusinessDetails>();
     public DbSet<Country> Countries => Set<Country>();
@@ -141,6 +142,26 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         {
             entity.ToTable("BusinessService", "business");
             entity.HasKey(x => x.BusinessServiceId);
+            entity.HasOne(x => x.Business)
+                .WithMany()
+                .HasForeignKey(x => x.BusinessId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Service)
+                .WithMany()
+                .HasForeignKey(x => x.ServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<BusinessSubService>(entity =>
+        {
+            entity.ToTable("BusinessSubService", "business");
+            entity.HasKey(x => x.BusinessSubServiceId);
+            entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            entity.Property(x => x.EffectiveDate).HasColumnType("date");
+            entity.Property(x => x.InactiveDate).HasColumnType("datetime2");
+            entity.HasIndex(x => new { x.BusinessId, x.ServiceId, x.Name })
+                .IsUnique()
+                .HasFilter("[InactiveDate] IS NULL");
             entity.HasOne(x => x.Business)
                 .WithMany()
                 .HasForeignKey(x => x.BusinessId)

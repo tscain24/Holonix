@@ -149,6 +149,31 @@ export class BusinessEmployeesComponent implements OnInit {
     }
   }
 
+  goToOverviewTab(): void {
+    this.goToWorkspace();
+  }
+
+  goToEmployeesTab(): void {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (businessCode) {
+      this.router.navigate(['/business', businessCode, 'employees']);
+    }
+  }
+
+  goToServiceManagerTab(): void {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (businessCode) {
+      this.router.navigate(['/business', businessCode], { fragment: 'service-manager' });
+    }
+  }
+
+  goToJobsTab(): void {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (businessCode) {
+      this.router.navigate(['/business', businessCode], { fragment: 'jobs' });
+    }
+  }
+
   goToProfile(): void {
     this.router.navigate(['/profile']);
   }

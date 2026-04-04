@@ -243,6 +243,44 @@ namespace Holonix.Server.Migrations
                     b.ToTable("BusinessService", "business");
                 });
 
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessSubService", b =>
+                {
+                    b.Property<long>("BusinessSubServiceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("BusinessSubServiceId"));
+
+                    b.Property<int>("BusinessId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("EffectiveDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("InactiveDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("ServiceId")
+                        .HasColumnType("int");
+
+                    b.HasKey("BusinessSubServiceId");
+
+                    b.HasIndex("BusinessId");
+
+                    b.HasIndex("ServiceId");
+
+                    b.HasIndex("BusinessId", "ServiceId", "Name")
+                        .IsUnique()
+                        .HasFilter("[InactiveDate] IS NULL");
+
+                    b.ToTable("BusinessSubService", "business");
+                });
+
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessUser", b =>
                 {
                     b.Property<long>("BusinessUserId")
@@ -916,6 +954,25 @@ namespace Holonix.Server.Migrations
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessService", b =>
+                {
+                    b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Holonix.Server.Domain.Entities.Service", "Service")
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Business");
+
+                    b.Navigation("Service");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessSubService", b =>
                 {
                     b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
                         .WithMany()

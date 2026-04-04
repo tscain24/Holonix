@@ -27,7 +27,13 @@ public sealed record BusinessWorkspaceResponse(
 
 public sealed record BusinessWorkspaceServiceResponse(
     int ServiceId,
-    string Name);
+    string Name,
+    IReadOnlyList<BusinessWorkspaceSubServiceResponse> SubServices);
+
+public sealed record BusinessWorkspaceSubServiceResponse(
+    long BusinessSubServiceId,
+    string Name,
+    DateOnly EffectiveDate);
 
 public sealed record BusinessWorkspaceEmployeeResponse(
     long BusinessUserId,

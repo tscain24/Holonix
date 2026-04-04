@@ -57,6 +57,19 @@ public class BusinessService
     public Service Service { get; set; } = null!;
 }
 
+public class BusinessSubService
+{
+    public long BusinessSubServiceId { get; set; }
+    public int BusinessId { get; set; }
+    public int ServiceId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public DateOnly EffectiveDate { get; set; }
+    public DateTime? InactiveDate { get; set; }
+
+    public Business Business { get; set; } = null!;
+    public Service Service { get; set; } = null!;
+}
+
 public class BusinessRole
 {
     public long BusinessRoleId { get; set; }

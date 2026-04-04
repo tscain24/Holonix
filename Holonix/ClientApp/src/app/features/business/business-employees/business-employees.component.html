@@ -41,6 +41,12 @@
           <span aria-hidden="true">&larr;</span>
           Back
         </button>
+        <nav class="workspace-tabs" aria-label="Workspace sections">
+          <button type="button" class="workspace-tab" (click)="goToOverviewTab()">Overview</button>
+          <button type="button" class="workspace-tab workspace-tab-active" aria-current="page" (click)="goToEmployeesTab()">Employees</button>
+          <button type="button" class="workspace-tab" (click)="goToServiceManagerTab()">Service Manager</button>
+          <button type="button" class="workspace-tab" (click)="goToJobsTab()">Jobs</button>
+        </nav>
       </div>
 
       <section class="employees-hero">

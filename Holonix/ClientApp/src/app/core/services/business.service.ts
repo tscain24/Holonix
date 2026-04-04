@@ -97,6 +97,13 @@ export interface BusinessWorkspaceEmployee {
 export interface BusinessWorkspaceService {
   serviceId: number;
   name: string;
+  subServices: BusinessWorkspaceSubService[];
+}
+
+export interface BusinessWorkspaceSubService {
+  businessSubServiceId: number;
+  name: string;
+  effectiveDate: string;
 }
 
 export interface BusinessWorkspaceJob {
@@ -354,6 +361,35 @@ export class BusinessService {
         }
 
         return this.tryUpdateBusinessServicesFallback(businessCode, serviceIds, 0);
+      })
+    );
+  }
+
+  createBusinessSubService(
+    businessCode: string,
+    serviceId: number,
+    name: string,
+    effectiveDate: string
+  ): Observable<BusinessWorkspaceSubService> {
+    return this.http.post<BusinessWorkspaceSubService>(`${this.businessEndpoint}/${businessCode}/services/${serviceId}/sub-services`, { name, effectiveDate }).pipe(
+      catchError((error) => {
+        if (error?.status === 0) {
+          return this.tryCreateBusinessSubServiceFallback(businessCode, serviceId, name, effectiveDate, 0);
+        }
+
+        return throwError(() => error);
+      })
+    );
+  }
+
+  deleteBusinessSubService(businessCode: string, businessSubServiceId: number): Observable<void> {
+    return this.http.delete<void>(`${this.businessEndpoint}/${businessCode}/sub-services/${businessSubServiceId}`).pipe(
+      catchError((error) => {
+        if (error?.status === 0) {
+          return this.tryDeleteBusinessSubServiceFallback(businessCode, businessSubServiceId, 0);
+        }
+
+        return throwError(() => error);
       })
     );
   }
@@ -684,5 +720,49 @@ export class BusinessService {
   private shouldTryNextOrigin(err: { status?: number } | null | undefined): boolean {
     const status = err?.status;
     return status === 0 || status === 404;
+  }
+
+  private tryCreateBusinessSubServiceFallback(
+    businessCode: string,
+    serviceId: number,
+    name: string,
+    effectiveDate: string,
+    index: number
+  ): Observable<BusinessWorkspaceSubService> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Unable to reach the business service endpoint.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/services/${serviceId}/sub-services`;
+    return this.http.post<BusinessWorkspaceSubService>(url, { name, effectiveDate }).pipe(
+      catchError((error) => {
+        if (error?.status === 0) {
+          return this.tryCreateBusinessSubServiceFallback(businessCode, serviceId, name, effectiveDate, index + 1);
+        }
+
+        return throwError(() => error);
+      })
+    );
+  }
+
+  private tryDeleteBusinessSubServiceFallback(
+    businessCode: string,
+    businessSubServiceId: number,
+    index: number
+  ): Observable<void> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Unable to reach the business service endpoint.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/sub-services/${businessSubServiceId}`;
+    return this.http.delete<void>(url).pipe(
+      catchError((error) => {
+        if (error?.status === 0) {
+          return this.tryDeleteBusinessSubServiceFallback(businessCode, businessSubServiceId, index + 1);
+        }
+
+        return throwError(() => error);
+      })
+    );
   }
 }

@@ -7,8 +7,13 @@ import {
   BusinessWorkspace,
   BusinessWorkspaceJob,
   BusinessWorkspaceService,
+  BusinessWorkspaceSubService,
 } from '../../../core/services/business.service';
 import { AuthSessionService } from '../../../core/services/auth-session.service';
+
+interface VisibleBusinessSubService extends BusinessWorkspaceSubService {
+  parentServiceName: string;
+}
 
 @Component({
   selector: 'app-business-workspace',
@@ -17,6 +22,7 @@ import { AuthSessionService } from '../../../core/services/auth-session.service'
 })
 export class BusinessWorkspaceComponent implements OnInit {
   private static readonly MaxVisibleServiceChips = 4;
+  private static readonly MaxVisibleSubServices = 10;
   private static readonly DeleteBusinessConfirmation = 'DELETE';
   displayName = 'User';
   initials = 'U';
@@ -25,6 +31,8 @@ export class BusinessWorkspaceComponent implements OnInit {
   loadingWorkspace = true;
   loadingAvailableServices = false;
   savingServices = false;
+  creatingSubServiceIds = new Set<number>();
+  deletingSubServiceIds = new Set<number>();
   savingProfile = false;
   savingGeneralInformation = false;
   deletingBusiness = false;
@@ -48,6 +56,8 @@ export class BusinessWorkspaceComponent implements OnInit {
   deleteBusinessConfirmation = '';
   businessWorkspace: BusinessWorkspace | null = null;
   allServices: BusinessServiceOption[] = [];
+  subServiceDrafts: Record<number, string> = {};
+  subServiceEffectiveDateDrafts: Record<number, string> = {};
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -135,6 +145,37 @@ export class BusinessWorkspaceComponent implements OnInit {
     this.router.navigate(['/business', businessCode, 'employees']);
   }
 
+  goToOverviewTab(): void {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode) {
+      return;
+    }
+
+    this.router.navigate(['/business', businessCode]);
+  }
+
+  goToEmployeesTab(): void {
+    this.goToEmployees();
+  }
+
+  goToServiceManagerTab(): void {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode) {
+      return;
+    }
+
+    this.router.navigate(['/business', businessCode], { fragment: 'service-manager' });
+  }
+
+  goToJobsTab(): void {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode) {
+      return;
+    }
+
+    this.router.navigate(['/business', businessCode], { fragment: 'jobs' });
+  }
+
   goToProfile(): void {
     this.router.navigate(['/profile']);
   }
@@ -190,6 +231,11 @@ export class BusinessWorkspaceComponent implements OnInit {
     return (this.businessWorkspace?.currentUserRoleName ?? '').toLowerCase() === 'owner';
   }
 
+  get canManageSubServices(): boolean {
+    const role = (this.businessWorkspace?.currentUserRoleName ?? '').trim().toLowerCase();
+    return role === 'owner' || role === 'administrator';
+  }
+
   get canEditBusinessProfile(): boolean {
     return this.canManageServices;
   }
@@ -232,8 +278,40 @@ export class BusinessWorkspaceComponent implements OnInit {
     return Math.max(services.length - BusinessWorkspaceComponent.MaxVisibleServiceChips, 0);
   }
 
-  get activeWorkspaceEmployees() {
+  get activeWorkspaceEmployees(): BusinessWorkspace['employees'] {
     return (this.businessWorkspace?.employees ?? []).filter((employee) => employee.isActive);
+  }
+
+  get visibleSubServices(): VisibleBusinessSubService[] {
+    return (this.businessWorkspace?.services ?? [])
+      .flatMap((service) =>
+        service.subServices.map((subService) => ({
+          ...subService,
+          parentServiceName: service.name,
+        }))
+      )
+      .sort((a, b) => {
+        const effectiveDateCompare = a.effectiveDate.localeCompare(b.effectiveDate);
+        if (effectiveDateCompare !== 0) {
+          return effectiveDateCompare;
+        }
+
+        const parentCompare = a.parentServiceName.localeCompare(b.parentServiceName);
+        if (parentCompare !== 0) {
+          return parentCompare;
+        }
+
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, BusinessWorkspaceComponent.MaxVisibleSubServices);
+  }
+
+  hasVisibleSubServices(): boolean {
+    return this.visibleSubServices.length > 0;
+  }
+
+  hasActiveWorkspaceEmployees(): boolean {
+    return this.activeWorkspaceEmployees.length > 0;
   }
 
   onServiceSearchInput(event: Event): void {
@@ -256,7 +334,7 @@ export class BusinessWorkspaceComponent implements OnInit {
       return;
     }
 
-    const nextServices = [...this.businessWorkspace.services, { serviceId: service.serviceId, name: service.name }];
+    const nextServices = [...this.businessWorkspace.services, { serviceId: service.serviceId, name: service.name, subServices: [] }];
     this.saveServices(nextServices);
     this.serviceSearch = '';
     this.serviceDropdownOpen = false;
@@ -273,6 +351,124 @@ export class BusinessWorkspaceComponent implements OnInit {
 
   expandServiceChips(): void {
     this.servicesExpanded = true;
+  }
+
+  onSubServiceNameInput(serviceId: number, event: Event): void {
+    this.subServiceDrafts[serviceId] = (event.target as HTMLInputElement).value;
+  }
+
+  onSubServiceEffectiveDateInput(serviceId: number, event: Event): void {
+    this.subServiceEffectiveDateDrafts[serviceId] = (event.target as HTMLInputElement).value;
+  }
+
+  getSubServiceDraft(serviceId: number): string {
+    return this.subServiceDrafts[serviceId] ?? '';
+  }
+
+  getSubServiceEffectiveDateDraft(serviceId: number): string {
+    return this.subServiceEffectiveDateDrafts[serviceId] ?? this.getTodayDateInputValue();
+  }
+
+  isCreatingSubService(serviceId: number): boolean {
+    return this.creatingSubServiceIds.has(serviceId);
+  }
+
+  isDeletingSubService(businessSubServiceId: number): boolean {
+    return this.deletingSubServiceIds.has(businessSubServiceId);
+  }
+
+  addSubService(service: BusinessWorkspaceService): void {
+    const workspace = this.businessWorkspace;
+    const businessCode = workspace?.businessCode?.trim();
+    const name = this.getSubServiceDraft(service.serviceId).trim();
+    const effectiveDate = this.getSubServiceEffectiveDateDraft(service.serviceId).trim();
+    if (!workspace || !businessCode || !this.canManageSubServices || !name || !effectiveDate || this.isCreatingSubService(service.serviceId)) {
+      return;
+    }
+
+    this.creatingSubServiceIds.add(service.serviceId);
+    this.businessService.createBusinessSubService(businessCode, service.serviceId, name, effectiveDate).subscribe({
+      next: (subService) => {
+        if (!this.businessWorkspace) {
+          return;
+        }
+
+        this.businessWorkspace = {
+          ...this.businessWorkspace,
+          services: this.businessWorkspace.services.map((item) =>
+            item.serviceId !== service.serviceId
+              ? item
+              : {
+                  ...item,
+                  subServices: [...item.subServices, subService].sort((a, b) => a.name.localeCompare(b.name)),
+                })
+        };
+        this.subServiceDrafts[service.serviceId] = '';
+        this.subServiceEffectiveDateDrafts[service.serviceId] = this.getTodayDateInputValue();
+        this.creatingSubServiceIds.delete(service.serviceId);
+        this.snackBar.open('Sub-service added.', 'Close', {
+          duration: 2500,
+          panelClass: ['snack-success'],
+        });
+      },
+      error: (err) => {
+        this.creatingSubServiceIds.delete(service.serviceId);
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
+        const errors = err?.error?.errors as string[] | undefined;
+        this.snackBar.open(errors?.[0] ?? 'Could not add sub-service.', 'Close', {
+          duration: 3500,
+          panelClass: ['snack-error'],
+        });
+      },
+    });
+  }
+
+  removeSubService(service: BusinessWorkspaceService, subService: BusinessWorkspaceSubService): void {
+    const workspace = this.businessWorkspace;
+    const businessCode = workspace?.businessCode?.trim();
+    if (!workspace || !businessCode || !this.canManageSubServices || this.isDeletingSubService(subService.businessSubServiceId)) {
+      return;
+    }
+
+    this.deletingSubServiceIds.add(subService.businessSubServiceId);
+    this.businessService.deleteBusinessSubService(businessCode, subService.businessSubServiceId).subscribe({
+      next: () => {
+        if (!this.businessWorkspace) {
+          return;
+        }
+
+        this.businessWorkspace = {
+          ...this.businessWorkspace,
+          services: this.businessWorkspace.services.map((item) =>
+            item.serviceId !== service.serviceId
+              ? item
+              : {
+                  ...item,
+                  subServices: item.subServices.filter((entry) => entry.businessSubServiceId !== subService.businessSubServiceId),
+                })
+        };
+        this.deletingSubServiceIds.delete(subService.businessSubServiceId);
+        this.snackBar.open('Sub-service removed.', 'Close', {
+          duration: 2500,
+          panelClass: ['snack-success'],
+        });
+      },
+      error: (err) => {
+        this.deletingSubServiceIds.delete(subService.businessSubServiceId);
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
+        const errors = err?.error?.errors as string[] | undefined;
+        this.snackBar.open(errors?.[0] ?? 'Could not remove sub-service.', 'Close', {
+          duration: 3500,
+          panelClass: ['snack-error'],
+        });
+      },
+    });
   }
 
   startProfileEdit(): void {
@@ -687,6 +883,23 @@ export class BusinessWorkspaceComponent implements OnInit {
     }).format(date);
   }
 
+  formatEffectiveDate(value: string): string {
+    if (!value?.trim()) {
+      return 'No effective date';
+    }
+
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(date);
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as Node | null;
@@ -718,6 +931,13 @@ export class BusinessWorkspaceComponent implements OnInit {
     }
 
     return `data:image/*;base64,${trimmed}`;
+  }
+
+  private getTodayDateInputValue(): string {
+    const now = new Date();
+    const month = `${now.getMonth() + 1}`.padStart(2, '0');
+    const day = `${now.getDate()}`.padStart(2, '0');
+    return `${now.getFullYear()}-${month}-${day}`;
   }
 
   private loadAvailableServices(): void {
