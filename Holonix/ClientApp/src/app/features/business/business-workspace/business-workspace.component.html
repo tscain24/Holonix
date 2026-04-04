@@ -336,9 +336,16 @@
       </section>
 
       <section class="workspace-section" *ngIf="business.services.length > 0" id="service-manager">
-        <div class="section-heading">
-          <h2>Service Manager</h2>
-          <p>View the sub-services that are configured for this business.</p>
+        <div class="section-heading section-heading-actions">
+          <div>
+            <h2>Service Manager</h2>
+            <p>View the sub-services that are configured for this business.</p>
+          </div>
+          <div class="hero-actions">
+            <button type="button" class="hero-btn hero-btn-secondary employee-view-all-btn" (click)="goToServiceManagerTab()">
+              View All
+            </button>
+          </div>
         </div>
 
         <div class="section-state" *ngIf="!hasVisibleSubServices()">

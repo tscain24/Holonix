@@ -8,6 +8,7 @@ import { CreateBusinessComponent } from './features/business/create-business/cre
 import { BusinessOverviewComponent } from './features/business/business-overview/business-overview.component';
 import { BusinessWorkspaceComponent } from './features/business/business-workspace/business-workspace.component';
 import { BusinessEmployeesComponent } from './features/business/business-employees/business-employees.component';
+import { BusinessServiceManagerComponent } from './features/business/business-service-manager/business-service-manager.component';
 
 const routes: Routes = [
   { path: '', redirectTo: 'home', pathMatch: 'full' },
@@ -18,6 +19,7 @@ const routes: Routes = [
   { path: 'business', component: BusinessOverviewComponent },
   { path: 'business/create', component: CreateBusinessComponent },
   { path: 'business/:businessCode/employees', component: BusinessEmployeesComponent },
+  { path: 'business/:businessCode/services', component: BusinessServiceManagerComponent },
   { path: 'business/:businessCode', component: BusinessWorkspaceComponent },
   { path: '**', redirectTo: 'home' },
 ];

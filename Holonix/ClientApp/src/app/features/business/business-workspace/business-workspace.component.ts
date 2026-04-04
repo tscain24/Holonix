@@ -164,7 +164,7 @@ export class BusinessWorkspaceComponent implements OnInit {
       return;
     }
 
-    this.router.navigate(['/business', businessCode], { fragment: 'service-manager' });
+    this.router.navigate(['/business', businessCode, 'services']);
   }
 
   goToJobsTab(): void {

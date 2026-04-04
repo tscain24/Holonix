@@ -23,6 +23,7 @@ import { CreateBusinessComponent } from './features/business/create-business/cre
 import { BusinessOverviewComponent } from './features/business/business-overview/business-overview.component';
 import { BusinessWorkspaceComponent } from './features/business/business-workspace/business-workspace.component';
 import { BusinessEmployeesComponent } from './features/business/business-employees/business-employees.component';
+import { BusinessServiceManagerComponent } from './features/business/business-service-manager/business-service-manager.component';
 import { AuthInterceptor } from './core/services/auth.interceptor';
 
 @NgModule({
@@ -37,7 +38,8 @@ import { AuthInterceptor } from './core/services/auth.interceptor';
     CreateBusinessComponent,
     BusinessOverviewComponent,
     BusinessWorkspaceComponent,
-    BusinessEmployeesComponent
+    BusinessEmployeesComponent,
+    BusinessServiceManagerComponent
   ],
   imports: [
     BrowserModule,
