@@ -48,7 +48,7 @@
     </div>
 
     <div class="business-grid" *ngIf="!loadingBusinesses && businesses.length > 0">
-      <button type="button" class="business-card business-card-button" *ngFor="let business of businesses" (click)="goToBusinessWorkspace(business.businessId)">
+      <button type="button" class="business-card business-card-button" *ngFor="let business of businesses" (click)="goToBusinessWorkspace(business.businessCode)">
         <div class="business-card-top">
           <div class="business-icon" [class.business-icon-empty]="!getBusinessIconDataUrl(business.businessIconBase64)">
             <img

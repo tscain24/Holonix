@@ -10,6 +10,7 @@ public class Service
 public class Business
 {
     public int BusinessId { get; set; }
+    public string BusinessCode { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public DateOnly StartDate { get; set; }
     public DateTime? InactiveDate { get; set; }

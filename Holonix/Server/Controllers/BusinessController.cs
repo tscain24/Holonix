@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using System.Security.Cryptography;
 
 namespace Holonix.Server.Controllers;
 
@@ -16,6 +17,8 @@ namespace Holonix.Server.Controllers;
 [Route("api/business")]
 public class BusinessController : ControllerBase
 {
+    private const int BusinessCodeLength = 10;
+    private const string BusinessCodeCharacters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private readonly ApplicationDbContext _dbContext;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ITokenService _tokenService;
@@ -149,6 +152,7 @@ public class BusinessController : ControllerBase
         var response = businesses
             .Select(business => new UserBusinessSummaryResponse(
                 business.BusinessId,
+                business.BusinessCode,
                 business.Name,
                 business.Details?.Description,
                 business.Details?.City,
@@ -166,8 +170,8 @@ public class BusinessController : ControllerBase
     }
 
     [Authorize]
-    [HttpGet("{businessId:int}")]
-    public async Task<IActionResult> GetBusinessWorkspace(int businessId, CancellationToken cancellationToken)
+    [HttpGet("{businessCode}")]
+    public async Task<IActionResult> GetBusinessWorkspace(string businessCode, CancellationToken cancellationToken)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? User.FindFirstValue("sub");
@@ -177,10 +181,16 @@ public class BusinessController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
         var currentMembership = await _dbContext.BusinessUsers
             .AsNoTracking()
             .Where(businessUser =>
-                businessUser.BusinessId == businessId &&
+                businessUser.BusinessId == businessId.Value &&
                 businessUser.UserId == userId &&
                 businessUser.IsActive &&
                 businessUser.EndDate == null)
@@ -220,7 +230,7 @@ public class BusinessController : ControllerBase
 
         var business = await _dbContext.Businesses
             .AsNoTracking()
-            .Where(item => item.BusinessId == businessId && item.InactiveDate == null)
+            .Where(item => item.BusinessId == businessId.Value && item.InactiveDate == null)
             .Include(item => item.Details)
                 .ThenInclude(details => details!.Country)
             .SingleOrDefaultAsync(cancellationToken);
@@ -232,7 +242,7 @@ public class BusinessController : ControllerBase
 
         var services = await _dbContext.BusinessServices
             .AsNoTracking()
-            .Where(item => item.BusinessId == businessId)
+            .Where(item => item.BusinessId == businessId.Value)
             .Join(
                 _dbContext.Services.AsNoTracking(),
                 businessService => businessService.ServiceId,
@@ -258,7 +268,7 @@ public class BusinessController : ControllerBase
 
         var employeeRoleRows = await _dbContext.BusinessUsers
             .AsNoTracking()
-            .Where(businessUser => businessUser.BusinessId == businessId && businessUser.EndDate == null)
+            .Where(businessUser => businessUser.BusinessId == businessId.Value && businessUser.EndDate == null)
             .Join(
                 _dbContext.Users.AsNoTracking(),
                 businessUser => businessUser.UserId,
@@ -270,6 +280,9 @@ public class BusinessController : ControllerBase
                     businessUser.StartDate,
                     user.FirstName,
                     user.LastName,
+                    user.Email,
+                    user.PhoneNumber,
+                    user.DateOfBirth,
                 })
             .GroupJoin(
                 _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
@@ -285,6 +298,9 @@ public class BusinessController : ControllerBase
                     joined.businessUser.StartDate,
                     joined.businessUser.FirstName,
                     joined.businessUser.LastName,
+                    joined.businessUser.Email,
+                    joined.businessUser.PhoneNumber,
+                    joined.businessUser.DateOfBirth,
                     BusinessRoleId = businessUserRole != null ? businessUserRole.BusinessRoleId : (long?)null,
                 })
             .GroupJoin(
@@ -301,6 +317,9 @@ public class BusinessController : ControllerBase
                     joined.joined.StartDate,
                     joined.joined.FirstName,
                     joined.joined.LastName,
+                    joined.joined.Email,
+                    joined.joined.PhoneNumber,
+                    joined.joined.DateOfBirth,
                     RoleName = businessRole != null ? businessRole.Name : null,
                     RoleHierarchyNumber = businessRole != null ? businessRole.HierarchyNumber : (long?)null,
                 })
@@ -308,7 +327,7 @@ public class BusinessController : ControllerBase
 
         var assignedJobCounts = await _dbContext.Jobs
             .AsNoTracking()
-            .Where(job => job.BusinessId == businessId && job.BusinessUserId.HasValue)
+            .Where(job => job.BusinessId == businessId.Value && job.BusinessUserId.HasValue)
             .GroupBy(job => job.BusinessUserId!.Value)
             .Select(group => new { BusinessUserId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(item => item.BusinessUserId, item => item.Count, cancellationToken);
@@ -359,6 +378,9 @@ public class BusinessController : ControllerBase
                     Employee = new BusinessWorkspaceEmployeeResponse(
                         group.Key,
                         string.IsNullOrWhiteSpace(displayName) ? "Team Member" : displayName,
+                        first.Email,
+                        first.PhoneNumber,
+                        first.DateOfBirth,
                         roleName,
                         first.StartDate,
                         first.IsActive,
@@ -389,7 +411,7 @@ public class BusinessController : ControllerBase
 
         var jobs = await _dbContext.Jobs
             .AsNoTracking()
-            .Where(job => job.BusinessId == businessId)
+            .Where(job => job.BusinessId == businessId.Value)
             .OrderByDescending(job => job.StartDateTime)
             .Select(job => new
             {
@@ -423,18 +445,19 @@ public class BusinessController : ControllerBase
 
         var totalRevenue = await _dbContext.Jobs
             .AsNoTracking()
-            .Where(job => job.BusinessId == businessId)
+            .Where(job => job.BusinessId == businessId.Value)
             .Select(job => (decimal?)job.NetCost)
             .SumAsync(cancellationToken) ?? 0m;
 
         var totalJobs = await _dbContext.Jobs
             .AsNoTracking()
-            .CountAsync(job => job.BusinessId == businessId, cancellationToken);
+            .CountAsync(job => job.BusinessId == businessId.Value, cancellationToken);
 
         var activeEmployeeCount = orderedEmployees.Count(employee => employee.IsActive);
 
         var response = new BusinessWorkspaceResponse(
             business.BusinessId,
+            business.BusinessCode,
             business.Name,
             business.Details?.Description,
             business.Details?.Address1,
@@ -461,12 +484,13 @@ public class BusinessController : ControllerBase
     }
 
     [Authorize]
-    [HttpGet("{businessId:int}/employees")]
+    [HttpGet("{businessCode}/employees")]
     public async Task<IActionResult> GetEmployees(
-        int businessId,
+        string businessCode,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string? filters = null,
+        [FromQuery] bool includeInactive = false,
         [FromQuery] string? sortBy = null,
         [FromQuery] string? sortDirection = null,
         CancellationToken cancellationToken = default)
@@ -479,6 +503,12 @@ public class BusinessController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
         if (pageNumber < 1)
         {
           pageNumber = 1;
@@ -489,7 +519,7 @@ public class BusinessController : ControllerBase
         var currentMembership = await _dbContext.BusinessUsers
             .AsNoTracking()
             .Where(businessUser =>
-                businessUser.BusinessId == businessId &&
+                businessUser.BusinessId == businessId.Value &&
                 businessUser.UserId == userId &&
                 businessUser.IsActive &&
                 businessUser.EndDate == null)
@@ -527,9 +557,15 @@ public class BusinessController : ControllerBase
             return Forbid();
         }
 
+        var canViewInactiveEmployees = CanManageEmployeeInvites(currentMembership.RoleName);
+        if (!canViewInactiveEmployees)
+        {
+            includeInactive = false;
+        }
+
         var employeeRoleRows = await _dbContext.BusinessUsers
             .AsNoTracking()
-            .Where(businessUser => businessUser.BusinessId == businessId && businessUser.EndDate == null)
+            .Where(businessUser => businessUser.BusinessId == businessId.Value && businessUser.EndDate == null)
             .Join(
                 _dbContext.Users.AsNoTracking(),
                 businessUser => businessUser.UserId,
@@ -541,6 +577,9 @@ public class BusinessController : ControllerBase
                     businessUser.StartDate,
                     user.FirstName,
                     user.LastName,
+                    user.Email,
+                    user.PhoneNumber,
+                    user.DateOfBirth,
                 })
             .GroupJoin(
                 _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
@@ -556,6 +595,9 @@ public class BusinessController : ControllerBase
                     joined.businessUser.StartDate,
                     joined.businessUser.FirstName,
                     joined.businessUser.LastName,
+                    joined.businessUser.Email,
+                    joined.businessUser.PhoneNumber,
+                    joined.businessUser.DateOfBirth,
                     BusinessRoleId = businessUserRole != null ? businessUserRole.BusinessRoleId : (long?)null,
                 })
             .GroupJoin(
@@ -572,6 +614,9 @@ public class BusinessController : ControllerBase
                     joined.joined.StartDate,
                     joined.joined.FirstName,
                     joined.joined.LastName,
+                    joined.joined.Email,
+                    joined.joined.PhoneNumber,
+                    joined.joined.DateOfBirth,
                     RoleName = businessRole != null ? businessRole.Name : null,
                     RoleHierarchyNumber = businessRole != null ? businessRole.HierarchyNumber : (long?)null,
                 })
@@ -579,7 +624,7 @@ public class BusinessController : ControllerBase
 
         var assignedJobCounts = await _dbContext.Jobs
             .AsNoTracking()
-            .Where(job => job.BusinessId == businessId && job.BusinessUserId.HasValue)
+            .Where(job => job.BusinessId == businessId.Value && job.BusinessUserId.HasValue)
             .GroupBy(job => job.BusinessUserId!.Value)
             .Select(group => new { BusinessUserId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(item => item.BusinessUserId, item => item.Count, cancellationToken);
@@ -629,6 +674,9 @@ public class BusinessController : ControllerBase
                     new BusinessWorkspaceEmployeeResponse(
                         group.Key,
                         string.IsNullOrWhiteSpace(displayName) ? "Team Member" : displayName,
+                        first.Email,
+                        first.PhoneNumber,
+                        first.DateOfBirth,
                         roleName,
                         first.StartDate,
                         first.IsActive,
@@ -639,6 +687,13 @@ public class BusinessController : ControllerBase
             .ToList();
 
         var activeFilters = ParseEmployeeFilters(filters);
+        if (!includeInactive)
+        {
+            filteredEmployees = filteredEmployees
+                .Where(item => item.Employee.IsActive)
+                .ToList();
+        }
+
         foreach (var filterGroup in activeFilters.GroupBy(filter => filter.Field, StringComparer.OrdinalIgnoreCase))
         {
             filteredEmployees = filteredEmployees
@@ -686,8 +741,8 @@ public class BusinessController : ControllerBase
     }
 
     [Authorize]
-    [HttpGet("{businessId:int}/employee-invites")]
-    public async Task<IActionResult> GetEmployeeInvites(int businessId, CancellationToken cancellationToken)
+    [HttpGet("{businessCode}/employee-invites")]
+    public async Task<IActionResult> GetEmployeeInvites(string businessCode, CancellationToken cancellationToken)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? User.FindFirstValue("sub");
@@ -697,7 +752,13 @@ public class BusinessController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
-        var currentRoleName = await GetActiveBusinessRoleNameAsync(businessId, userId, cancellationToken);
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var currentRoleName = await GetActiveBusinessRoleNameAsync(businessId.Value, userId, cancellationToken);
         if (currentRoleName is null)
         {
             return Forbid();
@@ -706,7 +767,7 @@ public class BusinessController : ControllerBase
         var invites = await _dbContext.EmployeeInviteWorkloads
             .AsNoTracking()
             .Where(item =>
-                item.EmployeeInvite.BusinessId == businessId &&
+                item.EmployeeInvite.BusinessId == businessId.Value &&
                 item.Workload.WorkloadType.Type == WorkloadTypeNames.EmployeeInvite &&
                 (
                     item.Workload.WorkloadStatus.Status == WorkloadStatusNames.PendingInvite ||
@@ -730,9 +791,9 @@ public class BusinessController : ControllerBase
     }
 
     [Authorize]
-    [HttpPost("{businessId:int}/employee-invites/{workloadId:long}/close")]
+    [HttpPost("{businessCode}/employee-invites/{workloadId:long}/close")]
     public async Task<IActionResult> CloseEmployeeInvite(
-        int businessId,
+        string businessCode,
         long workloadId,
         CancellationToken cancellationToken)
     {
@@ -744,7 +805,13 @@ public class BusinessController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
-        var currentRoleName = await GetActiveBusinessRoleNameAsync(businessId, userId, cancellationToken);
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var currentRoleName = await GetActiveBusinessRoleNameAsync(businessId.Value, userId, cancellationToken);
         if (!CanManageEmployeeInvites(currentRoleName))
         {
             return Forbid();
@@ -754,7 +821,7 @@ public class BusinessController : ControllerBase
             .Include(item => item.Workload)
             .Where(item =>
                 item.WorkloadId == workloadId &&
-                item.EmployeeInvite.BusinessId == businessId &&
+                item.EmployeeInvite.BusinessId == businessId.Value &&
                 item.Workload.WorkloadType.Type == WorkloadTypeNames.EmployeeInvite &&
                 (
                     item.Workload.WorkloadStatus.Status == WorkloadStatusNames.PendingInvite ||
@@ -789,9 +856,9 @@ public class BusinessController : ControllerBase
     }
 
     [Authorize]
-    [HttpPost("{businessId:int}/employee-invites")]
+    [HttpPost("{businessCode}/employee-invites")]
     public async Task<IActionResult> CreateEmployeeInvite(
-        int businessId,
+        string businessCode,
         CreateEmployeeInviteRequest request,
         CancellationToken cancellationToken)
     {
@@ -803,7 +870,13 @@ public class BusinessController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
-        var currentRoleName = await GetActiveBusinessRoleNameAsync(businessId, userId, cancellationToken);
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var currentRoleName = await GetActiveBusinessRoleNameAsync(businessId.Value, userId, cancellationToken);
         if (!CanManageEmployeeInvites(currentRoleName))
         {
             return Forbid();
@@ -812,7 +885,7 @@ public class BusinessController : ControllerBase
         var businessExists = await _dbContext.Businesses
             .AsNoTracking()
             .AnyAsync(
-                business => business.BusinessId == businessId && business.InactiveDate == null,
+                business => business.BusinessId == businessId.Value && business.InactiveDate == null,
                 cancellationToken);
 
         if (!businessExists)
@@ -909,7 +982,7 @@ public class BusinessController : ControllerBase
             .AsNoTracking()
             .AnyAsync(
                 businessUser =>
-                    businessUser.BusinessId == businessId &&
+                    businessUser.BusinessId == businessId.Value &&
                     businessUser.UserId == existingUser.Id &&
                     businessUser.IsActive &&
                     businessUser.EndDate == null,
@@ -923,7 +996,7 @@ public class BusinessController : ControllerBase
         var pendingInviteExists = await _dbContext.EmployeeInviteWorkloads
             .AsNoTracking()
             .AnyAsync(item =>
-                    item.EmployeeInvite.BusinessId == businessId &&
+                    item.EmployeeInvite.BusinessId == businessId.Value &&
                     item.EmployeeInvite.NormalizedTargetEmail == normalizedEmail &&
                     item.Workload.WorkloadTypeId == pendingInviteStatus.WorkloadTypeId &&
                     item.Workload.WorkloadStatusId == pendingInviteStatus.WorkloadStatusId,
@@ -947,7 +1020,7 @@ public class BusinessController : ControllerBase
 
         var employeeInvite = new EmployeeInvite
         {
-            BusinessId = businessId,
+            BusinessId = businessId.Value,
             TargetEmail = email,
             NormalizedTargetEmail = normalizedEmail,
             TargetUserId = existingUser.Id,
@@ -986,9 +1059,9 @@ public class BusinessController : ControllerBase
     }
 
     [Authorize]
-    [HttpPost("{businessId:int}/employees/{businessUserId:long}/deactivate")]
+    [HttpPost("{businessCode}/employees/{businessUserId:long}/deactivate")]
     public async Task<IActionResult> DeactivateEmployee(
-        int businessId,
+        string businessCode,
         long businessUserId,
         CancellationToken cancellationToken)
     {
@@ -1000,10 +1073,16 @@ public class BusinessController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
         var currentMembership = await _dbContext.BusinessUsers
             .AsNoTracking()
             .Where(businessUser =>
-                businessUser.BusinessId == businessId &&
+                businessUser.BusinessId == businessId.Value &&
                 businessUser.UserId == userId &&
                 businessUser.IsActive &&
                 businessUser.EndDate == null)
@@ -1049,7 +1128,7 @@ public class BusinessController : ControllerBase
         var targetMembership = await _dbContext.BusinessUsers
             .AsNoTracking()
             .Where(businessUser =>
-                businessUser.BusinessId == businessId &&
+                businessUser.BusinessId == businessId.Value &&
                 businessUser.BusinessUserId == businessUserId &&
                 businessUser.EndDate == null)
             .GroupJoin(
@@ -1105,7 +1184,7 @@ public class BusinessController : ControllerBase
 
         var membership = await _dbContext.BusinessUsers
             .SingleOrDefaultAsync(
-                businessUser => businessUser.BusinessId == businessId &&
+                businessUser => businessUser.BusinessId == businessId.Value &&
                                 businessUser.BusinessUserId == businessUserId &&
                                 businessUser.EndDate == null,
                 cancellationToken);
@@ -1133,8 +1212,8 @@ public class BusinessController : ControllerBase
     }
 
     [Authorize]
-    [HttpPost("{businessId:int}/leave")]
-    public async Task<IActionResult> LeaveBusiness(int businessId, CancellationToken cancellationToken)
+    [HttpPost("{businessCode}/leave")]
+    public async Task<IActionResult> LeaveBusiness(string businessCode, CancellationToken cancellationToken)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? User.FindFirstValue("sub");
@@ -1144,10 +1223,16 @@ public class BusinessController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
         var currentMembership = await _dbContext.BusinessUsers
             .AsNoTracking()
             .Where(businessUser =>
-                businessUser.BusinessId == businessId &&
+                businessUser.BusinessId == businessId.Value &&
                 businessUser.UserId == userId &&
                 businessUser.IsActive &&
                 businessUser.EndDate == null)
@@ -1177,7 +1262,7 @@ public class BusinessController : ControllerBase
 
         var membership = await _dbContext.BusinessUsers
             .SingleOrDefaultAsync(
-                businessUser => businessUser.BusinessId == businessId &&
+                businessUser => businessUser.BusinessId == businessId.Value &&
                                 businessUser.UserId == userId &&
                                 businessUser.IsActive &&
                                 businessUser.EndDate == null,
@@ -1206,9 +1291,9 @@ public class BusinessController : ControllerBase
     }
 
     [Authorize]
-    [HttpPut("{businessId:int}/employees/{businessUserId:long}/role")]
+    [HttpPut("{businessCode}/employees/{businessUserId:long}/role")]
     public async Task<IActionResult> UpdateEmployeeRole(
-        int businessId,
+        string businessCode,
         long businessUserId,
         UpdateEmployeeRoleRequest request,
         CancellationToken cancellationToken)
@@ -1221,10 +1306,16 @@ public class BusinessController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
         var currentMembership = await _dbContext.BusinessUsers
             .AsNoTracking()
             .Where(businessUser =>
-                businessUser.BusinessId == businessId &&
+                businessUser.BusinessId == businessId.Value &&
                 businessUser.UserId == userId &&
                 businessUser.IsActive &&
                 businessUser.EndDate == null)
@@ -1291,7 +1382,7 @@ public class BusinessController : ControllerBase
         var targetMembership = await _dbContext.BusinessUsers
             .AsNoTracking()
             .Where(businessUser =>
-                businessUser.BusinessId == businessId &&
+                businessUser.BusinessId == businessId.Value &&
                 businessUser.BusinessUserId == businessUserId &&
                 businessUser.EndDate == null)
             .GroupJoin(
@@ -1378,8 +1469,8 @@ public class BusinessController : ControllerBase
     }
 
     [Authorize]
-    [HttpPut("{businessId:int}")]
-    public async Task<IActionResult> UpdateBusinessProfile(int businessId, UpdateBusinessProfileRequest request, CancellationToken cancellationToken)
+    [HttpPut("{businessCode}")]
+    public async Task<IActionResult> UpdateBusinessProfile(string businessCode, UpdateBusinessProfileRequest request, CancellationToken cancellationToken)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? User.FindFirstValue("sub");
@@ -1389,10 +1480,16 @@ public class BusinessController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
         var isOwner = await _dbContext.BusinessUsers
             .AsNoTracking()
             .Where(businessUser =>
-                businessUser.BusinessId == businessId &&
+                businessUser.BusinessId == businessId.Value &&
                 businessUser.UserId == userId &&
                 businessUser.IsActive &&
                 businessUser.EndDate == null)
@@ -1434,7 +1531,7 @@ public class BusinessController : ControllerBase
         var business = await _dbContext.Businesses
             .Include(item => item.Details)
             .ThenInclude(details => details!.Country)
-            .SingleOrDefaultAsync(item => item.BusinessId == businessId && item.InactiveDate == null, cancellationToken);
+            .SingleOrDefaultAsync(item => item.BusinessId == businessId.Value && item.InactiveDate == null, cancellationToken);
 
         if (business is null)
         {
@@ -1469,8 +1566,8 @@ public class BusinessController : ControllerBase
     }
 
     [Authorize]
-    [HttpPut("{businessId:int}/services")]
-    public async Task<IActionResult> UpdateBusinessServices(int businessId, UpdateBusinessServicesRequest request, CancellationToken cancellationToken)
+    [HttpPut("{businessCode}/services")]
+    public async Task<IActionResult> UpdateBusinessServices(string businessCode, UpdateBusinessServicesRequest request, CancellationToken cancellationToken)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? User.FindFirstValue("sub");
@@ -1480,10 +1577,16 @@ public class BusinessController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
         var isOwner = await _dbContext.BusinessUsers
             .AsNoTracking()
             .Where(businessUser =>
-                businessUser.BusinessId == businessId &&
+                businessUser.BusinessId == businessId.Value &&
                 businessUser.UserId == userId &&
                 businessUser.IsActive &&
                 businessUser.EndDate == null)
@@ -1516,7 +1619,7 @@ public class BusinessController : ControllerBase
 
         var businessExists = await _dbContext.Businesses
             .AsNoTracking()
-            .AnyAsync(business => business.BusinessId == businessId && business.InactiveDate == null, cancellationToken);
+            .AnyAsync(business => business.BusinessId == businessId.Value && business.InactiveDate == null, cancellationToken);
 
         if (!businessExists)
         {
@@ -1539,14 +1642,14 @@ public class BusinessController : ControllerBase
         }
 
         var existingServices = await _dbContext.BusinessServices
-            .Where(item => item.BusinessId == businessId)
+            .Where(item => item.BusinessId == businessId.Value)
             .ToListAsync(cancellationToken);
 
         _dbContext.BusinessServices.RemoveRange(existingServices);
         _dbContext.BusinessServices.AddRange(
             serviceIds.Select(serviceId => new BusinessService
             {
-                BusinessId = businessId,
+                BusinessId = businessId.Value,
                 ServiceId = serviceId,
             }));
 
@@ -1559,8 +1662,8 @@ public class BusinessController : ControllerBase
     }
 
     [Authorize]
-    [HttpDelete("{businessId:int}")]
-    public async Task<IActionResult> DeleteBusiness(int businessId, CancellationToken cancellationToken)
+    [HttpDelete("{businessCode}")]
+    public async Task<IActionResult> DeleteBusiness(string businessCode, CancellationToken cancellationToken)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? User.FindFirstValue("sub");
@@ -1570,10 +1673,16 @@ public class BusinessController : ControllerBase
             return Unauthorized(new { errors = new[] { "Invalid user context." } });
         }
 
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
         var isOwner = await _dbContext.BusinessUsers
             .AsNoTracking()
             .Where(businessUser =>
-                businessUser.BusinessId == businessId &&
+                businessUser.BusinessId == businessId.Value &&
                 businessUser.UserId == userId &&
                 businessUser.IsActive &&
                 businessUser.EndDate == null)
@@ -1596,7 +1705,7 @@ public class BusinessController : ControllerBase
 
         var business = await _dbContext.Businesses
             .Include(item => item.Details)
-            .SingleOrDefaultAsync(item => item.BusinessId == businessId && item.InactiveDate == null, cancellationToken);
+            .SingleOrDefaultAsync(item => item.BusinessId == businessId.Value && item.InactiveDate == null, cancellationToken);
 
         if (business is null)
         {
@@ -1605,7 +1714,7 @@ public class BusinessController : ControllerBase
 
         var businessUserIds = await _dbContext.BusinessUsers
             .AsNoTracking()
-            .Where(businessUser => businessUser.BusinessId == businessId)
+            .Where(businessUser => businessUser.BusinessId == businessId.Value)
             .Select(businessUser => businessUser.BusinessUserId)
             .ToListAsync(cancellationToken);
 
@@ -1621,7 +1730,7 @@ public class BusinessController : ControllerBase
                     .SetProperty(item => item.EndDate, endedAt), cancellationToken);
 
             await _dbContext.BusinessUsers
-                .Where(item => item.BusinessId == businessId && (item.IsActive || item.EndDate == null))
+                .Where(item => item.BusinessId == businessId.Value && (item.IsActive || item.EndDate == null))
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(item => item.IsActive, false)
                     .SetProperty(item => item.EndDate, endedAt), cancellationToken);
@@ -1666,6 +1775,7 @@ public class BusinessController : ControllerBase
 
         var business = new Business
         {
+            BusinessCode = await GenerateUniqueBusinessCodeAsync(cancellationToken),
             Name = request.Name.Trim(),
             StartDate = DateOnly.FromDateTime(DateTime.UtcNow),
             IsProductBased = request.IsProductBased,
@@ -1722,6 +1832,7 @@ public class BusinessController : ControllerBase
 
         return Ok(new CreateBusinessResponse(
             business.BusinessId,
+            business.BusinessCode,
             business.Name,
             user.Id,
             displayName,
@@ -1803,6 +1914,75 @@ public class BusinessController : ControllerBase
         return markerIndex >= 0
             ? trimmed[(markerIndex + marker.Length)..]
             : trimmed;
+    }
+
+    private async Task<int?> GetActiveBusinessIdByCodeAsync(string businessCode, CancellationToken cancellationToken)
+    {
+        var normalizedBusinessCode = NormalizeBusinessCode(businessCode);
+        if (normalizedBusinessCode is not null)
+        {
+            return await _dbContext.Businesses
+                .AsNoTracking()
+                .Where(business => business.BusinessCode == normalizedBusinessCode && business.InactiveDate == null)
+                .Select(business => (int?)business.BusinessId)
+                .SingleOrDefaultAsync(cancellationToken);
+        }
+
+        if (int.TryParse(businessCode?.Trim(), out var legacyBusinessId) && legacyBusinessId > 0)
+        {
+            return await _dbContext.Businesses
+                .AsNoTracking()
+                .Where(business => business.BusinessId == legacyBusinessId && business.InactiveDate == null)
+                .Select(business => (int?)business.BusinessId)
+                .SingleOrDefaultAsync(cancellationToken);
+        }
+
+        return null;
+    }
+
+    private static string? NormalizeBusinessCode(string? businessCode)
+    {
+        if (string.IsNullOrWhiteSpace(businessCode))
+        {
+            return null;
+        }
+
+        var normalized = businessCode.Trim().ToUpperInvariant();
+        return normalized.Length == BusinessCodeLength ? normalized : null;
+    }
+
+    private async Task<string> GenerateUniqueBusinessCodeAsync(CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var businessCode = GenerateBusinessCode();
+            var exists = await _dbContext.Businesses
+                .AsNoTracking()
+                .AnyAsync(business => business.BusinessCode == businessCode, cancellationToken);
+
+            if (!exists)
+            {
+                return businessCode;
+            }
+        }
+
+        throw new InvalidOperationException("Unable to generate a unique business code.");
+    }
+
+    private static string GenerateBusinessCode()
+    {
+        Span<byte> buffer = stackalloc byte[BusinessCodeLength];
+        RandomNumberGenerator.Fill(buffer);
+
+        Span<char> chars = stackalloc char[BusinessCodeLength];
+        for (var index = 0; index < buffer.Length; index++)
+        {
+            chars[index] = BusinessCodeCharacters[buffer[index] % BusinessCodeCharacters.Length];
+        }
+
+        return new string(chars);
     }
 
     private async Task<string?> GetActiveBusinessRoleNameAsync(

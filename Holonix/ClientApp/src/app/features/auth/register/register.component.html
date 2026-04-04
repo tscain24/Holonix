@@ -88,6 +88,24 @@
         </label>
 
         <label>
+          <span class="label-text">Phone Number</span>
+          <mat-form-field class="mat-shell" appearance="fill">
+            <input
+              matInput
+              type="tel"
+              formControlName="phoneNumber"
+              placeholder="(555) 123-4567"
+              autocomplete="tel"
+              inputmode="tel"
+              (input)="formatPhoneNumberOnInput($event)"
+            />
+          </mat-form-field>
+          <span class="error" *ngIf="form.controls.phoneNumber.touched && form.controls.phoneNumber.invalid">
+            Phone number must be 32 characters or fewer.
+          </span>
+        </label>
+
+        <label>
           <span class="label-text">Email<span class="required">*</span></span>
           <mat-form-field class="mat-shell" appearance="fill">
             <input

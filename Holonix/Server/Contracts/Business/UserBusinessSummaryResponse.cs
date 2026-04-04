@@ -2,6 +2,7 @@ namespace Holonix.Server.Contracts.Business;
 
 public sealed record UserBusinessSummaryResponse(
     int BusinessId,
+    string BusinessCode,
     string Name,
     string? Description,
     string? City,

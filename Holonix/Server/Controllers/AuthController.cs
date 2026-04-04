@@ -167,6 +167,7 @@ public class AuthController : ControllerBase
             user.LastName,
             user.DateOfBirth?.ToString("yyyy-MM-dd"),
             user.Email ?? string.Empty,
+            user.PhoneNumber,
             user.ProfileImageBase64);
 
         return Ok(response);
@@ -211,6 +212,7 @@ public class AuthController : ControllerBase
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
         user.DateOfBirth = parsedDob;
+        user.PhoneNumber = NormalizePhoneNumber(request.PhoneNumber);
 
         var updateResult = await _userManager.UpdateAsync(user);
         if (!updateResult.Succeeded)
@@ -224,6 +226,7 @@ public class AuthController : ControllerBase
             user.LastName,
             user.DateOfBirth?.ToString("yyyy-MM-dd"),
             user.Email ?? string.Empty,
+            user.PhoneNumber,
             user.ProfileImageBase64);
 
         return Ok(response);
@@ -274,5 +277,10 @@ public class AuthController : ControllerBase
         return markerIndex >= 0
             ? trimmed[(markerIndex + marker.Length)..]
             : trimmed;
+    }
+
+    private static string? NormalizePhoneNumber(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 }

@@ -49,6 +49,7 @@ export class BusinessEmployeesComponent implements OnInit {
   totalEmployeeCount = 0;
   activeFilters: EmployeeFilter[] = [];
   activeSort: EmployeeSort | null = null;
+  showInactiveEmployees = false;
   draftFilters: EmployeeFilter[] = [{ field: 'employee', operator: 'contains', value: '' }];
   readonly inviteEmailControl = new FormControl('', {
     validators: [Validators.required, Validators.email, Validators.maxLength(256)],
@@ -84,19 +85,19 @@ export class BusinessEmployeesComponent implements OnInit {
     this.initials = `${parts[0]?.[0] ?? 'U'}${parts[1]?.[0] ?? ''}`.toUpperCase();
     this.profileImageDataUrl = this.buildImageDataUrl(localStorage.getItem('holonix_profile_image_base64'));
 
-    const businessId = Number(this.route.snapshot.paramMap.get('businessId'));
-    if (!Number.isFinite(businessId) || businessId <= 0) {
+    const businessCode = (this.route.snapshot.paramMap.get('businessCode') ?? '').trim();
+    if (!businessCode) {
       this.router.navigate(['/business']);
       return;
     }
 
-    this.businessService.getBusinessWorkspace(businessId).subscribe({
+    this.businessService.getBusinessWorkspace(businessCode).subscribe({
       next: (workspace) => {
         this.businessWorkspace = workspace;
         this.setDefaultInviteRole(workspace);
         this.loadingWorkspace = false;
-        this.loadEmployeeInvites(workspace.businessId);
-        this.loadEmployeesPage(workspace.businessId, 1);
+        this.loadEmployeeInvites(workspace.businessCode);
+        this.loadEmployeesPage(workspace.businessCode, 1);
       },
       error: (err) => {
         this.loadingWorkspace = false;
@@ -142,9 +143,9 @@ export class BusinessEmployeesComponent implements OnInit {
   }
 
   goToWorkspace(): void {
-    const businessId = this.businessWorkspace?.businessId;
-    if (businessId) {
-      this.router.navigate(['/business', businessId]);
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (businessCode) {
+      this.router.navigate(['/business', businessCode]);
     }
   }
 
@@ -182,6 +183,49 @@ export class BusinessEmployeesComponent implements OnInit {
       day: 'numeric',
       year: 'numeric',
     }).format(date);
+  }
+
+  formatDateOfBirth(value?: string | null): string {
+    if (!value) {
+      return 'Not provided';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return 'Not provided';
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(date);
+  }
+
+  formatPhoneNumber(value?: string | null): string {
+    const trimmed = value?.trim() ?? '';
+    if (!trimmed) {
+      return 'Not provided';
+    }
+
+    const digits = trimmed.replace(/\D/g, '');
+    if (digits.length <= 3) {
+      return digits;
+    }
+
+    if (digits.length <= 6) {
+      return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    }
+
+    if (digits.length <= 10) {
+      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+
+    if (digits.length === 11 && digits.startsWith('1')) {
+      return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+    }
+
+    return trimmed;
   }
 
   trackEmployee(_: number, employee: BusinessWorkspaceEmployee): number {
@@ -268,6 +312,16 @@ export class BusinessEmployeesComponent implements OnInit {
 
   get employeeRoleOptions(): string[] {
     return this.businessWorkspace?.filterEmployeeRoles ?? [];
+  }
+
+  toggleInactiveEmployees(): void {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode || !this.canInviteEmployees || this.loadingEmployees) {
+      return;
+    }
+
+    this.showInactiveEmployees = !this.showInactiveEmployees;
+    this.loadEmployeesPage(businessCode, 1);
   }
 
   toggleEmployeeMenu(event: MouseEvent, employee: BusinessWorkspaceEmployee): void {
@@ -383,8 +437,8 @@ export class BusinessEmployeesComponent implements OnInit {
   }
 
   applyFilters(): void {
-    const businessId = this.businessWorkspace?.businessId;
-    if (!businessId) {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode) {
       return;
     }
 
@@ -392,24 +446,24 @@ export class BusinessEmployeesComponent implements OnInit {
       .map((filter) => ({ ...filter, value: filter.value.trim() }))
       .filter((filter) => filter.value.length > 0);
     this.filterMenuOpen = false;
-    this.loadEmployeesPage(businessId, 1);
+    this.loadEmployeesPage(businessCode, 1);
   }
 
   clearAllFilters(): void {
-    const businessId = this.businessWorkspace?.businessId;
-    if (!businessId) {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode) {
       return;
     }
 
     this.activeFilters = [];
     this.draftFilters = [{ field: 'employee', operator: 'contains', value: '' }];
     this.filterMenuOpen = false;
-    this.loadEmployeesPage(businessId, 1);
+    this.loadEmployeesPage(businessCode, 1);
   }
 
   removeFilter(index: number): void {
-    const businessId = this.businessWorkspace?.businessId;
-    if (!businessId) {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode) {
       return;
     }
 
@@ -417,22 +471,22 @@ export class BusinessEmployeesComponent implements OnInit {
     this.draftFilters = this.activeFilters.length > 0
       ? this.activeFilters.map((filter) => ({ ...filter }))
       : [{ field: 'employee', operator: 'contains', value: '' }];
-    this.loadEmployeesPage(businessId, 1);
+    this.loadEmployeesPage(businessCode, 1);
   }
 
   clearSort(): void {
-    const businessId = this.businessWorkspace?.businessId;
-    if (!businessId) {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode) {
       return;
     }
 
     this.activeSort = null;
-    this.loadEmployeesPage(businessId, 1);
+    this.loadEmployeesPage(businessCode, 1);
   }
 
   toggleColumnSort(field: EmployeeSort['field']): void {
-    const businessId = this.businessWorkspace?.businessId;
-    if (!businessId) {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode) {
       return;
     }
 
@@ -444,7 +498,7 @@ export class BusinessEmployeesComponent implements OnInit {
       this.activeSort = null;
     }
 
-    this.loadEmployeesPage(businessId, 1);
+    this.loadEmployeesPage(businessCode, 1);
   }
 
   sortIndicator(field: EmployeeSort['field']): string {
@@ -521,21 +575,21 @@ export class BusinessEmployeesComponent implements OnInit {
   }
 
   goToPreviousEmployeePage(): void {
-    const businessId = this.businessWorkspace?.businessId;
-    if (!businessId || !this.hasPreviousEmployeePage || this.loadingEmployees) {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode || !this.hasPreviousEmployeePage || this.loadingEmployees) {
       return;
     }
 
-    this.loadEmployeesPage(businessId, this.currentEmployeePage - 1);
+    this.loadEmployeesPage(businessCode, this.currentEmployeePage - 1);
   }
 
   goToNextEmployeePage(): void {
-    const businessId = this.businessWorkspace?.businessId;
-    if (!businessId || !this.hasNextEmployeePage || this.loadingEmployees) {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode || !this.hasNextEmployeePage || this.loadingEmployees) {
       return;
     }
 
-    this.loadEmployeesPage(businessId, this.currentEmployeePage + 1);
+    this.loadEmployeesPage(businessCode, this.currentEmployeePage + 1);
   }
 
   openInviteModal(): void {
@@ -574,7 +628,7 @@ export class BusinessEmployeesComponent implements OnInit {
     this.sendingInvite = true;
     this.businessService
       .createEmployeeInvite(
-        this.businessWorkspace.businessId,
+        this.businessWorkspace.businessCode,
         this.inviteEmailControl.value.trim(),
         this.inviteRoleControl.value.trim()
       )
@@ -630,13 +684,13 @@ export class BusinessEmployeesComponent implements OnInit {
   }
 
   closeInvite(invite: BusinessEmployeeInvite): void {
-    const businessId = this.businessWorkspace?.businessId;
-    if (!businessId || !this.canCloseInvite(invite) || this.isClosingInvite(invite.workloadId)) {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode || !this.canCloseInvite(invite) || this.isClosingInvite(invite.workloadId)) {
       return;
     }
 
     this.closingInviteIds.add(invite.workloadId);
-    this.businessService.closeEmployeeInvite(businessId, invite.workloadId).subscribe({
+    this.businessService.closeEmployeeInvite(businessCode, invite.workloadId).subscribe({
       next: () => {
         this.closingInviteIds.delete(invite.workloadId);
         this.employeeInvites = this.employeeInvites.filter((item) => item.workloadId !== invite.workloadId);
@@ -661,14 +715,14 @@ export class BusinessEmployeesComponent implements OnInit {
   }
 
   deactivateEmployee(employee: BusinessWorkspaceEmployee): void {
-    const businessId = this.businessWorkspace?.businessId;
-    if (!businessId || !this.canDeactivateEmployee(employee) || this.isDeactivatingEmployee(employee.businessUserId)) {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode || !this.canDeactivateEmployee(employee) || this.isDeactivatingEmployee(employee.businessUserId)) {
       return;
     }
 
     this.closeEmployeeMenu();
     this.deactivatingEmployeeIds.add(employee.businessUserId);
-    this.businessService.deactivateEmployee(businessId, employee.businessUserId).subscribe({
+    this.businessService.deactivateEmployee(businessCode, employee.businessUserId).subscribe({
       next: () => {
         this.deactivatingEmployeeIds.delete(employee.businessUserId);
         if (!this.businessWorkspace) {
@@ -687,11 +741,15 @@ export class BusinessEmployeesComponent implements OnInit {
           activeEmployeeCount: Math.max(0, this.businessWorkspace.activeEmployeeCount - 1),
         };
 
-        this.employees = this.employees.map((item) =>
-          item.businessUserId === employee.businessUserId
-            ? { ...item, isActive: false, canDeactivate: false, canUpdateRole: false }
-            : item
-        );
+        if (this.showInactiveEmployees) {
+          this.employees = this.employees.map((item) =>
+            item.businessUserId === employee.businessUserId
+              ? { ...item, isActive: false, canDeactivate: false, canUpdateRole: false }
+              : item
+          );
+        } else {
+          this.loadEmployeesPage(businessCode, this.currentEmployeePage);
+        }
 
         this.snackBar.open('Employee deactivated.', 'Close', {
           duration: 3000,
@@ -714,9 +772,9 @@ export class BusinessEmployeesComponent implements OnInit {
   }
 
   submitEmployeeRoleUpdate(): void {
-    const businessId = this.businessWorkspace?.businessId;
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
     const employee = this.selectedEmployeeForRoleUpdate;
-    if (!businessId || !employee || this.updatingEmployeeRole) {
+    if (!businessCode || !employee || this.updatingEmployeeRole) {
       return;
     }
 
@@ -726,14 +784,14 @@ export class BusinessEmployeesComponent implements OnInit {
     }
 
     this.updatingEmployeeRole = true;
-    this.businessService.updateEmployeeRole(businessId, employee.businessUserId, this.employeeRoleControl.value.trim()).subscribe({
+    this.businessService.updateEmployeeRole(businessCode, employee.businessUserId, this.employeeRoleControl.value.trim()).subscribe({
       next: () => {
         this.updatingEmployeeRole = false;
         this.roleModalOpen = false;
         this.selectedEmployeeForRoleUpdate = null;
         this.employeeRoleControl.setValue('');
-        this.reloadWorkspace(businessId);
-        this.loadEmployeesPage(businessId, this.currentEmployeePage);
+        this.reloadWorkspace(businessCode);
+        this.loadEmployeesPage(businessCode, this.currentEmployeePage);
         this.snackBar.open('Employee role updated.', 'Close', {
           duration: 3000,
           panelClass: ['snack-success'],
@@ -819,9 +877,9 @@ export class BusinessEmployeesComponent implements OnInit {
     this.inviteRoleControl.setValue(firstRole);
   }
 
-  private loadEmployeeInvites(businessId: number): void {
+  private loadEmployeeInvites(businessCode: string): void {
     this.loadingInvites = true;
-    this.businessService.getEmployeeInvites(businessId).subscribe({
+    this.businessService.getEmployeeInvites(businessCode).subscribe({
       next: (invites) => {
         this.employeeInvites = invites;
         this.loadingInvites = false;
@@ -842,11 +900,18 @@ export class BusinessEmployeesComponent implements OnInit {
     });
   }
 
-  private loadEmployeesPage(businessId: number, pageNumber: number): void {
+  private loadEmployeesPage(businessCode: string, pageNumber: number): void {
     this.loadingEmployees = true;
     this.openEmployeeMenuId = null;
     this.businessService
-      .getEmployees(businessId, pageNumber, BusinessEmployeesComponent.EmployeePageSize, this.activeFilters, this.activeSort)
+      .getEmployees(
+        businessCode,
+        pageNumber,
+        BusinessEmployeesComponent.EmployeePageSize,
+        this.activeFilters,
+        this.showInactiveEmployees,
+        this.activeSort
+      )
       .subscribe({
       next: (employeePage: BusinessWorkspaceEmployeePage) => {
         this.employees = employeePage.employees;
@@ -869,8 +934,8 @@ export class BusinessEmployeesComponent implements OnInit {
       });
   }
 
-  private reloadWorkspace(businessId: number): void {
-    this.businessService.getBusinessWorkspace(businessId).subscribe({
+  private reloadWorkspace(businessCode: string): void {
+    this.businessService.getBusinessWorkspace(businessCode).subscribe({
       next: (workspace) => {
         this.businessWorkspace = workspace;
         this.setDefaultInviteRole(workspace);

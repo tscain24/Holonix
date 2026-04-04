@@ -5,9 +5,12 @@ $serverDir = Join-Path $repoRoot "Server"
 $clientDir = Join-Path $repoRoot "ClientApp"
 $runtimeDir = Join-Path $repoRoot ".dev-runtime"
 $logDir = Join-Path $runtimeDir "logs"
+$serverBuildDir = Join-Path $serverDir "bin\Debug\net8.0"
+$serverRuntimeDir = Join-Path $runtimeDir "server-run"
 $serverPidFile = Join-Path $runtimeDir "server.pid"
 $clientPidFile = Join-Path $runtimeDir "client.pid"
-$serverExecutable = Join-Path $serverDir "bin\Debug\net8.0\Holonix.Server.exe"
+$serverExecutable = Join-Path $serverBuildDir "Holonix.Server.exe"
+$serverRuntimeExecutable = Join-Path $serverRuntimeDir "Holonix.Server.exe"
 $latestLogsFile = Join-Path $runtimeDir "latest-logs.txt"
 
 $serverHttpUrl = "http://localhost:5237"
@@ -188,6 +191,34 @@ function Show-RecentLogs {
     Get-Content $Path -Tail 40
 }
 
+function Stage-ServerBuildOutput {
+    param(
+        [string]$SourceDirectory,
+        [string]$DestinationDirectory
+    )
+
+    if (-not (Test-Path $SourceDirectory)) {
+        throw "Backend build output directory was not found at $SourceDirectory"
+    }
+
+    if (Test-Path $DestinationDirectory) {
+        Remove-Item $DestinationDirectory -Recurse -Force
+    }
+
+    New-Item -ItemType Directory -Path $DestinationDirectory -Force | Out-Null
+
+    Get-ChildItem -Path $SourceDirectory -File | ForEach-Object {
+        Copy-Item -Path $_.FullName -Destination (Join-Path $DestinationDirectory $_.Name) -Force
+    }
+
+    foreach ($directoryName in @("wwwroot", "runtimes")) {
+        $sourcePath = Join-Path $SourceDirectory $directoryName
+        if (Test-Path $sourcePath) {
+            Copy-Item -Path $sourcePath -Destination (Join-Path $DestinationDirectory $directoryName) -Recurse -Force
+        }
+    }
+}
+
 Stop-RecordedProcess -PidPath $serverPidFile -Name "backend"
 Stop-RecordedProcess -PidPath $clientPidFile -Name "frontend"
 Stop-PortListeners -Ports @(4200, 5237, 7241)
@@ -203,11 +234,13 @@ if (-not (Test-Path $serverExecutable)) {
     }
 }
 
+Stage-ServerBuildOutput -SourceDirectory $serverBuildDir -DestinationDirectory $serverRuntimeDir
+
 $serverCommand = @"
 `$env:ASPNETCORE_ENVIRONMENT = 'Development'
 `$env:ASPNETCORE_URLS = '$serverHttpsUrl;$serverHttpUrl'
-Set-Location '$serverDir'
-& '$serverExecutable'
+Set-Location '$serverRuntimeDir'
+& '$serverRuntimeExecutable'
 "@
 
 $clientCommand = @"

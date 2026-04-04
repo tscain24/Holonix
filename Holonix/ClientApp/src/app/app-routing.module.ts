@@ -17,8 +17,8 @@ const routes: Routes = [
   { path: 'profile', component: ProfileComponent },
   { path: 'business', component: BusinessOverviewComponent },
   { path: 'business/create', component: CreateBusinessComponent },
-  { path: 'business/:businessId/employees', component: BusinessEmployeesComponent },
-  { path: 'business/:businessId', component: BusinessWorkspaceComponent },
+  { path: 'business/:businessCode/employees', component: BusinessEmployeesComponent },
+  { path: 'business/:businessCode', component: BusinessWorkspaceComponent },
   { path: '**', redirectTo: 'home' },
 ];
 

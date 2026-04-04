@@ -95,8 +95,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         {
             entity.ToTable("Business", "business");
             entity.HasKey(x => x.BusinessId);
+            entity.Property(x => x.BusinessCode).IsRequired().HasMaxLength(10);
             entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
             entity.Property(x => x.InactiveDate).HasColumnType("datetime2");
+            entity.HasIndex(x => x.BusinessCode).IsUnique();
             entity.HasOne(x => x.Details)
                 .WithOne(x => x.Business)
                 .HasForeignKey<BusinessDetails>(x => x.BusinessId)

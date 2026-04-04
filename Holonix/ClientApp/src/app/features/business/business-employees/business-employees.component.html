@@ -37,7 +37,10 @@
 
     <ng-container *ngIf="!loadingWorkspace && businessWorkspace as business">
       <div class="employees-back-row">
-        <button type="button" class="back-btn" (click)="goToWorkspace()">Back to Workspace</button>
+        <button type="button" class="back-btn" (click)="goToWorkspace()" aria-label="Go back">
+          <span aria-hidden="true">&larr;</span>
+          Back
+        </button>
       </div>
 
       <section class="employees-hero">
@@ -113,6 +116,13 @@
                   Filter
                 </button>
                 <div class="table-toolbar-menu" *ngIf="filterMenuOpen">
+                  <label class="inactive-toggle" *ngIf="canInviteEmployees">
+                    <input
+                      type="checkbox"
+                      [checked]="showInactiveEmployees"
+                      (change)="toggleInactiveEmployees()" />
+                    <span>Show inactive employees</span>
+                  </label>
                   <div class="table-toolbar-menu-header">Show employees where</div>
                   <div class="filter-builder-row" *ngFor="let filter of draftFilters; let i = index">
                     <select [value]="filter.field" (change)="updateDraftFilterField(i, $any($event.target).value)">
@@ -207,6 +217,15 @@
                   </button>
                 </th>
                 <th scope="col">
+                  <span>Email</span>
+                </th>
+                <th scope="col">
+                  <span>Phone Number</span>
+                </th>
+                <th scope="col">
+                  <span>Date of Birth</span>
+                </th>
+                <th scope="col">
                   <button type="button" class="table-sort-btn" (click)="toggleColumnSort('role')">
                     <span>Role</span>
                     <span class="table-sort-indicator">{{ sortIndicator('role') }}</span>
@@ -236,6 +255,9 @@
             <tbody>
               <tr *ngFor="let employee of employees; trackBy: trackEmployee">
                 <td class="employee-table-name">{{ employee.displayName }}</td>
+                <td>{{ $any(employee).email || 'Not available' }}</td>
+                <td>{{ formatPhoneNumber($any(employee).phoneNumber) }}</td>
+                <td>{{ formatDateOfBirth(employee.dateOfBirth) }}</td>
                 <td>{{ employee.roleName || 'Team Member' }}</td>
                 <td>{{ formatHiredDate(employee.hiredDate) }}</td>
                 <td>

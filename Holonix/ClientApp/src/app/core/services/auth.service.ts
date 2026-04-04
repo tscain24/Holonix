@@ -17,6 +17,7 @@ export interface LoginResponse {
 export interface RegisterRequest {
   firstName: string;
   lastName: string;
+  phoneNumber?: string | null;
   dateOfBirth: string;
   email: string;
   password: string;
@@ -27,6 +28,7 @@ export interface RegisterResponse {
   firstName: string;
   lastName: string;
   email: string;
+  phoneNumber?: string | null;
   profileImageBase64?: string | null;
 }
 
@@ -35,6 +37,7 @@ export interface UserProfileResponse {
   lastName: string;
   dateOfBirth?: string | null;
   email: string;
+  phoneNumber?: string | null;
   profileImageBase64?: string | null;
 }
 
@@ -42,6 +45,7 @@ export interface UpdateUserProfileRequest {
   firstName: string;
   lastName: string;
   dateOfBirth?: string | null;
+  phoneNumber?: string | null;
 }
 
 @Injectable({

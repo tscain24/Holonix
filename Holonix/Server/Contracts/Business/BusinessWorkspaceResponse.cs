@@ -2,6 +2,7 @@ namespace Holonix.Server.Contracts.Business;
 
 public sealed record BusinessWorkspaceResponse(
     int BusinessId,
+    string BusinessCode,
     string Name,
     string? Description,
     string? Address1,
@@ -31,6 +32,9 @@ public sealed record BusinessWorkspaceServiceResponse(
 public sealed record BusinessWorkspaceEmployeeResponse(
     long BusinessUserId,
     string DisplayName,
+    string? Email,
+    string? PhoneNumber,
+    DateOnly? DateOfBirth,
     string? RoleName,
     DateTime HiredDate,
     bool IsActive,

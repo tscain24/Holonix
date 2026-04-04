@@ -5,4 +5,5 @@ public record UserProfileResponse(
     string LastName,
     string? DateOfBirth,
     string Email,
+    string? PhoneNumber,
     string? ProfileImageBase64);

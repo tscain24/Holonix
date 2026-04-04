@@ -116,6 +116,11 @@ namespace Holonix.Server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BusinessId"));
 
+                    b.Property<string>("BusinessCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
                     b.Property<DateTime?>("InactiveDate")
                         .HasColumnType("datetime2");
 
@@ -134,6 +139,9 @@ namespace Holonix.Server.Migrations
                         .HasColumnType("date");
 
                     b.HasKey("BusinessId");
+
+                    b.HasIndex("BusinessCode")
+                        .IsUnique();
 
                     b.ToTable("Business", "business");
                 });

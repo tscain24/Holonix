@@ -70,13 +70,13 @@ export class BusinessWorkspaceComponent implements OnInit {
     this.initials = `${parts[0]?.[0] ?? 'U'}${parts[1]?.[0] ?? ''}`.toUpperCase();
     this.profileImageDataUrl = this.buildImageDataUrl(localStorage.getItem('holonix_profile_image_base64'));
 
-    const businessId = Number(this.route.snapshot.paramMap.get('businessId'));
-    if (!Number.isFinite(businessId) || businessId <= 0) {
+    const businessCode = (this.route.snapshot.paramMap.get('businessCode') ?? '').trim();
+    if (!businessCode) {
       this.router.navigate(['/business']);
       return;
     }
 
-    this.businessService.getBusinessWorkspace(businessId).subscribe({
+    this.businessService.getBusinessWorkspace(businessCode).subscribe({
       next: (workspace) => {
         this.businessWorkspace = workspace;
         this.servicesExpanded = false;
@@ -127,12 +127,12 @@ export class BusinessWorkspaceComponent implements OnInit {
   }
 
   goToEmployees(): void {
-    const businessId = this.businessWorkspace?.businessId;
-    if (!businessId) {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode) {
       return;
     }
 
-    this.router.navigate(['/business', businessId, 'employees']);
+    this.router.navigate(['/business', businessCode, 'employees']);
   }
 
   goToProfile(): void {
@@ -230,6 +230,10 @@ export class BusinessWorkspaceComponent implements OnInit {
   get hiddenServiceChipCount(): number {
     const services = this.businessWorkspace?.services ?? [];
     return Math.max(services.length - BusinessWorkspaceComponent.MaxVisibleServiceChips, 0);
+  }
+
+  get activeWorkspaceEmployees() {
+    return (this.businessWorkspace?.employees ?? []).filter((employee) => employee.isActive);
   }
 
   onServiceSearchInput(event: Event): void {
@@ -393,7 +397,7 @@ export class BusinessWorkspaceComponent implements OnInit {
     }
 
     this.savingProfile = true;
-    this.businessService.updateBusinessProfile(workspace.businessId, {
+    this.businessService.updateBusinessProfile(workspace.businessCode, {
       name,
       description: this.editBusinessDescription.trim() || null,
       businessIconBase64: this.editBusinessIconBase64,
@@ -469,7 +473,7 @@ export class BusinessWorkspaceComponent implements OnInit {
     }
 
     this.savingGeneralInformation = true;
-    this.businessService.updateBusinessProfile(workspace.businessId, {
+    this.businessService.updateBusinessProfile(workspace.businessCode, {
       name: workspace.name,
       description: workspace.description ?? null,
       businessIconBase64: workspace.businessIconBase64 ?? null,
@@ -567,7 +571,7 @@ export class BusinessWorkspaceComponent implements OnInit {
     }
 
     this.deletingBusiness = true;
-    this.businessService.deleteBusiness(workspace.businessId).subscribe({
+    this.businessService.deleteBusiness(workspace.businessCode).subscribe({
       next: () => {
         this.deletingBusiness = false;
         this.deleteBusinessModalOpen = false;
@@ -619,7 +623,7 @@ export class BusinessWorkspaceComponent implements OnInit {
     }
 
     this.leavingBusiness = true;
-    this.businessService.leaveBusiness(workspace.businessId).subscribe({
+    this.businessService.leaveBusiness(workspace.businessCode).subscribe({
       next: () => {
         this.leavingBusiness = false;
         this.leaveBusinessModalOpen = false;
@@ -760,7 +764,7 @@ export class BusinessWorkspaceComponent implements OnInit {
 
     this.savingServices = true;
     this.businessService.updateBusinessServices(
-      workspace.businessId,
+      workspace.businessCode,
       services.map((service) => service.serviceId)
     ).subscribe({
       next: (updatedServices) => {

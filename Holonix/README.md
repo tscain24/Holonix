@@ -21,6 +21,7 @@ Preferred start from the repo root:
 This script:
 - stops previously recorded dev processes,
 - clears listeners on ports `4200`, `5237`, and `7241`,
+- stages the backend from `Server\bin\Debug\net8.0` into `.dev-runtime\server-run` before launch,
 - starts the backend first and waits for Swagger,
 - starts the frontend second and waits for `http://localhost:4200`,
 - writes logs under `.dev-runtime/logs`.

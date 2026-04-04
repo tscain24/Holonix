@@ -110,6 +110,22 @@
             </dd>
           </div>
           <div class="field-row">
+            <dt>Phone Number</dt>
+            <dd>
+              <ng-container *ngIf="isEditProfileMode; else phoneNumberReadOnly">
+                <input
+                  type="tel"
+                  class="profile-input"
+                  [value]="editablePhoneNumber"
+                  maxlength="32"
+                  inputmode="tel"
+                  (input)="onPhoneNumberInput($event)"
+                />
+              </ng-container>
+              <ng-template #phoneNumberReadOnly>{{ formatPhoneNumberForDisplay(editablePhoneNumber) || 'Not available' }}</ng-template>
+            </dd>
+          </div>
+          <div class="field-row">
             <dt>Email</dt>
             <dd>{{ email || 'Not available' }}</dd>
           </div>

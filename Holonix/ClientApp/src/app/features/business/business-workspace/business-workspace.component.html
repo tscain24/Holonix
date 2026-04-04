@@ -37,7 +37,10 @@
 
     <ng-container *ngIf="!loadingWorkspace && businessWorkspace as business">
       <div class="workspace-back-row">
-        <button type="button" class="back-btn" (click)="goToBusinesses()">Back to Businesses</button>
+        <button type="button" class="back-btn" (click)="goToBusinesses()" aria-label="Go back">
+          <span aria-hidden="true">&larr;</span>
+          Back
+        </button>
       </div>
 
       <section class="workspace-hero">
@@ -331,16 +334,16 @@
             <h2>Employees</h2>
             <p>Team members currently associated with this business, their title, and employment status.</p>
           </div>
-          <div class="hero-actions" *ngIf="business.employees.length > 0">
+          <div class="hero-actions" *ngIf="activeWorkspaceEmployees.length > 0">
             <button type="button" class="hero-btn hero-btn-secondary employee-view-all-btn" (click)="goToEmployees()">
-              {{ business.employees.length > 5 ? 'See More' : 'View All' }}
+              {{ activeWorkspaceEmployees.length > 5 ? 'See More' : 'View All' }}
             </button>
           </div>
         </div>
 
-        <div class="section-state" *ngIf="business.employees.length === 0">No employees are associated with this business yet.</div>
+        <div class="section-state" *ngIf="activeWorkspaceEmployees.length === 0">No active employees are associated with this business yet.</div>
 
-        <div class="workspace-table-shell" *ngIf="business.employees.length > 0">
+        <div class="workspace-table-shell" *ngIf="activeWorkspaceEmployees.length > 0">
           <table class="workspace-table">
             <thead>
               <tr>
@@ -352,7 +355,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let employee of business.employees | slice:0:5">
+              <tr *ngFor="let employee of activeWorkspaceEmployees | slice:0:5">
                 <td class="workspace-table-primary">{{ employee.displayName }}</td>
                 <td>{{ employee.roleName || 'Team Member' }}</td>
                 <td>{{ formatHiredDate(employee.hiredDate) }}</td>

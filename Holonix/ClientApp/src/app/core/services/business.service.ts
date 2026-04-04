@@ -30,6 +30,7 @@ export interface CreateBusinessRequest {
 
 export interface CreateBusinessResponse {
   businessId: number;
+  businessCode: string;
   name: string;
   userId: string;
   displayName: string;
@@ -65,6 +66,7 @@ export interface UpdateBusinessProfileResponse {
 
 export interface UserBusinessSummary {
   businessId: number;
+  businessCode: string;
   name: string;
   description?: string | null;
   city?: string | null;
@@ -81,6 +83,9 @@ export interface UserBusinessSummary {
 export interface BusinessWorkspaceEmployee {
   businessUserId: number;
   displayName: string;
+  email?: string | null;
+  phoneNumber?: string | null;
+  dateOfBirth?: string | null;
   roleName?: string | null;
   hiredDate: string;
   isActive: boolean;
@@ -116,6 +121,7 @@ export interface BusinessEmployeeInvite {
 
 export interface BusinessWorkspace {
   businessId: number;
+  businessCode: string;
   name: string;
   description?: string | null;
   address1?: string | null;
@@ -220,40 +226,42 @@ export class BusinessService {
     );
   }
 
-  getBusinessWorkspace(businessId: number): Observable<BusinessWorkspace> {
-    return this.http.get<BusinessWorkspace>(`${this.businessEndpoint}/${businessId}`).pipe(
+  getBusinessWorkspace(businessCode: string): Observable<BusinessWorkspace> {
+    return this.http.get<BusinessWorkspace>(`${this.businessEndpoint}/${businessCode}`).pipe(
       catchError((err) => {
         if (!this.shouldTryNextOrigin(err)) {
           return throwError(() => err);
         }
 
-        return this.tryGetBusinessWorkspaceFallback(businessId, 0);
+        return this.tryGetBusinessWorkspaceFallback(businessCode, 0);
       })
     );
   }
 
-  getEmployeeInvites(businessId: number): Observable<BusinessEmployeeInvite[]> {
-    return this.http.get<BusinessEmployeeInvite[]>(`${this.businessEndpoint}/${businessId}/employee-invites`).pipe(
+  getEmployeeInvites(businessCode: string): Observable<BusinessEmployeeInvite[]> {
+    return this.http.get<BusinessEmployeeInvite[]>(`${this.businessEndpoint}/${businessCode}/employee-invites`).pipe(
       catchError((err) => {
         if (!this.shouldTryNextOrigin(err)) {
           return throwError(() => err);
         }
 
-        return this.tryGetEmployeeInvitesFallback(businessId, 0);
+        return this.tryGetEmployeeInvitesFallback(businessCode, 0);
       })
     );
   }
 
   getEmployees(
-    businessId: number,
+    businessCode: string,
     pageNumber: number,
     pageSize: number,
     filters: EmployeeFilter[] = [],
+    includeInactive = false,
     sort?: EmployeeSort | null
   ): Observable<BusinessWorkspaceEmployeePage> {
     const query = new URLSearchParams({
       pageNumber: pageNumber.toString(),
       pageSize: pageSize.toString(),
+      includeInactive: includeInactive.toString(),
     });
 
     if (filters.length > 0) {
@@ -266,113 +274,113 @@ export class BusinessService {
     }
 
     return this.http
-      .get<BusinessWorkspaceEmployeePage>(`${this.businessEndpoint}/${businessId}/employees?${query.toString()}`)
+      .get<BusinessWorkspaceEmployeePage>(`${this.businessEndpoint}/${businessCode}/employees?${query.toString()}`)
       .pipe(
         catchError((err) => {
           if (!this.shouldTryNextOrigin(err)) {
             return throwError(() => err);
           }
 
-          return this.tryGetEmployeesFallback(businessId, pageNumber, pageSize, filters, sort, 0);
+          return this.tryGetEmployeesFallback(businessCode, pageNumber, pageSize, filters, includeInactive, sort, 0);
         })
       );
   }
 
-  createEmployeeInvite(businessId: number, email: string, roleName: string): Observable<BusinessEmployeeInvite> {
-    return this.http.post<BusinessEmployeeInvite>(`${this.businessEndpoint}/${businessId}/employee-invites`, { email, roleName }).pipe(
+  createEmployeeInvite(businessCode: string, email: string, roleName: string): Observable<BusinessEmployeeInvite> {
+    return this.http.post<BusinessEmployeeInvite>(`${this.businessEndpoint}/${businessCode}/employee-invites`, { email, roleName }).pipe(
       catchError((err) => {
         if (!this.shouldTryNextOrigin(err)) {
           return throwError(() => err);
         }
 
-        return this.tryCreateEmployeeInviteFallback(businessId, email, roleName, 0);
+        return this.tryCreateEmployeeInviteFallback(businessCode, email, roleName, 0);
       })
     );
   }
 
-  deactivateEmployee(businessId: number, businessUserId: number): Observable<void> {
-    return this.http.post<void>(`${this.businessEndpoint}/${businessId}/employees/${businessUserId}/deactivate`, {}).pipe(
+  deactivateEmployee(businessCode: string, businessUserId: number): Observable<void> {
+    return this.http.post<void>(`${this.businessEndpoint}/${businessCode}/employees/${businessUserId}/deactivate`, {}).pipe(
       catchError((err) => {
         if (!this.shouldTryNextOrigin(err)) {
           return throwError(() => err);
         }
 
-        return this.tryDeactivateEmployeeFallback(businessId, businessUserId, 0);
+        return this.tryDeactivateEmployeeFallback(businessCode, businessUserId, 0);
       })
     );
   }
 
-  updateEmployeeRole(businessId: number, businessUserId: number, roleName: string): Observable<void> {
-    return this.http.put<void>(`${this.businessEndpoint}/${businessId}/employees/${businessUserId}/role`, { roleName }).pipe(
+  updateEmployeeRole(businessCode: string, businessUserId: number, roleName: string): Observable<void> {
+    return this.http.put<void>(`${this.businessEndpoint}/${businessCode}/employees/${businessUserId}/role`, { roleName }).pipe(
       catchError((err) => {
         if (!this.shouldTryNextOrigin(err)) {
           return throwError(() => err);
         }
 
-        return this.tryUpdateEmployeeRoleFallback(businessId, businessUserId, roleName, 0);
+        return this.tryUpdateEmployeeRoleFallback(businessCode, businessUserId, roleName, 0);
       })
     );
   }
 
-  leaveBusiness(businessId: number): Observable<void> {
-    return this.http.post<void>(`${this.businessEndpoint}/${businessId}/leave`, {}).pipe(
+  leaveBusiness(businessCode: string): Observable<void> {
+    return this.http.post<void>(`${this.businessEndpoint}/${businessCode}/leave`, {}).pipe(
       catchError((err) => {
         if (!this.shouldTryNextOrigin(err)) {
           return throwError(() => err);
         }
 
-        return this.tryLeaveBusinessFallback(businessId, 0);
+        return this.tryLeaveBusinessFallback(businessCode, 0);
       })
     );
   }
 
-  closeEmployeeInvite(businessId: number, workloadId: number): Observable<void> {
-    return this.http.post<void>(`${this.businessEndpoint}/${businessId}/employee-invites/${workloadId}/close`, {}).pipe(
+  closeEmployeeInvite(businessCode: string, workloadId: number): Observable<void> {
+    return this.http.post<void>(`${this.businessEndpoint}/${businessCode}/employee-invites/${workloadId}/close`, {}).pipe(
       catchError((err) => {
         if (!this.shouldTryNextOrigin(err)) {
           return throwError(() => err);
         }
 
-        return this.tryCloseEmployeeInviteFallback(businessId, workloadId, 0);
+        return this.tryCloseEmployeeInviteFallback(businessCode, workloadId, 0);
       })
     );
   }
 
-  updateBusinessServices(businessId: number, serviceIds: number[]): Observable<BusinessWorkspaceService[]> {
-    return this.http.put<BusinessWorkspaceService[]>(`${this.businessEndpoint}/${businessId}/services`, { serviceIds }).pipe(
+  updateBusinessServices(businessCode: string, serviceIds: number[]): Observable<BusinessWorkspaceService[]> {
+    return this.http.put<BusinessWorkspaceService[]>(`${this.businessEndpoint}/${businessCode}/services`, { serviceIds }).pipe(
       catchError((err) => {
         if (!this.shouldTryNextOrigin(err)) {
           return throwError(() => err);
         }
 
-        return this.tryUpdateBusinessServicesFallback(businessId, serviceIds, 0);
+        return this.tryUpdateBusinessServicesFallback(businessCode, serviceIds, 0);
       })
     );
   }
 
   updateBusinessProfile(
-    businessId: number,
+    businessCode: string,
     payload: UpdateBusinessProfileRequest
   ): Observable<UpdateBusinessProfileResponse> {
-    return this.http.put<UpdateBusinessProfileResponse>(`${this.businessEndpoint}/${businessId}`, payload).pipe(
+    return this.http.put<UpdateBusinessProfileResponse>(`${this.businessEndpoint}/${businessCode}`, payload).pipe(
       catchError((err) => {
         if (!this.shouldTryNextOrigin(err)) {
           return throwError(() => err);
         }
 
-        return this.tryUpdateBusinessProfileFallback(businessId, payload, 0);
+        return this.tryUpdateBusinessProfileFallback(businessCode, payload, 0);
       })
     );
   }
 
-  deleteBusiness(businessId: number): Observable<void> {
-    return this.http.delete<void>(`${this.businessEndpoint}/${businessId}`).pipe(
+  deleteBusiness(businessCode: string): Observable<void> {
+    return this.http.delete<void>(`${this.businessEndpoint}/${businessCode}`).pipe(
       catchError((err) => {
         if (!this.shouldTryNextOrigin(err)) {
           return throwError(() => err);
         }
 
-        return this.tryDeleteBusinessFallback(businessId, 0);
+        return this.tryDeleteBusinessFallback(businessCode, 0);
       })
     );
   }
@@ -445,16 +453,16 @@ export class BusinessService {
     );
   }
 
-  private tryGetBusinessWorkspaceFallback(businessId: number, index: number): Observable<BusinessWorkspace> {
+  private tryGetBusinessWorkspaceFallback(businessCode: string, index: number): Observable<BusinessWorkspace> {
     if (index >= this.fallbackOrigins.length) {
       return throwError(() => new Error('Business workspace endpoint not found on configured local origins.'));
     }
 
-    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}`;
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}`;
     return this.http.get<BusinessWorkspace>(url).pipe(
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
-          return this.tryGetBusinessWorkspaceFallback(businessId, index + 1);
+          return this.tryGetBusinessWorkspaceFallback(businessCode, index + 1);
         }
 
         return throwError(() => err);
@@ -462,16 +470,16 @@ export class BusinessService {
     );
   }
 
-  private tryGetEmployeeInvitesFallback(indexBusinessId: number, index: number): Observable<BusinessEmployeeInvite[]> {
+  private tryGetEmployeeInvitesFallback(businessCode: string, index: number): Observable<BusinessEmployeeInvite[]> {
     if (index >= this.fallbackOrigins.length) {
       return throwError(() => new Error('Employee invites endpoint not found on configured local origins.'));
     }
 
-    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${indexBusinessId}/employee-invites`;
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/employee-invites`;
     return this.http.get<BusinessEmployeeInvite[]>(url).pipe(
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
-          return this.tryGetEmployeeInvitesFallback(indexBusinessId, index + 1);
+          return this.tryGetEmployeeInvitesFallback(businessCode, index + 1);
         }
 
         return throwError(() => err);
@@ -480,10 +488,11 @@ export class BusinessService {
   }
 
   private tryGetEmployeesFallback(
-    businessId: number,
+    businessCode: string,
     pageNumber: number,
     pageSize: number,
     filters: EmployeeFilter[],
+    includeInactive: boolean,
     sort: EmployeeSort | null | undefined,
     index: number
   ): Observable<BusinessWorkspaceEmployeePage> {
@@ -494,6 +503,7 @@ export class BusinessService {
     const query = new URLSearchParams({
       pageNumber: pageNumber.toString(),
       pageSize: pageSize.toString(),
+      includeInactive: includeInactive.toString(),
     });
 
     if (filters.length > 0) {
@@ -505,11 +515,11 @@ export class BusinessService {
       query.set('sortDirection', sort.direction);
     }
 
-    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}/employees?${query.toString()}`;
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/employees?${query.toString()}`;
     return this.http.get<BusinessWorkspaceEmployeePage>(url).pipe(
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
-          return this.tryGetEmployeesFallback(businessId, pageNumber, pageSize, filters, sort, index + 1);
+          return this.tryGetEmployeesFallback(businessCode, pageNumber, pageSize, filters, includeInactive, sort, index + 1);
         }
 
         return throwError(() => err);
@@ -518,7 +528,7 @@ export class BusinessService {
   }
 
   private tryCreateEmployeeInviteFallback(
-    businessId: number,
+    businessCode: string,
     email: string,
     roleName: string,
     index: number
@@ -527,11 +537,11 @@ export class BusinessService {
       return throwError(() => new Error('Employee invite creation endpoint not found on configured local origins.'));
     }
 
-    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}/employee-invites`;
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/employee-invites`;
     return this.http.post<BusinessEmployeeInvite>(url, { email, roleName }).pipe(
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
-          return this.tryCreateEmployeeInviteFallback(businessId, email, roleName, index + 1);
+          return this.tryCreateEmployeeInviteFallback(businessCode, email, roleName, index + 1);
         }
 
         return throwError(() => err);
@@ -539,16 +549,16 @@ export class BusinessService {
     );
   }
 
-  private tryCloseEmployeeInviteFallback(businessId: number, workloadId: number, index: number): Observable<void> {
+  private tryCloseEmployeeInviteFallback(businessCode: string, workloadId: number, index: number): Observable<void> {
     if (index >= this.fallbackOrigins.length) {
       return throwError(() => new Error('Employee invite close endpoint not found on configured local origins.'));
     }
 
-    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}/employee-invites/${workloadId}/close`;
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/employee-invites/${workloadId}/close`;
     return this.http.post<void>(url, {}).pipe(
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
-          return this.tryCloseEmployeeInviteFallback(businessId, workloadId, index + 1);
+          return this.tryCloseEmployeeInviteFallback(businessCode, workloadId, index + 1);
         }
 
         return throwError(() => err);
@@ -556,16 +566,16 @@ export class BusinessService {
     );
   }
 
-  private tryDeactivateEmployeeFallback(businessId: number, businessUserId: number, index: number): Observable<void> {
+  private tryDeactivateEmployeeFallback(businessCode: string, businessUserId: number, index: number): Observable<void> {
     if (index >= this.fallbackOrigins.length) {
       return throwError(() => new Error('Employee deactivation endpoint not found on configured local origins.'));
     }
 
-    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}/employees/${businessUserId}/deactivate`;
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/employees/${businessUserId}/deactivate`;
     return this.http.post<void>(url, {}).pipe(
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
-          return this.tryDeactivateEmployeeFallback(businessId, businessUserId, index + 1);
+          return this.tryDeactivateEmployeeFallback(businessCode, businessUserId, index + 1);
         }
 
         return throwError(() => err);
@@ -574,7 +584,7 @@ export class BusinessService {
   }
 
   private tryUpdateEmployeeRoleFallback(
-    businessId: number,
+    businessCode: string,
     businessUserId: number,
     roleName: string,
     index: number
@@ -583,11 +593,11 @@ export class BusinessService {
       return throwError(() => new Error('Employee role update endpoint not found on configured local origins.'));
     }
 
-    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}/employees/${businessUserId}/role`;
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/employees/${businessUserId}/role`;
     return this.http.put<void>(url, { roleName }).pipe(
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
-          return this.tryUpdateEmployeeRoleFallback(businessId, businessUserId, roleName, index + 1);
+          return this.tryUpdateEmployeeRoleFallback(businessCode, businessUserId, roleName, index + 1);
         }
 
         return throwError(() => err);
@@ -595,16 +605,16 @@ export class BusinessService {
     );
   }
 
-  private tryLeaveBusinessFallback(businessId: number, index: number): Observable<void> {
+  private tryLeaveBusinessFallback(businessCode: string, index: number): Observable<void> {
     if (index >= this.fallbackOrigins.length) {
       return throwError(() => new Error('Leave business endpoint not found on configured local origins.'));
     }
 
-    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}/leave`;
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/leave`;
     return this.http.post<void>(url, {}).pipe(
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
-          return this.tryLeaveBusinessFallback(businessId, index + 1);
+          return this.tryLeaveBusinessFallback(businessCode, index + 1);
         }
 
         return throwError(() => err);
@@ -613,7 +623,7 @@ export class BusinessService {
   }
 
   private tryUpdateBusinessServicesFallback(
-    businessId: number,
+    businessCode: string,
     serviceIds: number[],
     index: number
   ): Observable<BusinessWorkspaceService[]> {
@@ -621,11 +631,11 @@ export class BusinessService {
       return throwError(() => new Error('Business services update endpoint not found on configured local origins.'));
     }
 
-    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}/services`;
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/services`;
     return this.http.put<BusinessWorkspaceService[]>(url, { serviceIds }).pipe(
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
-          return this.tryUpdateBusinessServicesFallback(businessId, serviceIds, index + 1);
+          return this.tryUpdateBusinessServicesFallback(businessCode, serviceIds, index + 1);
         }
 
         return throwError(() => err);
@@ -634,7 +644,7 @@ export class BusinessService {
   }
 
   private tryUpdateBusinessProfileFallback(
-    businessId: number,
+    businessCode: string,
     payload: UpdateBusinessProfileRequest,
     index: number
   ): Observable<UpdateBusinessProfileResponse> {
@@ -642,11 +652,11 @@ export class BusinessService {
       return throwError(() => new Error('Business profile update endpoint not found on configured local origins.'));
     }
 
-    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}`;
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}`;
     return this.http.put<UpdateBusinessProfileResponse>(url, payload).pipe(
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
-          return this.tryUpdateBusinessProfileFallback(businessId, payload, index + 1);
+          return this.tryUpdateBusinessProfileFallback(businessCode, payload, index + 1);
         }
 
         return throwError(() => err);
@@ -654,16 +664,16 @@ export class BusinessService {
     );
   }
 
-  private tryDeleteBusinessFallback(businessId: number, index: number): Observable<void> {
+  private tryDeleteBusinessFallback(businessCode: string, index: number): Observable<void> {
     if (index >= this.fallbackOrigins.length) {
       return throwError(() => new Error('Business delete endpoint not found on configured local origins.'));
     }
 
-    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessId}`;
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}`;
     return this.http.delete<void>(url).pipe(
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
-          return this.tryDeleteBusinessFallback(businessId, index + 1);
+          return this.tryDeleteBusinessFallback(businessCode, index + 1);
         }
 
         return throwError(() => err);

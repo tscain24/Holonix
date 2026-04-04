@@ -82,6 +82,7 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
             Email = request.Email.Trim(),
             FirstName = request.FirstName.Trim(),
             LastName = request.LastName.Trim(),
+            PhoneNumber = NormalizePhoneNumber(request.PhoneNumber),
             DateOfBirth = dateOfBirth,
             ProfileImageBase64 = NormalizeBase64Image(request.ProfileImageBase64),
         };
@@ -116,8 +117,19 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
             user.FirstName,
             user.LastName,
             user.Email ?? string.Empty,
+            user.PhoneNumber,
             user.ProfileImageBase64);
         return HandlerResult<RegisterResponse>.Ok(response);
+    }
+
+    private static string? NormalizePhoneNumber(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim();
     }
 
     private static string? NormalizeBase64Image(string? value)

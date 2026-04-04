@@ -27,6 +27,7 @@ export class ProfileComponent implements OnInit {
   firstName = 'User';
   lastName = '';
   email = '';
+  phoneNumber = '';
   userId = '';
   initials = 'U';
   isBusinessOwner = false;
@@ -43,6 +44,7 @@ export class ProfileComponent implements OnInit {
   editableLastName = '';
   editableDateOfBirth = '';
   editableDateOfBirthDisplay = '';
+  editablePhoneNumber = '';
   isProfileImageModalOpen = false;
   pendingProfileImageBase64 = '';
   pendingProfileImageDataUrl = '';
@@ -100,15 +102,23 @@ export class ProfileComponent implements OnInit {
 
     this.auth.getProfile().subscribe({
       next: (profile) => {
-        const profileAny = profile as unknown as { dateOfBirth?: unknown; DateOfBirth?: unknown };
+        const profileAny = profile as unknown as {
+          dateOfBirth?: unknown;
+          DateOfBirth?: unknown;
+          phoneNumber?: unknown;
+          PhoneNumber?: unknown;
+        };
         const incomingDob = profileAny.dateOfBirth ?? profileAny.DateOfBirth;
+        const incomingPhoneNumber = profileAny.phoneNumber ?? profileAny.PhoneNumber;
         const firstName = profile.firstName?.trim() || this.firstName;
         const lastName = profile.lastName?.trim() || this.lastName;
         this.firstName = firstName;
         this.lastName = lastName;
+        this.phoneNumber = this.normalizeIncomingPhoneNumber(incomingPhoneNumber);
         this.displayName = `${firstName} ${lastName}`.trim();
         this.editableFirstName = firstName;
         this.editableLastName = lastName;
+        this.editablePhoneNumber = this.phoneNumber;
         this.savedDateOfBirth = this.normalizeIncomingDateOfBirth(incomingDob);
         this.setEditableDateOfBirth(this.savedDateOfBirth);
         if (profile.profileImageBase64) {
@@ -298,6 +308,7 @@ export class ProfileComponent implements OnInit {
   enterEditProfileMode(): void {
     this.editableFirstName = this.firstName;
     this.editableLastName = this.lastName;
+    this.editablePhoneNumber = this.phoneNumber;
     this.setEditableDateOfBirth(this.savedDateOfBirth);
     this.isEditProfileMode = true;
   }
@@ -305,6 +316,7 @@ export class ProfileComponent implements OnInit {
   cancelEditProfile(): void {
     this.editableFirstName = this.firstName;
     this.editableLastName = this.lastName;
+    this.editablePhoneNumber = this.phoneNumber;
     this.setEditableDateOfBirth(this.savedDateOfBirth);
     this.isEditProfileMode = false;
   }
@@ -312,9 +324,18 @@ export class ProfileComponent implements OnInit {
   saveProfileChanges(): void {
     const firstName = this.editableFirstName.trim();
     const lastName = this.editableLastName.trim();
+    const phoneNumber = this.editablePhoneNumber.trim();
 
     if (!firstName || !lastName) {
       this.snackBar.open('First and last name are required.', 'Close', {
+        duration: 3000,
+        panelClass: ['snack-error'],
+      });
+      return;
+    }
+
+    if (phoneNumber.length > 32) {
+      this.snackBar.open('Phone number must be 32 characters or fewer.', 'Close', {
         duration: 3000,
         panelClass: ['snack-error'],
       });
@@ -334,17 +355,26 @@ export class ProfileComponent implements OnInit {
       firstName,
       lastName,
       dateOfBirth: this.editableDateOfBirth || null,
+      phoneNumber: phoneNumber || null,
     }).subscribe({
       next: (profile) => {
-        const profileAny = profile as unknown as { dateOfBirth?: unknown; DateOfBirth?: unknown };
+        const profileAny = profile as unknown as {
+          dateOfBirth?: unknown;
+          DateOfBirth?: unknown;
+          phoneNumber?: unknown;
+          PhoneNumber?: unknown;
+        };
         const incomingDob = profileAny.dateOfBirth ?? profileAny.DateOfBirth;
+        const incomingPhoneNumber = profileAny.phoneNumber ?? profileAny.PhoneNumber;
         this.savingProfile = false;
         this.isEditProfileMode = false;
         this.firstName = profile.firstName.trim();
         this.lastName = profile.lastName.trim();
+        this.phoneNumber = this.normalizeIncomingPhoneNumber(incomingPhoneNumber);
         this.displayName = `${this.firstName} ${this.lastName}`.trim();
         this.editableFirstName = this.firstName;
         this.editableLastName = this.lastName;
+        this.editablePhoneNumber = this.phoneNumber;
         this.savedDateOfBirth = this.normalizeIncomingDateOfBirth(incomingDob);
         this.setEditableDateOfBirth(this.savedDateOfBirth);
         localStorage.setItem('holonix_display_name', this.displayName);
@@ -424,6 +454,21 @@ export class ProfileComponent implements OnInit {
     }
 
     this.editableLastName = input.value;
+  }
+
+  onPhoneNumberInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!this.isEditProfileMode) {
+      input.value = this.editablePhoneNumber;
+      return;
+    }
+
+    const raw = input.value;
+    const digits = raw.replace(/\D/g, '').slice(0, 11);
+    const formatted = this.formatPhoneNumberValue(digits, raw);
+    input.value = formatted;
+    input.setSelectionRange(formatted.length, formatted.length);
+    this.editablePhoneNumber = formatted;
   }
 
   startPreviewImageDrag(event: MouseEvent | TouchEvent): void {
@@ -698,6 +743,44 @@ export class ProfileComponent implements OnInit {
     }
 
     return '';
+  }
+
+  private normalizeIncomingPhoneNumber(value: unknown): string {
+    return typeof value === 'string' ? this.formatPhoneNumberForDisplay(value) : '';
+  }
+
+  formatPhoneNumberForDisplay(value: string): string {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    const digits = trimmed.replace(/\D/g, '');
+    return this.formatPhoneNumberValue(digits, trimmed);
+  }
+
+  private formatPhoneNumberValue(digitsOnly: string, fallback: string): string {
+    if (!digitsOnly) {
+      return '';
+    }
+
+    if (digitsOnly.length <= 3) {
+      return digitsOnly;
+    }
+
+    if (digitsOnly.length <= 6) {
+      return `(${digitsOnly.slice(0, 3)}) ${digitsOnly.slice(3)}`;
+    }
+
+    if (digitsOnly.length <= 10) {
+      return `(${digitsOnly.slice(0, 3)}) ${digitsOnly.slice(3, 6)}-${digitsOnly.slice(6)}`;
+    }
+
+    if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+      return `+1 (${digitsOnly.slice(1, 4)}) ${digitsOnly.slice(4, 7)}-${digitsOnly.slice(7)}`;
+    }
+
+    return fallback.trim();
   }
 
   private isValidCalendarDate(year: number, month: number, day: number): boolean {

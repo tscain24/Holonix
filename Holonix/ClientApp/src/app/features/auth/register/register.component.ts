@@ -17,6 +17,7 @@ export class RegisterComponent {
   form = this.fb.group({
     firstname: ['', [Validators.required, Validators.minLength(2)]],
     lastname: ['', [Validators.required, Validators.minLength(2)]],
+    phoneNumber: ['', [Validators.maxLength(32)]],
     dateOfBirth: [null as Date | null, [Validators.required, minimumAgeValidator(13)]],
     email: ['', [Validators.required, Validators.email]],
     password: [
@@ -64,6 +65,22 @@ export class RegisterComponent {
     }
   }
 
+  formatPhoneNumberOnInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const raw = input.value;
+    const selectionStart = input.selectionStart ?? raw.length;
+    const digitsBeforeCursor = raw.slice(0, selectionStart).replace(/\D/g, '').length;
+    const digits = raw.replace(/\D/g, '').slice(0, 11);
+    const formatted = formatPhoneNumberValue(digits, raw);
+
+    if (formatted !== raw) {
+      input.value = formatted;
+      input.setSelectionRange(formatted.length, formatted.length);
+    }
+
+    this.form.controls.phoneNumber.setValue(formatted, { emitEvent: false });
+  }
+
   submit(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -76,6 +93,7 @@ export class RegisterComponent {
     const payload: RegisterRequest = {
       firstName: rawValue.firstname ?? '',
       lastName: rawValue.lastname ?? '',
+      phoneNumber: (rawValue.phoneNumber ?? '').trim() || null,
       email: rawValue.email ?? '',
       password: rawValue.password ?? '',
       dateOfBirth: dateValue instanceof Date ? dateValue.toISOString().split('T')[0] : '',
@@ -103,6 +121,30 @@ export class RegisterComponent {
       },
     });
   }
+}
+
+function formatPhoneNumberValue(digitsOnly: string, fallback: string): string {
+  if (!digitsOnly) {
+    return '';
+  }
+
+  if (digitsOnly.length <= 3) {
+    return digitsOnly;
+  }
+
+  if (digitsOnly.length <= 6) {
+    return `(${digitsOnly.slice(0, 3)}) ${digitsOnly.slice(3)}`;
+  }
+
+  if (digitsOnly.length <= 10) {
+    return `(${digitsOnly.slice(0, 3)}) ${digitsOnly.slice(3, 6)}-${digitsOnly.slice(6)}`;
+  }
+
+  if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+    return `+1 (${digitsOnly.slice(1, 4)}) ${digitsOnly.slice(4, 7)}-${digitsOnly.slice(7)}`;
+  }
+
+  return fallback.trim();
 }
 
 function minimumAgeValidator(minAge: number) {
