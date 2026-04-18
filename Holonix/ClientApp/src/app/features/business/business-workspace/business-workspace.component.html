@@ -45,6 +45,7 @@
           <button type="button" class="workspace-tab workspace-tab-active" aria-current="page" (click)="goToOverviewTab()">Overview</button>
           <button type="button" class="workspace-tab" (click)="goToEmployeesTab()">Employees</button>
           <button type="button" class="workspace-tab" (click)="goToServiceManagerTab()">Service Manager</button>
+          <button type="button" class="workspace-tab" (click)="goToMyAvailabilityTab()">My Availability</button>
           <button type="button" class="workspace-tab" (click)="goToJobsTab()">Jobs</button>
         </nav>
       </div>
@@ -176,6 +177,14 @@
               </div>
             </ng-container>
           </article>
+          <article class="info-card">
+            <span class="info-label">Business Email</span>
+            <strong>{{ business.businessEmail || 'Not provided' }}</strong>
+          </article>
+          <article class="info-card">
+            <span class="info-label">Business Phone</span>
+            <strong>{{ formatPhoneNumberForDisplay(business.businessPhoneNumber) || 'Not provided' }}</strong>
+          </article>
           <article class="info-card info-card-services">
             <span class="info-label">Services</span>
             <strong>{{ business.serviceCount }}</strong>
@@ -296,6 +305,16 @@
             </label>
 
             <label class="hero-field">
+              <span>Business Email</span>
+              <input type="email" [value]="editBusinessEmail" (input)="onBusinessEmailInput($event)" />
+            </label>
+
+            <label class="hero-field">
+              <span>Business Phone</span>
+              <input type="text" [value]="editBusinessPhoneNumber" (input)="onBusinessPhoneNumberInput($event)" />
+            </label>
+
+            <label class="hero-field">
               <span>City</span>
               <input type="text" [value]="editCity" (input)="onCityInput($event)" />
             </label>
@@ -338,7 +357,10 @@
       <section class="workspace-section" *ngIf="business.services.length > 0" id="service-manager">
         <div class="section-heading section-heading-actions">
           <div>
-            <h2>Service Manager</h2>
+            <div class="section-heading-title-row">
+              <h2>Service Manager</h2>
+              <span class="section-count-chip">{{ activeSubServiceCount }}</span>
+            </div>
             <p>View the sub-services that are configured for this business.</p>
           </div>
           <div class="hero-actions">
@@ -358,6 +380,7 @@
               <tr>
                 <th scope="col">Sub Service</th>
                 <th scope="col">Parent Service</th>
+                <th scope="col">Price</th>
                 <th scope="col">Effective Date</th>
               </tr>
             </thead>
@@ -365,6 +388,7 @@
               <tr *ngFor="let subService of visibleSubServices">
                 <td class="workspace-table-primary">{{ subService.name }}</td>
                 <td>{{ subService.parentServiceName }}</td>
+                <td>{{ formatSubServicePrice(subService) }}</td>
                 <td>{{ formatEffectiveDate(subService.effectiveDate) }}</td>
               </tr>
             </tbody>
@@ -375,7 +399,10 @@
       <section class="workspace-section">
         <div class="section-heading section-heading-actions">
           <div>
-            <h2>Employees</h2>
+            <div class="section-heading-title-row">
+              <h2>Employees</h2>
+              <span class="section-count-chip">{{ activeWorkspaceEmployees.length }}</span>
+            </div>
             <p>Team members currently associated with this business, their title, and employment status.</p>
           </div>
           <div class="hero-actions" *ngIf="hasActiveWorkspaceEmployees()">

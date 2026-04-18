@@ -1,7 +1,7 @@
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
-import { ReactiveFormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { HTTP_INTERCEPTORS, HttpClientModule } from '@angular/common/http';
 import { AppRoutingModule } from './app-routing.module';
 import { RouterModule } from '@angular/router';
@@ -24,6 +24,7 @@ import { BusinessOverviewComponent } from './features/business/business-overview
 import { BusinessWorkspaceComponent } from './features/business/business-workspace/business-workspace.component';
 import { BusinessEmployeesComponent } from './features/business/business-employees/business-employees.component';
 import { BusinessServiceManagerComponent } from './features/business/business-service-manager/business-service-manager.component';
+import { BusinessMyAvailabilityComponent } from './features/business/business-my-availability/business-my-availability.component';
 import { AuthInterceptor } from './core/services/auth.interceptor';
 
 @NgModule({
@@ -39,11 +40,13 @@ import { AuthInterceptor } from './core/services/auth.interceptor';
     BusinessOverviewComponent,
     BusinessWorkspaceComponent,
     BusinessEmployeesComponent,
-    BusinessServiceManagerComponent
+    BusinessServiceManagerComponent,
+    BusinessMyAvailabilityComponent
   ],
   imports: [
     BrowserModule,
     BrowserAnimationsModule,
+    FormsModule,
     ReactiveFormsModule,
     HttpClientModule,
     RouterModule,

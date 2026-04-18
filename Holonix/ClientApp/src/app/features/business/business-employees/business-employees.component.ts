@@ -167,6 +167,13 @@ export class BusinessEmployeesComponent implements OnInit {
     }
   }
 
+  goToMyAvailabilityTab(): void {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (businessCode) {
+      this.router.navigate(['/business', businessCode, 'availability']);
+    }
+  }
+
   goToJobsTab(): void {
     const businessCode = this.businessWorkspace?.businessCode?.trim();
     if (businessCode) {

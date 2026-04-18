@@ -8,6 +8,8 @@ import { AuthSessionService } from '../../../core/services/auth-session.service'
 type CreateBusinessForm = {
   name: FormControl<string | null>;
   description: FormControl<string | null>;
+  businessEmail: FormControl<string | null>;
+  businessPhoneNumber: FormControl<string | null>;
   address1: FormControl<string | null>;
   address2: FormControl<string | null>;
   city: FormControl<string | null>;
@@ -59,6 +61,8 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
   businessForm = this.formBuilder.group<CreateBusinessForm>({
     name: this.formBuilder.control('', [Validators.required, Validators.maxLength(200)]),
     description: this.formBuilder.control('', [Validators.maxLength(1000)]),
+    businessEmail: this.formBuilder.control('', [Validators.email, Validators.maxLength(256)]),
+    businessPhoneNumber: this.formBuilder.control('', [Validators.maxLength(32)]),
     address1: this.formBuilder.control('', [Validators.required, Validators.maxLength(200)]),
     address2: this.formBuilder.control('', [Validators.maxLength(200)]),
     city: this.formBuilder.control('', [Validators.required, Validators.maxLength(120)]),
@@ -404,6 +408,30 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     this.highlightedCountryIndex = -1;
   }
 
+  onBusinessPhoneNumberInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const raw = input.value;
+    const digits = raw.replace(/\D/g, '').slice(0, 11);
+    const formatted = this.formatPhoneNumberValue(digits, raw);
+
+    if (formatted !== raw) {
+      input.value = formatted;
+      input.setSelectionRange(formatted.length, formatted.length);
+    }
+
+    this.businessForm.controls.businessPhoneNumber.setValue(formatted, { emitEvent: false });
+  }
+
+  formatPhoneNumberForDisplay(value?: string | null): string {
+    const trimmed = value?.trim() ?? '';
+    if (!trimmed) {
+      return '';
+    }
+
+    const digits = trimmed.replace(/\D/g, '');
+    return this.formatPhoneNumberValue(digits, trimmed);
+  }
+
   onBusinessIconSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -533,6 +561,8 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     this.businessService.createBusiness({
       name: (this.businessForm.controls.name.value ?? '').trim(),
       description: this.businessForm.controls.description.value?.trim() || null,
+      businessEmail: this.businessForm.controls.businessEmail.value?.trim() || null,
+      businessPhoneNumber: this.businessForm.controls.businessPhoneNumber.value?.trim() || null,
       address1: (this.businessForm.controls.address1.value ?? '').trim(),
       address2: this.businessForm.controls.address2.value?.trim() || null,
       city: (this.businessForm.controls.city.value ?? '').trim(),
@@ -608,6 +638,30 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     }
 
     return 'down';
+  }
+
+  private formatPhoneNumberValue(digitsOnly: string, fallback: string): string {
+    if (!digitsOnly) {
+      return '';
+    }
+
+    if (digitsOnly.length <= 3) {
+      return digitsOnly;
+    }
+
+    if (digitsOnly.length <= 6) {
+      return `(${digitsOnly.slice(0, 3)}) ${digitsOnly.slice(3)}`;
+    }
+
+    if (digitsOnly.length <= 10) {
+      return `(${digitsOnly.slice(0, 3)}) ${digitsOnly.slice(3, 6)}-${digitsOnly.slice(6)}`;
+    }
+
+    if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+      return `+1 (${digitsOnly.slice(1, 4)}) ${digitsOnly.slice(4, 7)}-${digitsOnly.slice(7)}`;
+    }
+
+    return fallback.trim();
   }
 
   private extractBase64(dataUrl: string): string {

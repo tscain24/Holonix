@@ -24,6 +24,8 @@ public class BusinessDetails
 {
     public int BusinessId { get; set; }
     public string? Description { get; set; }
+    public string? BusinessEmail { get; set; }
+    public string? BusinessPhoneNumber { get; set; }
     public string? Address1 { get; set; }
     public string? Address2 { get; set; }
     public string? City { get; set; }
@@ -63,11 +65,26 @@ public class BusinessSubService
     public int BusinessId { get; set; }
     public int ServiceId { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public bool ConsultationNeeded { get; set; }
+    public int DurationMinutes { get; set; }
+    public decimal Price { get; set; }
+    public int EmployeeCount { get; set; }
     public DateOnly EffectiveDate { get; set; }
     public DateTime? InactiveDate { get; set; }
 
     public Business Business { get; set; } = null!;
     public Service Service { get; set; } = null!;
+}
+
+public class BusinessSubServiceAssignment
+{
+    public long BusinessSubServiceAssignmentId { get; set; }
+    public long BusinessSubServiceId { get; set; }
+    public long BusinessUserId { get; set; }
+
+    public BusinessSubService BusinessSubService { get; set; } = null!;
+    public BusinessUser BusinessUser { get; set; } = null!;
 }
 
 public class BusinessRole

@@ -254,17 +254,10 @@ public class BusinessController : ControllerBase
                 })
             .ToListAsync(cancellationToken);
 
-        var subServicesByServiceId = await _dbContext.BusinessSubServices
-            .AsNoTracking()
-            .Where(item => item.BusinessId == businessId.Value && item.InactiveDate == null)
-            .OrderBy(item => item.Name)
-            .GroupBy(item => item.ServiceId)
-            .ToDictionaryAsync(
-                group => group.Key,
-                group => (IReadOnlyList<BusinessWorkspaceSubServiceResponse>)group
-                    .Select(item => new BusinessWorkspaceSubServiceResponse(item.BusinessSubServiceId, item.Name, item.EffectiveDate))
-                    .ToList(),
-                cancellationToken);
+        var subServicesByServiceId = await GetActiveSubServicesByServiceIdAsync(
+            businessId.Value,
+            services.Select(item => item.ServiceId).ToArray(),
+            cancellationToken);
 
         var serviceResponses = services
             .OrderBy(item => item.Name)
@@ -480,6 +473,8 @@ public class BusinessController : ControllerBase
             business.BusinessCode,
             business.Name,
             business.Details?.Description,
+            business.Details?.BusinessEmail,
+            business.Details?.BusinessPhoneNumber,
             business.Details?.Address1,
             business.Details?.Address2,
             business.Details?.City,
@@ -501,6 +496,209 @@ public class BusinessController : ControllerBase
             jobResponses);
 
         return Ok(response);
+    }
+
+    [Authorize]
+    [HttpGet("{businessCode}/my-availability")]
+    public async Task<IActionResult> GetMyBusinessAvailability(string businessCode, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var businessUserId = await GetActiveBusinessUserIdAsync(businessId.Value, userId, cancellationToken);
+        if (!businessUserId.HasValue)
+        {
+            return Forbid();
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var availabilityRows = await _dbContext.BusinessUserAvailabilities
+            .AsNoTracking()
+            .Where(item =>
+                item.BusinessUserId == businessUserId.Value &&
+                item.EffectiveStartDate <= today &&
+                (!item.EffectiveEndDate.HasValue || item.EffectiveEndDate.Value >= today))
+            .OrderBy(item => item.DayOfWeek)
+            .ThenBy(item => item.StartTime)
+            .ToListAsync(cancellationToken);
+
+        var dayOffRows = await _dbContext.BusinessUserTimeOffs
+            .AsNoTracking()
+            .Where(item =>
+                item.BusinessUserId == businessUserId.Value &&
+                item.EffectiveStartDate.HasValue &&
+                item.EffectiveEndDate.HasValue &&
+                item.IsAllDay == true &&
+                item.EffectiveEndDate.Value >= today)
+            .OrderBy(item => item.EffectiveStartDate)
+            .ThenBy(item => item.EffectiveEndDate)
+            .ToListAsync(cancellationToken);
+
+        var effectiveStartDate = availabilityRows.Count > 0
+            ? availabilityRows.Min(item => item.EffectiveStartDate)
+            : today;
+
+        return Ok(new MyBusinessAvailabilityResponse(
+            businessUserId.Value,
+            effectiveStartDate,
+            availabilityRows
+                .Select(item => new MyBusinessAvailabilityDayResponse(
+                    item.DayOfWeek,
+                    item.StartTime,
+                    item.EndTime))
+                .ToList(),
+            dayOffRows
+                .Select(item => new MyBusinessTimeOffResponse(
+                    item.BusinessUserTimeOffId,
+                    item.EffectiveStartDate!.Value,
+                    item.EffectiveEndDate!.Value,
+                    item.IsAllDay ?? true))
+                .ToList()));
+    }
+
+    [Authorize]
+    [HttpPut("{businessCode}/my-availability")]
+    public async Task<IActionResult> UpdateMyBusinessAvailability(
+        string businessCode,
+        UpdateMyBusinessAvailabilityRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var businessUserId = await GetActiveBusinessUserIdAsync(businessId.Value, userId, cancellationToken);
+        if (!businessUserId.HasValue)
+        {
+            return Forbid();
+        }
+
+        var availability = (request.Availability ?? Array.Empty<UpdateMyBusinessAvailabilityDayRequest>())
+            .OrderBy(item => item.DayOfWeek)
+            .ToList();
+        var daysOff = (request.DaysOff ?? Array.Empty<UpdateMyBusinessTimeOffRequest>())
+            .OrderBy(item => item.EffectiveStartDate)
+            .ThenBy(item => item.EffectiveEndDate)
+            .ToList();
+
+        if (availability.Any(item => item.DayOfWeek > 6))
+        {
+            return BadRequest(new { errors = new[] { "Availability day is invalid." } });
+        }
+
+        if (availability.GroupBy(item => item.DayOfWeek).Any(group => group.Count() > 1))
+        {
+            return BadRequest(new { errors = new[] { "Each day can only be configured once." } });
+        }
+
+        if (availability.Any(item => item.StartTime >= item.EndTime))
+        {
+            return BadRequest(new { errors = new[] { "Availability start time must be earlier than end time." } });
+        }
+
+        if (daysOff.Any(item => item.EffectiveStartDate > item.EffectiveEndDate))
+        {
+            return BadRequest(new { errors = new[] { "Day off start date must be on or before the end date." } });
+        }
+
+        if (HasOverlappingTimeOffRanges(daysOff))
+        {
+            return BadRequest(new { errors = new[] { "Day off ranges cannot overlap." } });
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var activeRows = await _dbContext.BusinessUserAvailabilities
+            .Where(item =>
+                item.BusinessUserId == businessUserId.Value &&
+                item.EffectiveStartDate <= today &&
+                (!item.EffectiveEndDate.HasValue || item.EffectiveEndDate.Value >= today))
+            .ToListAsync(cancellationToken);
+        var activeAndUpcomingTimeOffRows = await _dbContext.BusinessUserTimeOffs
+            .Where(item =>
+                item.BusinessUserId == businessUserId.Value &&
+                item.EffectiveStartDate.HasValue &&
+                item.EffectiveEndDate.HasValue &&
+                item.EffectiveEndDate.Value >= today)
+            .ToListAsync(cancellationToken);
+
+        var yesterday = today.AddDays(-1);
+        foreach (var row in activeRows)
+        {
+            row.EffectiveEndDate = yesterday;
+        }
+
+        if (activeAndUpcomingTimeOffRows.Count > 0)
+        {
+            _dbContext.BusinessUserTimeOffs.RemoveRange(activeAndUpcomingTimeOffRows);
+        }
+
+        if (availability.Count > 0)
+        {
+            _dbContext.BusinessUserAvailabilities.AddRange(
+                availability.Select(item => new BusinessUserAvailability
+                {
+                    BusinessUserId = businessUserId.Value,
+                    DayOfWeek = item.DayOfWeek,
+                    StartTime = item.StartTime,
+                    EndTime = item.EndTime,
+                    EffectiveStartDate = today,
+                    EffectiveEndDate = null,
+                }));
+        }
+
+        if (daysOff.Count > 0)
+        {
+            _dbContext.BusinessUserTimeOffs.AddRange(
+                daysOff.Select(item => new BusinessUserTimeOff
+                {
+                    BusinessUserId = businessUserId.Value,
+                    EffectiveStartDate = item.EffectiveStartDate,
+                    EffectiveEndDate = item.EffectiveEndDate,
+                    EffectiveStartTime = null,
+                    EffectiveEndTime = null,
+                    IsAllDay = true,
+                }));
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new MyBusinessAvailabilityResponse(
+            businessUserId.Value,
+            today,
+            availability
+                .Select(item => new MyBusinessAvailabilityDayResponse(
+                    item.DayOfWeek,
+                    item.StartTime,
+                    item.EndTime))
+                .ToList(),
+            daysOff
+                .Select(item => new MyBusinessTimeOffResponse(
+                    0,
+                    item.EffectiveStartDate,
+                    item.EffectiveEndDate,
+                    true))
+                .ToList()));
     }
 
     [Authorize]
@@ -1548,6 +1746,11 @@ public class BusinessController : ControllerBase
             return BadRequest(new { errors = new[] { "Business earnings percentage must be between 0 and 100." } });
         }
 
+        if (!IsValidOptionalEmail(request.BusinessEmail))
+        {
+            return BadRequest(new { errors = new[] { "Business email must be a valid email address." } });
+        }
+
         var business = await _dbContext.Businesses
             .Include(item => item.Details)
             .ThenInclude(details => details!.Country)
@@ -1562,6 +1765,8 @@ public class BusinessController : ControllerBase
         business.Details ??= new BusinessDetails { BusinessId = business.BusinessId };
         business.Details.Description = NormalizeOptional(request.Description);
         business.Details.BusinessIconBase64 = NormalizeBase64Image(request.BusinessIconBase64);
+        business.Details.BusinessEmail = NormalizeOptional(request.BusinessEmail);
+        business.Details.BusinessPhoneNumber = NormalizeOptional(request.BusinessPhoneNumber);
         business.Details.Address1 = request.Address1.Trim();
         business.Details.Address2 = NormalizeOptional(request.Address2);
         business.Details.City = request.City.Trim();
@@ -1576,6 +1781,8 @@ public class BusinessController : ControllerBase
             business.Name,
             business.Details.Description,
             business.Details.BusinessIconBase64,
+            business.Details.BusinessEmail,
+            business.Details.BusinessPhoneNumber,
             business.Details.Address1,
             business.Details.Address2,
             business.Details.City,
@@ -1692,20 +1899,10 @@ public class BusinessController : ControllerBase
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        var activeSubServices = await _dbContext.BusinessSubServices
-            .AsNoTracking()
-            .Where(item =>
-                item.BusinessId == businessId.Value &&
-                item.InactiveDate == null &&
-                serviceIds.Contains(item.ServiceId))
-            .OrderBy(item => item.Name)
-            .GroupBy(item => item.ServiceId)
-            .ToDictionaryAsync(
-                group => group.Key,
-                group => (IReadOnlyList<BusinessWorkspaceSubServiceResponse>)group
-                    .Select(item => new BusinessWorkspaceSubServiceResponse(item.BusinessSubServiceId, item.Name, item.EffectiveDate))
-                    .ToList(),
-                cancellationToken);
+        var activeSubServices = await GetActiveSubServicesByServiceIdAsync(
+            businessId.Value,
+            serviceIds,
+            cancellationToken);
 
         return Ok(validServices
             .OrderBy(item => item.Name)
@@ -1778,18 +1975,106 @@ public class BusinessController : ControllerBase
             return BadRequest(new { errors = new[] { "That sub-service already exists." } });
         }
 
+        if (request.Price < 0)
+        {
+            return BadRequest(new { errors = new[] { "Price cannot be negative." } });
+        }
+
+        if (request.Price == 0 && !request.ConsultationNeeded)
+        {
+            return BadRequest(new { errors = new[] { "Price can only be $0 when consultation is needed." } });
+        }
+
+        if (!IsValidSubServiceDuration(request.DurationMinutes))
+        {
+            return BadRequest(new { errors = new[] { "Duration must be greater than zero and use 15-minute intervals." } });
+        }
+
+        if (request.EmployeeCount <= 0)
+        {
+            return BadRequest(new { errors = new[] { "Employees needed must be a whole number greater than zero." } });
+        }
+
+        if (request.EffectiveDate == default)
+        {
+            return BadRequest(new { errors = new[] { "Effective date is required." } });
+        }
+
+        if (request.EffectiveDate < DateOnly.FromDateTime(DateTime.UtcNow))
+        {
+            return BadRequest(new { errors = new[] { "Effective date cannot be in the past." } });
+        }
+
+        var assignedBusinessUserIds = (request.AssignedBusinessUserIds ?? Array.Empty<long>())
+            .Where(id => id > 0)
+            .Distinct()
+            .ToArray();
+
+        if (assignedBusinessUserIds.Length > 0)
+        {
+            var validAssignedUserIds = await _dbContext.BusinessUsers
+                .AsNoTracking()
+                .Where(item =>
+                    item.BusinessId == businessId.Value &&
+                    item.IsActive &&
+                    item.EndDate == null &&
+                    assignedBusinessUserIds.Contains(item.BusinessUserId))
+                .Select(item => item.BusinessUserId)
+                .ToListAsync(cancellationToken);
+
+            if (validAssignedUserIds.Count != assignedBusinessUserIds.Length)
+            {
+                return BadRequest(new { errors = new[] { "One or more assigned users are not active employees for this business." } });
+            }
+        }
+
         var subService = new BusinessSubService
         {
             BusinessId = businessId.Value,
             ServiceId = serviceId,
             Name = normalizedName,
+            Description = NormalizeOptional(request.Description),
+            ConsultationNeeded = request.ConsultationNeeded,
+            DurationMinutes = request.DurationMinutes,
+            Price = request.Price,
+            EmployeeCount = request.EmployeeCount,
             EffectiveDate = request.EffectiveDate,
         };
 
         _dbContext.BusinessSubServices.Add(subService);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(new BusinessWorkspaceSubServiceResponse(subService.BusinessSubServiceId, subService.Name, subService.EffectiveDate));
+        if (assignedBusinessUserIds.Length > 0)
+        {
+            _dbContext.BusinessSubServiceAssignments.AddRange(
+                assignedBusinessUserIds.Select(businessUserId => new BusinessSubServiceAssignment
+                {
+                    BusinessSubServiceId = subService.BusinessSubServiceId,
+                    BusinessUserId = businessUserId,
+                }));
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        var createdSubServices = await GetActiveSubServicesByServiceIdAsync(
+            businessId.Value,
+            new[] { serviceId },
+            cancellationToken);
+
+        var createdSubService = createdSubServices.TryGetValue(serviceId, out var createdEntries)
+            ? createdEntries.SingleOrDefault(item => item.BusinessSubServiceId == subService.BusinessSubServiceId)
+            : null;
+
+        return Ok(createdSubService ?? new BusinessWorkspaceSubServiceResponse(
+            subService.BusinessSubServiceId,
+            subService.Name,
+            subService.Description,
+            subService.ConsultationNeeded,
+            subService.DurationMinutes,
+            subService.Price,
+            subService.EmployeeCount,
+            subService.EffectiveDate,
+            Array.Empty<BusinessWorkspaceSubServiceAssignmentResponse>()));
     }
 
     [Authorize]
@@ -1836,6 +2121,179 @@ public class BusinessController : ControllerBase
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return NoContent();
+    }
+
+    [Authorize]
+    [HttpPut("{businessCode}/sub-services/{businessSubServiceId:long}")]
+    public async Task<IActionResult> UpdateBusinessSubService(
+        string businessCode,
+        long businessSubServiceId,
+        UpdateBusinessSubServiceRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var currentRoleName = await GetActiveBusinessRoleNameAsync(businessId.Value, userId, cancellationToken);
+        if (!CanManageBusinessSubServices(currentRoleName))
+        {
+            return Forbid();
+        }
+
+        var subService = await _dbContext.BusinessSubServices
+            .SingleOrDefaultAsync(
+                item =>
+                    item.BusinessSubServiceId == businessSubServiceId &&
+                    item.BusinessId == businessId.Value &&
+                    item.InactiveDate == null,
+                cancellationToken);
+
+        if (subService is null)
+        {
+            return NotFound(new { errors = new[] { "Sub-service not found." } });
+        }
+
+        var normalizedName = NormalizeOptional(request.Name);
+        if (string.IsNullOrWhiteSpace(normalizedName))
+        {
+            return BadRequest(new { errors = new[] { "Sub-service name is required." } });
+        }
+
+        if (request.Price < 0)
+        {
+            return BadRequest(new { errors = new[] { "Price cannot be negative." } });
+        }
+
+        if (request.Price == 0 && !request.ConsultationNeeded)
+        {
+            return BadRequest(new { errors = new[] { "Price can only be $0 when consultation is needed." } });
+        }
+
+        if (!IsValidSubServiceDuration(request.DurationMinutes))
+        {
+            return BadRequest(new { errors = new[] { "Duration must be greater than zero and use 15-minute intervals." } });
+        }
+
+        if (request.EmployeeCount <= 0)
+        {
+            return BadRequest(new { errors = new[] { "Employees needed must be a whole number greater than zero." } });
+        }
+
+        if (request.EffectiveDate == default)
+        {
+            return BadRequest(new { errors = new[] { "Effective date is required." } });
+        }
+
+        if (request.EffectiveDate < DateOnly.FromDateTime(DateTime.UtcNow)
+            && request.EffectiveDate != subService.EffectiveDate)
+        {
+            return BadRequest(new { errors = new[] { "Effective date cannot be in the past." } });
+        }
+
+        var parentServiceExists = await _dbContext.BusinessServices
+            .AsNoTracking()
+            .AnyAsync(item => item.BusinessId == businessId.Value && item.ServiceId == request.ServiceId, cancellationToken);
+
+        if (!parentServiceExists)
+        {
+            return NotFound(new { errors = new[] { "Parent service not found for this business." } });
+        }
+
+        var duplicateExists = await _dbContext.BusinessSubServices
+            .AsNoTracking()
+            .AnyAsync(
+                item =>
+                    item.BusinessSubServiceId != businessSubServiceId &&
+                    item.BusinessId == businessId.Value &&
+                    item.ServiceId == request.ServiceId &&
+                    item.InactiveDate == null &&
+                    item.Name == normalizedName,
+                cancellationToken);
+
+        if (duplicateExists)
+        {
+            return BadRequest(new { errors = new[] { "That sub-service already exists." } });
+        }
+
+        var assignedBusinessUserIds = (request.AssignedBusinessUserIds ?? Array.Empty<long>())
+            .Where(id => id > 0)
+            .Distinct()
+            .ToArray();
+
+        if (assignedBusinessUserIds.Length > 0)
+        {
+            var validAssignedUserIds = await _dbContext.BusinessUsers
+                .AsNoTracking()
+                .Where(item =>
+                    item.BusinessId == businessId.Value &&
+                    item.IsActive &&
+                    item.EndDate == null &&
+                    assignedBusinessUserIds.Contains(item.BusinessUserId))
+                .Select(item => item.BusinessUserId)
+                .ToListAsync(cancellationToken);
+
+            if (validAssignedUserIds.Count != assignedBusinessUserIds.Length)
+            {
+                return BadRequest(new { errors = new[] { "One or more assigned users are not active employees for this business." } });
+            }
+        }
+
+        subService.Name = normalizedName;
+        subService.ServiceId = request.ServiceId;
+        subService.Description = NormalizeOptional(request.Description);
+        subService.ConsultationNeeded = request.ConsultationNeeded;
+        subService.DurationMinutes = request.DurationMinutes;
+        subService.Price = request.Price;
+        subService.EmployeeCount = request.EmployeeCount;
+        subService.EffectiveDate = request.EffectiveDate;
+
+        var existingAssignments = await _dbContext.BusinessSubServiceAssignments
+            .Where(item => item.BusinessSubServiceId == businessSubServiceId)
+            .ToListAsync(cancellationToken);
+
+        _dbContext.BusinessSubServiceAssignments.RemoveRange(existingAssignments);
+        if (assignedBusinessUserIds.Length > 0)
+        {
+            _dbContext.BusinessSubServiceAssignments.AddRange(
+                assignedBusinessUserIds.Select(businessUserId => new BusinessSubServiceAssignment
+                {
+                    BusinessSubServiceId = businessSubServiceId,
+                    BusinessUserId = businessUserId,
+                }));
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var updatedSubServices = await GetActiveSubServicesByServiceIdAsync(
+            businessId.Value,
+            new[] { request.ServiceId },
+            cancellationToken);
+
+        var updatedSubService = updatedSubServices.TryGetValue(request.ServiceId, out var updatedEntries)
+            ? updatedEntries.SingleOrDefault(item => item.BusinessSubServiceId == businessSubServiceId)
+            : null;
+
+        return Ok(updatedSubService ?? new BusinessWorkspaceSubServiceResponse(
+            subService.BusinessSubServiceId,
+            subService.Name,
+            subService.Description,
+            subService.ConsultationNeeded,
+            subService.DurationMinutes,
+            subService.Price,
+            subService.EmployeeCount,
+            subService.EffectiveDate,
+            Array.Empty<BusinessWorkspaceSubServiceAssignmentResponse>()));
     }
 
     [Authorize]
@@ -1960,6 +2418,8 @@ public class BusinessController : ControllerBase
             Details = new BusinessDetails
             {
                 Description = NormalizeOptional(request.Description),
+                BusinessEmail = NormalizeOptional(request.BusinessEmail),
+                BusinessPhoneNumber = NormalizeOptional(request.BusinessPhoneNumber),
                 Address1 = request.Address1.Trim(),
                 Address2 = NormalizeOptional(request.Address2),
                 City = request.City.Trim(),
@@ -2039,6 +2499,11 @@ public class BusinessController : ControllerBase
             errors.Add("Business earnings percentage must be between 0 and 100.");
         }
 
+        if (!IsValidOptionalEmail(request.BusinessEmail))
+        {
+            errors.Add("Business email must be a valid email address.");
+        }
+
         var distinctServiceIds = request.ServiceIds
             .Where(serviceId => serviceId > 0)
             .Distinct()
@@ -2091,6 +2556,16 @@ public class BusinessController : ControllerBase
         return markerIndex >= 0
             ? trimmed[(markerIndex + marker.Length)..]
             : trimmed;
+    }
+
+    private static bool IsValidOptionalEmail(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+
+        return new EmailAddressAttribute().IsValid(value.Trim());
     }
 
     private async Task<int?> GetActiveBusinessIdByCodeAsync(string businessCode, CancellationToken cancellationToken)
@@ -2162,6 +2637,95 @@ public class BusinessController : ControllerBase
         return new string(chars);
     }
 
+    private async Task<Dictionary<int, IReadOnlyList<BusinessWorkspaceSubServiceResponse>>> GetActiveSubServicesByServiceIdAsync(
+        int businessId,
+        IReadOnlyCollection<int> serviceIds,
+        CancellationToken cancellationToken)
+    {
+        if (serviceIds.Count == 0)
+        {
+            return [];
+        }
+
+        var subServices = await _dbContext.BusinessSubServices
+            .AsNoTracking()
+            .Where(item =>
+                item.BusinessId == businessId &&
+                item.InactiveDate == null &&
+                serviceIds.Contains(item.ServiceId))
+            .OrderBy(item => item.Name)
+            .ToListAsync(cancellationToken);
+
+        var subServiceIds = subServices
+            .Select(item => item.BusinessSubServiceId)
+            .ToArray();
+
+        Dictionary<long, IReadOnlyList<BusinessWorkspaceSubServiceAssignmentResponse>> assignedUsersBySubServiceId;
+        if (subServiceIds.Length == 0)
+        {
+            assignedUsersBySubServiceId = [];
+        }
+        else
+        {
+            var assignedUserRows = await _dbContext.BusinessSubServiceAssignments
+                .AsNoTracking()
+                .Where(item => subServiceIds.Contains(item.BusinessSubServiceId))
+                .Join(
+                    _dbContext.BusinessUsers.AsNoTracking().Where(item => item.IsActive && item.EndDate == null),
+                    assignment => assignment.BusinessUserId,
+                    businessUser => businessUser.BusinessUserId,
+                    (assignment, businessUser) => new
+                    {
+                        assignment.BusinessSubServiceId,
+                        businessUser.BusinessUserId,
+                        businessUser.UserId,
+                    })
+                .Join(
+                    _dbContext.Users.AsNoTracking(),
+                    assignment => assignment.UserId,
+                    user => user.Id,
+                    (assignment, user) => new
+                    {
+                        assignment.BusinessSubServiceId,
+                        assignment.BusinessUserId,
+                        user.FirstName,
+                        user.LastName,
+                    })
+                .ToListAsync(cancellationToken);
+
+            assignedUsersBySubServiceId = assignedUserRows
+                .GroupBy(item => item.BusinessSubServiceId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => (IReadOnlyList<BusinessWorkspaceSubServiceAssignmentResponse>)group
+                        .OrderBy(item => item.LastName)
+                        .ThenBy(item => item.FirstName)
+                        .Select(item => new BusinessWorkspaceSubServiceAssignmentResponse(
+                            item.BusinessUserId,
+                            BuildDisplayName(item.FirstName, item.LastName, "Team Member")))
+                        .ToList());
+        }
+
+        return subServices
+            .GroupBy(item => item.ServiceId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<BusinessWorkspaceSubServiceResponse>)group
+                    .Select(item => new BusinessWorkspaceSubServiceResponse(
+                        item.BusinessSubServiceId,
+                        item.Name,
+                        item.Description,
+                        item.ConsultationNeeded,
+                        item.DurationMinutes,
+                        item.Price,
+                        item.EmployeeCount,
+                        item.EffectiveDate,
+                        assignedUsersBySubServiceId.TryGetValue(item.BusinessSubServiceId, out var assignedUsers)
+                            ? assignedUsers
+                            : Array.Empty<BusinessWorkspaceSubServiceAssignmentResponse>()))
+                    .ToList());
+    }
+
     private async Task<string?> GetActiveBusinessRoleNameAsync(
         int businessId,
         string userId,
@@ -2193,6 +2757,22 @@ public class BusinessController : ControllerBase
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    private async Task<long?> GetActiveBusinessUserIdAsync(
+        int businessId,
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        return await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId &&
+                businessUser.UserId == userId &&
+                businessUser.IsActive &&
+                businessUser.EndDate == null)
+            .Select(businessUser => (long?)businessUser.BusinessUserId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     private static bool CanManageEmployeeInvites(string? roleName)
     {
         return string.Equals(roleName, BusinessRoleNames.Owner, StringComparison.OrdinalIgnoreCase)
@@ -2203,6 +2783,26 @@ public class BusinessController : ControllerBase
     {
         return string.Equals(roleName, BusinessRoleNames.Owner, StringComparison.OrdinalIgnoreCase)
             || string.Equals(roleName, BusinessRoleNames.Administrator, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsValidSubServiceDuration(int durationMinutes)
+    {
+        return durationMinutes > 0 && durationMinutes % 15 == 0;
+    }
+
+    private static bool HasOverlappingTimeOffRanges(IReadOnlyList<UpdateMyBusinessTimeOffRequest> daysOff)
+    {
+        for (var index = 1; index < daysOff.Count; index++)
+        {
+            var previous = daysOff[index - 1];
+            var current = daysOff[index];
+            if (current.EffectiveStartDate <= previous.EffectiveEndDate)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static List<EmployeeFilterQuery> ParseEmployeeFilters(string? filters)

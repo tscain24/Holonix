@@ -464,6 +464,26 @@
   color: #0f172a;
 }
 
+.section-heading-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.section-count-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .section-heading-actions {
   display: flex;
   align-items: start;

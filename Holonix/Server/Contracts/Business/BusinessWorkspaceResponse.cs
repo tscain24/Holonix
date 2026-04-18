@@ -5,6 +5,8 @@ public sealed record BusinessWorkspaceResponse(
     string BusinessCode,
     string Name,
     string? Description,
+    string? BusinessEmail,
+    string? BusinessPhoneNumber,
     string? Address1,
     string? Address2,
     string? City,
@@ -33,7 +35,17 @@ public sealed record BusinessWorkspaceServiceResponse(
 public sealed record BusinessWorkspaceSubServiceResponse(
     long BusinessSubServiceId,
     string Name,
-    DateOnly EffectiveDate);
+    string? Description,
+    bool ConsultationNeeded,
+    int DurationMinutes,
+    decimal Price,
+    int EmployeeCount,
+    DateOnly EffectiveDate,
+    IReadOnlyList<BusinessWorkspaceSubServiceAssignmentResponse> AssignedUsers);
+
+public sealed record BusinessWorkspaceSubServiceAssignmentResponse(
+    long BusinessUserId,
+    string DisplayName);
 
 public sealed record BusinessWorkspaceEmployeeResponse(
     long BusinessUserId,

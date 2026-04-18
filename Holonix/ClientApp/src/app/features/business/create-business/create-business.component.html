@@ -145,6 +145,21 @@
           ></textarea>
         </label>
 
+        <label class="field">
+          <span>Business Email</span>
+          <input type="email" formControlName="businessEmail" placeholder="hello@northridge.com" />
+          <small class="field-note">Optional contact email customers can use to reach the business.</small>
+          <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.businessEmail.invalid">
+            Enter a valid business email.
+          </small>
+        </label>
+
+        <label class="field">
+          <span>Business Phone</span>
+          <input type="text" formControlName="businessPhoneNumber" placeholder="(678) 555-1212" (input)="onBusinessPhoneNumberInput($event)" />
+          <small class="field-note">Optional contact phone number for the business.</small>
+        </label>
+
         <div class="field field-span-2">
           <span>Services <strong aria-hidden="true">*</strong></span>
           <div class="service-picker" [class.service-picker-invalid]="submitAttempted && selectedServices.length === 0">
@@ -353,6 +368,14 @@
             <div>
               <dt>Description</dt>
               <dd>{{ businessForm.controls.description.value || 'Not provided' }}</dd>
+            </div>
+            <div>
+              <dt>Business Email</dt>
+              <dd>{{ businessForm.controls.businessEmail.value || 'Not provided' }}</dd>
+            </div>
+            <div>
+              <dt>Business Phone</dt>
+              <dd>{{ formatPhoneNumberForDisplay(businessForm.controls.businessPhoneNumber.value) || 'Not provided' }}</dd>
             </div>
             <div>
               <dt>Services</dt>
