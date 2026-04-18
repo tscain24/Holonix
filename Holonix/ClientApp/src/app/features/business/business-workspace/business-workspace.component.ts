@@ -49,6 +49,8 @@ export class BusinessWorkspaceComponent implements OnInit {
   editBusinessIconBase64: string | null = null;
   editAddress1 = '';
   editAddress2 = '';
+  editBusinessEmail = '';
+  editBusinessPhoneNumber = '';
   editCity = '';
   editState = '';
   editZipCode = '';
@@ -387,7 +389,14 @@ export class BusinessWorkspaceComponent implements OnInit {
     }
 
     this.creatingSubServiceIds.add(service.serviceId);
-    this.businessService.createBusinessSubService(businessCode, service.serviceId, name, effectiveDate).subscribe({
+    this.businessService.createBusinessSubService(businessCode, service.serviceId, {
+      name,
+      consultationNeeded: true,
+      durationMinutes: 15,
+      price: 0,
+      employeeCount: 1,
+      effectiveDate,
+    }).subscribe({
       next: (subService) => {
         if (!this.businessWorkspace) {
           return;
@@ -559,6 +568,24 @@ export class BusinessWorkspaceComponent implements OnInit {
     this.editAddress2 = (event.target as HTMLInputElement).value;
   }
 
+  onBusinessEmailInput(event: Event): void {
+    this.editBusinessEmail = (event.target as HTMLInputElement).value;
+  }
+
+  onBusinessPhoneNumberInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const raw = input.value;
+    const digits = raw.replace(/\D/g, '').slice(0, 11);
+    const formatted = this.formatPhoneNumberValue(digits, raw);
+
+    if (formatted !== raw) {
+      input.value = formatted;
+      input.setSelectionRange(formatted.length, formatted.length);
+    }
+
+    this.editBusinessPhoneNumber = formatted;
+  }
+
   onCityInput(event: Event): void {
     this.editCity = (event.target as HTMLInputElement).value;
   }
@@ -597,6 +624,8 @@ export class BusinessWorkspaceComponent implements OnInit {
       name,
       description: this.editBusinessDescription.trim() || null,
       businessIconBase64: this.editBusinessIconBase64,
+      businessEmail: workspace.businessEmail?.trim() || null,
+      businessPhoneNumber: workspace.businessPhoneNumber?.trim() || null,
       address1: workspace.address1?.trim() || '',
       address2: workspace.address2?.trim() || null,
       city: workspace.city?.trim() || '',
@@ -614,6 +643,8 @@ export class BusinessWorkspaceComponent implements OnInit {
           name: updatedProfile.name,
           description: updatedProfile.description,
           businessIconBase64: updatedProfile.businessIconBase64,
+          businessEmail: updatedProfile.businessEmail,
+          businessPhoneNumber: updatedProfile.businessPhoneNumber,
           address1: updatedProfile.address1,
           address2: updatedProfile.address2,
           city: updatedProfile.city,
@@ -673,6 +704,8 @@ export class BusinessWorkspaceComponent implements OnInit {
       name: workspace.name,
       description: workspace.description ?? null,
       businessIconBase64: workspace.businessIconBase64 ?? null,
+      businessEmail: this.editBusinessEmail.trim() || null,
+      businessPhoneNumber: this.editBusinessPhoneNumber.trim() || null,
       address1: this.editAddress1.trim(),
       address2: this.editAddress2.trim() || null,
       city: this.editCity.trim(),
@@ -690,6 +723,8 @@ export class BusinessWorkspaceComponent implements OnInit {
           name: updatedProfile.name,
           description: updatedProfile.description,
           businessIconBase64: updatedProfile.businessIconBase64,
+          businessEmail: updatedProfile.businessEmail,
+          businessPhoneNumber: updatedProfile.businessPhoneNumber,
           address1: updatedProfile.address1,
           address2: updatedProfile.address2,
           city: updatedProfile.city,
@@ -900,6 +935,16 @@ export class BusinessWorkspaceComponent implements OnInit {
     }).format(date);
   }
 
+  formatPhoneNumberForDisplay(value?: string | null): string {
+    const trimmed = value?.trim() ?? '';
+    if (!trimmed) {
+      return '';
+    }
+
+    const digits = trimmed.replace(/\D/g, '');
+    return this.formatPhoneNumberValue(digits, trimmed);
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as Node | null;
@@ -940,6 +985,30 @@ export class BusinessWorkspaceComponent implements OnInit {
     return `${now.getFullYear()}-${month}-${day}`;
   }
 
+  private formatPhoneNumberValue(digitsOnly: string, fallback: string): string {
+    if (!digitsOnly) {
+      return '';
+    }
+
+    if (digitsOnly.length <= 3) {
+      return digitsOnly;
+    }
+
+    if (digitsOnly.length <= 6) {
+      return `(${digitsOnly.slice(0, 3)}) ${digitsOnly.slice(3)}`;
+    }
+
+    if (digitsOnly.length <= 10) {
+      return `(${digitsOnly.slice(0, 3)}) ${digitsOnly.slice(3, 6)}-${digitsOnly.slice(6)}`;
+    }
+
+    if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+      return `+1 (${digitsOnly.slice(1, 4)}) ${digitsOnly.slice(4, 7)}-${digitsOnly.slice(7)}`;
+    }
+
+    return fallback.trim();
+  }
+
   private loadAvailableServices(): void {
     this.loadingAvailableServices = true;
     this.businessService.getServices().subscribe({
@@ -962,6 +1031,8 @@ export class BusinessWorkspaceComponent implements OnInit {
   private resetGeneralInformationEditor(workspace: BusinessWorkspace): void {
     this.editAddress1 = workspace.address1 ?? '';
     this.editAddress2 = workspace.address2 ?? '';
+    this.editBusinessEmail = workspace.businessEmail ?? '';
+    this.editBusinessPhoneNumber = this.formatPhoneNumberForDisplay(workspace.businessPhoneNumber);
     this.editCity = workspace.city ?? '';
     this.editState = workspace.state ?? '';
     this.editZipCode = workspace.zipCode ?? '';

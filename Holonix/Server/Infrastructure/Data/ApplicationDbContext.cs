@@ -10,6 +10,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Service> Services => Set<Service>();
     public DbSet<BusinessService> BusinessServices => Set<BusinessService>();
     public DbSet<BusinessSubService> BusinessSubServices => Set<BusinessSubService>();
+    public DbSet<BusinessSubServiceAssignment> BusinessSubServiceAssignments => Set<BusinessSubServiceAssignment>();
     public DbSet<Business> Businesses => Set<Business>();
     public DbSet<BusinessDetails> BusinessDetails => Set<BusinessDetails>();
     public DbSet<Country> Countries => Set<Country>();
@@ -111,6 +112,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.ToTable("BusinessDetails", "business");
             entity.HasKey(x => x.BusinessId);
             entity.Property(x => x.Description).HasColumnType("nvarchar(max)");
+            entity.Property(x => x.BusinessEmail).HasMaxLength(256);
+            entity.Property(x => x.BusinessPhoneNumber).HasMaxLength(32);
             entity.Property(x => x.Address1).HasMaxLength(200);
             entity.Property(x => x.Address2).HasMaxLength(200);
             entity.Property(x => x.City).HasMaxLength(120);
@@ -157,6 +160,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.ToTable("BusinessSubService", "business");
             entity.HasKey(x => x.BusinessSubServiceId);
             entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            entity.Property(x => x.Description).HasColumnType("nvarchar(max)");
+            entity.Property(x => x.ConsultationNeeded).HasColumnType("bit");
+            entity.Property(x => x.DurationMinutes).HasColumnType("int");
+            entity.Property(x => x.Price).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.EmployeeCount).HasColumnType("int");
             entity.Property(x => x.EffectiveDate).HasColumnType("date");
             entity.Property(x => x.InactiveDate).HasColumnType("datetime2");
             entity.HasIndex(x => new { x.BusinessId, x.ServiceId, x.Name })
@@ -169,6 +177,21 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasOne(x => x.Service)
                 .WithMany()
                 .HasForeignKey(x => x.ServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<BusinessSubServiceAssignment>(entity =>
+        {
+            entity.ToTable("BusinessSubServiceAssignment", "business");
+            entity.HasKey(x => x.BusinessSubServiceAssignmentId);
+            entity.HasIndex(x => new { x.BusinessSubServiceId, x.BusinessUserId }).IsUnique();
+            entity.HasOne(x => x.BusinessSubService)
+                .WithMany()
+                .HasForeignKey(x => x.BusinessSubServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.BusinessUser)
+                .WithMany()
+                .HasForeignKey(x => x.BusinessUserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

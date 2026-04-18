@@ -52,39 +52,332 @@
       </div>
 
       <section class="service-manager-hero">
-        <p class="service-manager-kicker">Business Workspace</p>
-        <h1>{{ business.name }} Service Manager</h1>
-        <p>Configured sub-services for this business.</p>
+        <div class="service-manager-hero-row">
+          <div class="service-manager-hero-copy">
+            <p class="service-manager-kicker">Business Workspace</p>
+            <h1>{{ business.name }} Service Manager</h1>
+            <p>Create sub-services your customers can buy and decide which employees can perform them.</p>
+          </div>
+          <div class="service-manager-hero-actions" *ngIf="canManageSubServices">
+            <button type="button" class="primary-btn" (click)="toggleCreateSubService()">
+              {{ createSubServiceOpen ? 'Close' : 'Create Sub-Service' }}
+            </button>
+          </div>
+        </div>
       </section>
 
       <section class="service-manager-section">
-        <div class="section-heading">
-          <h2>Sub Services</h2>
-          <p>All sub-services currently configured for this business.</p>
+        <div class="section-heading section-heading-row">
+          <div class="section-heading-copy">
+            <h2>Sub-Services</h2>
+            <p>All sub-services currently configured for this business.</p>
+          </div>
+          <div class="table-toolbar" *ngIf="canManageSubServices">
+            <div class="table-toolbar-actions">
+              <div class="table-toolbar-anchor">
+                <button type="button" class="toolbar-btn" (click)="toggleFilterMenu($event)">
+                  Filter
+                </button>
+                <div class="table-toolbar-menu" *ngIf="filterMenuOpen">
+                  <div class="table-toolbar-menu-header">Show sub-services where</div>
+                  <div class="filter-builder-row" *ngFor="let filter of draftFilters; let i = index">
+                    <select [value]="filter.field" (change)="updateDraftFilterField(i, $any($event.target).value)">
+                      <option value="subService">Sub Service</option>
+                      <option value="parentService">Parent Service</option>
+                      <option value="assignedUser">Assigned User</option>
+                      <option value="pricing">Pricing</option>
+                    </select>
+                    <ng-container *ngIf="filter.field === 'pricing'; else subServiceEditableOperator">
+                      <div class="filter-operator-readonly">is</div>
+                    </ng-container>
+                    <ng-template #subServiceEditableOperator>
+                      <select [value]="filter.operator" (change)="updateDraftFilterOperator(i, $any($event.target).value)">
+                        <option value="contains">contains</option>
+                        <option value="is">is</option>
+                      </select>
+                    </ng-template>
+                    <ng-container *ngIf="filter.field === 'pricing'; else subServiceTextFilterValue">
+                      <select [value]="filter.value" (change)="updateDraftFilterValue(i, $any($event.target).value)">
+                        <option value="">Select pricing</option>
+                        <option *ngFor="let option of subServicePricingOptions" [value]="option">{{ option }}</option>
+                      </select>
+                    </ng-container>
+                    <ng-template #subServiceTextFilterValue>
+                      <input
+                        type="text"
+                        [value]="filter.value"
+                        (input)="updateDraftFilterValue(i, $any($event.target).value)"
+                        placeholder="Enter value..." />
+                    </ng-template>
+                    <button type="button" class="filter-remove-btn" (click)="removeDraftFilter(i)" aria-label="Remove filter">×</button>
+                  </div>
+                  <div class="table-toolbar-menu-actions">
+                    <button type="button" class="menu-link-btn" (click)="addDraftFilter()">+ Add filter</button>
+                    <button type="button" class="menu-link-btn" (click)="clearAllFilters()" *ngIf="hasActiveFilters">Clear all filters</button>
+                  </div>
+                  <div class="table-toolbar-menu-footer">
+                    <button type="button" class="secondary-btn" (click)="applyFilters()" [disabled]="!canApplyDraftFilters">Apply</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="active-filter-pills" *ngIf="hasActiveFilters">
+          <button type="button" class="filter-pill" *ngFor="let filter of activeFilters; let i = index" (click)="removeFilter(i)">
+            {{ filterPillLabel(filter) }}
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+
+        <div class="create-sub-service-panel" *ngIf="canManageSubServices && createSubServiceOpen">
+          <div class="service-form-grid">
+            <label class="service-field">
+              <span>Name <span class="required-indicator" aria-hidden="true">*</span></span>
+              <input type="text" [value]="createSubServiceName" (input)="onSubServiceNameInput($event)" placeholder="Name of your Sub-Service" />
+            </label>
+
+            <label class="service-field">
+              <span>Parent Service <span class="required-indicator" aria-hidden="true">*</span></span>
+              <select [value]="createParentServiceId ?? ''" (change)="onParentServiceChange($event)">
+                <option value="" disabled>Select a parent service</option>
+                <option *ngFor="let service of business.services" [value]="service.serviceId">{{ service.name }}</option>
+              </select>
+            </label>
+
+            <div class="service-field service-field-stack">
+              <label class="service-field">
+                <span>Price <span class="required-indicator" aria-hidden="true">*</span></span>
+                <div class="currency-input-shell">
+                  <span class="currency-input-prefix">$</span>
+                  <input type="number" min="0" step="0.01" [value]="createSubServicePrice" (input)="onSubServicePriceInput($event)" (wheel)="preventNumberScroll($event)" placeholder="0.00" />
+                </div>
+              </label>
+
+              <label class="service-checkbox-row">
+                <input type="checkbox" [checked]="createConsultationNeeded" (change)="onCreateConsultationNeededChange($event)" />
+                <span>Consultation needed for $0 pricing</span>
+              </label>
+            </div>
+
+            <label class="service-field">
+              <span>Employees Needed <span class="required-indicator" aria-hidden="true">*</span></span>
+              <input type="number" min="1" step="1" [value]="createEmployeeCount" (input)="onEmployeeCountInput($event)" (wheel)="preventNumberScroll($event)" />
+            </label>
+
+            <label class="service-field">
+              <span>Duration Hours <span class="required-indicator" aria-hidden="true">*</span></span>
+              <input type="number" min="0" step="1" [value]="createDurationHours" (input)="onCreateDurationHoursInput($event)" (wheel)="preventNumberScroll($event)" />
+            </label>
+
+            <label class="service-field">
+              <span>Duration Minutes <span class="required-indicator" aria-hidden="true">*</span></span>
+              <select [value]="createDurationMinutes" (change)="onCreateDurationMinutesChange($event)">
+                <option *ngFor="let option of durationMinuteOptions" [value]="option">{{ option }}</option>
+              </select>
+            </label>
+
+            <label class="service-field">
+              <span>Effective Date <span class="required-indicator" aria-hidden="true">*</span></span>
+              <input type="date" [value]="createEffectiveDate" [min]="todayDateInputValue" (input)="onEffectiveDateInput($event)" />
+            </label>
+
+            <label class="service-field service-field-wide">
+              <span>Description</span>
+              <textarea rows="4" [value]="createSubServiceDescription" (input)="onSubServiceDescriptionInput($event)" placeholder="Optional description for customers to identify the proper sub-service."></textarea>
+            </label>
+          </div>
+
+          <div class="assignment-shell">
+            <div class="assignment-copy">
+              <span class="assignment-label">Assigned Users</span>
+              <p>Select employees who can perform this sub-service.</p>
+            </div>
+
+            <div class="assignment-grid" *ngIf="activeAssignableEmployees.length > 0; else noAssignableEmployees">
+              <label class="assignment-option" *ngFor="let employee of activeAssignableEmployees">
+                <input
+                  type="checkbox"
+                  [checked]="isAssignedUserSelected(employee.businessUserId)"
+                  (change)="toggleAssignedUser(employee.businessUserId)" />
+                <span>{{ employee.displayName }}</span>
+              </label>
+            </div>
+
+            <ng-template #noAssignableEmployees>
+              <div class="section-state compact-state">No active employees are available to assign yet.</div>
+            </ng-template>
+          </div>
+
+          <div class="service-form-actions">
+            <button type="button" class="primary-btn" (click)="createSubService()" [disabled]="!canCreateSubService">
+              {{ creatingSubService ? 'Creating...' : 'Create Sub-Service' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="create-sub-service-panel" *ngIf="canManageSubServices && editingSubServiceId">
+          <div class="section-heading">
+            <h2>Edit Sub-Service</h2>
+            <p>Update the selected sub-service or move it to another parent service.</p>
+          </div>
+
+          <div class="service-form-grid">
+            <label class="service-field">
+              <span>Name <span class="required-indicator" aria-hidden="true">*</span></span>
+              <input type="text" [value]="editSubServiceName" (input)="onEditSubServiceNameInput($event)" />
+            </label>
+
+            <label class="service-field">
+              <span>Parent Service <span class="required-indicator" aria-hidden="true">*</span></span>
+              <select [value]="editParentServiceId ?? ''" (change)="onEditParentServiceChange($event)">
+                <option value="" disabled>Select a parent service</option>
+                <option *ngFor="let service of business.services" [value]="service.serviceId">{{ service.name }}</option>
+              </select>
+            </label>
+
+            <div class="service-field service-field-stack">
+              <label class="service-field">
+                <span>Price <span class="required-indicator" aria-hidden="true">*</span></span>
+                <div class="currency-input-shell">
+                  <span class="currency-input-prefix">$</span>
+                  <input type="number" min="0" step="0.01" [value]="editSubServicePrice" (input)="onEditSubServicePriceInput($event)" (wheel)="preventNumberScroll($event)" />
+                </div>
+              </label>
+
+              <label class="service-checkbox-row">
+                <input type="checkbox" [checked]="editConsultationNeeded" (change)="onEditConsultationNeededChange($event)" />
+                <span>Consultation needed for $0 pricing</span>
+              </label>
+            </div>
+
+            <label class="service-field">
+              <span>Employees Needed <span class="required-indicator" aria-hidden="true">*</span></span>
+              <input type="number" min="1" step="1" [value]="editEmployeeCount" (input)="onEditEmployeeCountInput($event)" (wheel)="preventNumberScroll($event)" />
+            </label>
+
+            <label class="service-field">
+              <span>Duration Hours <span class="required-indicator" aria-hidden="true">*</span></span>
+              <input type="number" min="0" step="1" [value]="editDurationHours" (input)="onEditDurationHoursInput($event)" (wheel)="preventNumberScroll($event)" />
+            </label>
+
+            <label class="service-field">
+              <span>Duration Minutes <span class="required-indicator" aria-hidden="true">*</span></span>
+              <select [value]="editDurationMinutes" (change)="onEditDurationMinutesChange($event)">
+                <option *ngFor="let option of durationMinuteOptions" [value]="option">{{ option }}</option>
+              </select>
+            </label>
+
+            <label class="service-field">
+              <span>Effective Date <span class="required-indicator" aria-hidden="true">*</span></span>
+              <input type="date" [value]="editEffectiveDate" [min]="todayDateInputValue" (input)="onEditEffectiveDateInput($event)" />
+            </label>
+
+            <label class="service-field service-field-wide">
+              <span>Description</span>
+              <textarea rows="4" [value]="editSubServiceDescription" (input)="onEditSubServiceDescriptionInput($event)"></textarea>
+            </label>
+          </div>
+
+          <div class="assignment-shell">
+            <div class="assignment-copy">
+              <span class="assignment-label">Assigned Users</span>
+              <p>Select employees who can perform this sub-service.</p>
+            </div>
+
+            <div class="assignment-grid" *ngIf="activeAssignableEmployees.length > 0">
+              <label class="assignment-option" *ngFor="let employee of activeAssignableEmployees">
+                <input
+                  type="checkbox"
+                  [checked]="isEditAssignedUserSelected(employee.businessUserId)"
+                  (change)="toggleEditAssignedUser(employee.businessUserId)" />
+                <span>{{ employee.displayName }}</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="service-form-actions">
+            <button type="button" class="table-action-btn" (click)="cancelEditSubService()" [disabled]="savingSubService">Cancel</button>
+            <button type="button" class="primary-btn" (click)="saveEditedSubService()" [disabled]="!canSaveEditedSubService">
+              {{ savingSubService ? 'Saving...' : 'Save Changes' }}
+            </button>
+          </div>
         </div>
 
         <div class="page-state section-state" *ngIf="!hasVisibleSubServices()">
           No sub-services have been configured for this business yet.
         </div>
 
-        <div class="service-table-shell" *ngIf="hasVisibleSubServices()">
+        <div class="service-table-shell" *ngIf="hasVisibleSubServices()" (scroll)="closeSubServiceMenu()">
           <table class="service-table">
             <thead>
               <tr>
                 <th scope="col">Sub Service</th>
-                <th scope="col">Parent Service</th>
-                <th scope="col">Effective Date</th>
+                <th scope="col">Price</th>
+                <th scope="col">Duration</th>
+                <th scope="col">Employees Needed</th>
+                <th scope="col">Assigned Users</th>
+                <th scope="col" *ngIf="canManageSubServices">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let subService of visibleSubServices">
-                <td class="service-table-primary">{{ subService.name }}</td>
-                <td>{{ subService.parentServiceName }}</td>
-                <td>{{ formatEffectiveDate(subService.effectiveDate) }}</td>
+              <tr *ngFor="let subService of pagedSubServices">
+                <td class="service-table-name">
+                  <div class="service-table-primary-name">{{ subService.name }}</div>
+                  <div class="service-table-secondary">
+                    {{ subService.parentServiceName }} • Effective {{ formatSubServiceEffectiveDate(subService) }}
+                  </div>
+                </td>
+                <td>{{ formatSubServicePrice(subService) }}</td>
+                <td>{{ formatDuration(subService) }}</td>
+                <td>{{ formatEmployeeCount(subService) }}</td>
+                <td>{{ formatAssignedUsers(subService) }}</td>
+                <td *ngIf="canManageSubServices" class="service-table-actions">
+                  <div class="sub-service-actions">
+                    <button
+                      type="button"
+                      class="menu-trigger-btn"
+                      (click)="toggleSubServiceMenu($event, subService)"
+                      aria-label="Open sub-service actions">
+                      ⋯
+                    </button>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
+
+        <div
+          class="sub-service-menu sub-service-menu-overlay"
+          *ngIf="selectedSubServiceForMenu && openSubServiceMenuId === selectedSubServiceForMenu.businessSubServiceId"
+          [style.top.px]="subServiceMenuTop"
+          [style.left.px]="subServiceMenuLeft">
+          <button type="button" class="sub-service-menu-item" (click)="startEditSubService(selectedSubServiceForMenu)">Edit</button>
+          <button
+            type="button"
+            class="sub-service-menu-item sub-service-menu-item-danger"
+            (click)="removeSubService(selectedSubServiceForMenu)"
+            [disabled]="isDeletingSubService(selectedSubServiceForMenu.businessSubServiceId)">
+            {{ isDeletingSubService(selectedSubServiceForMenu.businessSubServiceId) ? 'Removing...' : 'Remove' }}
+          </button>
+        </div>
+
+        <div class="table-pagination" *ngIf="hasVisibleSubServices()">
+          <span class="table-pagination-copy">
+            Showing {{ subServicePageStart }}-{{ subServicePageEnd }} of {{ filteredSubServices.length }}
+          </span>
+          <div class="table-pagination-actions">
+            <button type="button" class="secondary-btn" (click)="goToPreviousSubServicePage()" [disabled]="!hasPreviousSubServicePage">
+              Previous
+            </button>
+            <button type="button" class="secondary-btn" (click)="goToNextSubServicePage()" [disabled]="!hasNextSubServicePage">
+              Next
+            </button>
+          </div>
+        </div>
+
       </section>
     </ng-container>
   </div>

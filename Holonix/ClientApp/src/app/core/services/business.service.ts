@@ -16,6 +16,8 @@ export interface CountryOption {
 export interface CreateBusinessRequest {
   name: string;
   description?: string | null;
+  businessEmail?: string | null;
+  businessPhoneNumber?: string | null;
   address1: string;
   address2?: string | null;
   city: string;
@@ -42,6 +44,8 @@ export interface UpdateBusinessProfileRequest {
   name: string;
   description?: string | null;
   businessIconBase64?: string | null;
+  businessEmail?: string | null;
+  businessPhoneNumber?: string | null;
   address1: string;
   address2?: string | null;
   city: string;
@@ -55,6 +59,8 @@ export interface UpdateBusinessProfileResponse {
   name: string;
   description?: string | null;
   businessIconBase64?: string | null;
+  businessEmail?: string | null;
+  businessPhoneNumber?: string | null;
   address1?: string | null;
   address2?: string | null;
   city?: string | null;
@@ -103,7 +109,33 @@ export interface BusinessWorkspaceService {
 export interface BusinessWorkspaceSubService {
   businessSubServiceId: number;
   name: string;
+  description?: string | null;
+  consultationNeeded: boolean;
+  durationMinutes: number;
+  price: number;
+  employeeCount: number;
   effectiveDate: string;
+  assignedUsers: BusinessWorkspaceSubServiceAssignment[];
+}
+
+export interface BusinessWorkspaceSubServiceAssignment {
+  businessUserId: number;
+  displayName: string;
+}
+
+export interface CreateBusinessSubServiceRequest {
+  name: string;
+  description?: string | null;
+  consultationNeeded: boolean;
+  durationMinutes: number;
+  price: number;
+  employeeCount: number;
+  assignedBusinessUserIds?: number[];
+  effectiveDate: string;
+}
+
+export interface UpdateBusinessSubServiceRequest extends CreateBusinessSubServiceRequest {
+  serviceId: number;
 }
 
 export interface BusinessWorkspaceJob {
@@ -131,6 +163,8 @@ export interface BusinessWorkspace {
   businessCode: string;
   name: string;
   description?: string | null;
+  businessEmail?: string | null;
+  businessPhoneNumber?: string | null;
   address1?: string | null;
   address2?: string | null;
   city?: string | null;
@@ -368,13 +402,12 @@ export class BusinessService {
   createBusinessSubService(
     businessCode: string,
     serviceId: number,
-    name: string,
-    effectiveDate: string
+    payload: CreateBusinessSubServiceRequest
   ): Observable<BusinessWorkspaceSubService> {
-    return this.http.post<BusinessWorkspaceSubService>(`${this.businessEndpoint}/${businessCode}/services/${serviceId}/sub-services`, { name, effectiveDate }).pipe(
+    return this.http.post<BusinessWorkspaceSubService>(`${this.businessEndpoint}/${businessCode}/services/${serviceId}/sub-services`, payload).pipe(
       catchError((error) => {
         if (error?.status === 0) {
-          return this.tryCreateBusinessSubServiceFallback(businessCode, serviceId, name, effectiveDate, 0);
+          return this.tryCreateBusinessSubServiceFallback(businessCode, serviceId, payload, 0);
         }
 
         return throwError(() => error);
@@ -387,6 +420,22 @@ export class BusinessService {
       catchError((error) => {
         if (error?.status === 0) {
           return this.tryDeleteBusinessSubServiceFallback(businessCode, businessSubServiceId, 0);
+        }
+
+        return throwError(() => error);
+      })
+    );
+  }
+
+  updateBusinessSubService(
+    businessCode: string,
+    businessSubServiceId: number,
+    payload: UpdateBusinessSubServiceRequest
+  ): Observable<BusinessWorkspaceSubService> {
+    return this.http.put<BusinessWorkspaceSubService>(`${this.businessEndpoint}/${businessCode}/sub-services/${businessSubServiceId}`, payload).pipe(
+      catchError((error) => {
+        if (error?.status === 0) {
+          return this.tryUpdateBusinessSubServiceFallback(businessCode, businessSubServiceId, payload, 0);
         }
 
         return throwError(() => error);
@@ -725,8 +774,7 @@ export class BusinessService {
   private tryCreateBusinessSubServiceFallback(
     businessCode: string,
     serviceId: number,
-    name: string,
-    effectiveDate: string,
+    payload: CreateBusinessSubServiceRequest,
     index: number
   ): Observable<BusinessWorkspaceSubService> {
     if (index >= this.fallbackOrigins.length) {
@@ -734,10 +782,10 @@ export class BusinessService {
     }
 
     const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/services/${serviceId}/sub-services`;
-    return this.http.post<BusinessWorkspaceSubService>(url, { name, effectiveDate }).pipe(
+    return this.http.post<BusinessWorkspaceSubService>(url, payload).pipe(
       catchError((error) => {
         if (error?.status === 0) {
-          return this.tryCreateBusinessSubServiceFallback(businessCode, serviceId, name, effectiveDate, index + 1);
+          return this.tryCreateBusinessSubServiceFallback(businessCode, serviceId, payload, index + 1);
         }
 
         return throwError(() => error);
@@ -759,6 +807,28 @@ export class BusinessService {
       catchError((error) => {
         if (error?.status === 0) {
           return this.tryDeleteBusinessSubServiceFallback(businessCode, businessSubServiceId, index + 1);
+        }
+
+        return throwError(() => error);
+      })
+    );
+  }
+
+  private tryUpdateBusinessSubServiceFallback(
+    businessCode: string,
+    businessSubServiceId: number,
+    payload: UpdateBusinessSubServiceRequest,
+    index: number
+  ): Observable<BusinessWorkspaceSubService> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Unable to reach the business service endpoint.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/sub-services/${businessSubServiceId}`;
+    return this.http.put<BusinessWorkspaceSubService>(url, payload).pipe(
+      catchError((error) => {
+        if (error?.status === 0) {
+          return this.tryUpdateBusinessSubServiceFallback(businessCode, businessSubServiceId, payload, index + 1);
         }
 
         return throwError(() => error);

@@ -159,11 +159,19 @@ namespace Holonix.Server.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("BusinessEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<string>("BusinessIconBase64")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("BusinessJobPercentage")
                         .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("BusinessPhoneNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.Property<string>("City")
                         .HasMaxLength(120)
@@ -254,6 +262,18 @@ namespace Holonix.Server.Migrations
                     b.Property<int>("BusinessId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("ConsultationNeeded")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EmployeeCount")
+                        .HasColumnType("int");
+
                     b.Property<DateOnly>("EffectiveDate")
                         .HasColumnType("date");
 
@@ -264,6 +284,9 @@ namespace Holonix.Server.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("ServiceId")
                         .HasColumnType("int");
@@ -279,6 +302,32 @@ namespace Holonix.Server.Migrations
                         .HasFilter("[InactiveDate] IS NULL");
 
                     b.ToTable("BusinessSubService", "business");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessSubServiceAssignment", b =>
+                {
+                    b.Property<long>("BusinessSubServiceAssignmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("BusinessSubServiceAssignmentId"));
+
+                    b.Property<long>("BusinessSubServiceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("BusinessUserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("BusinessSubServiceAssignmentId");
+
+                    b.HasIndex("BusinessSubServiceId");
+
+                    b.HasIndex("BusinessUserId");
+
+                    b.HasIndex("BusinessSubServiceId", "BusinessUserId")
+                        .IsUnique();
+
+                    b.ToTable("BusinessSubServiceAssignment", "business");
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessUser", b =>
@@ -989,6 +1038,25 @@ namespace Holonix.Server.Migrations
                     b.Navigation("Business");
 
                     b.Navigation("Service");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessSubServiceAssignment", b =>
+                {
+                    b.HasOne("Holonix.Server.Domain.Entities.BusinessSubService", "BusinessSubService")
+                        .WithMany()
+                        .HasForeignKey("BusinessSubServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Holonix.Server.Domain.Entities.BusinessUser", "BusinessUser")
+                        .WithMany()
+                        .HasForeignKey("BusinessUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BusinessSubService");
+
+                    b.Navigation("BusinessUser");
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessUser", b =>
