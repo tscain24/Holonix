@@ -53,7 +53,7 @@ export class BusinessServiceManagerComponent implements OnInit {
   createSubServicePrice = '0';
   createConsultationNeeded = false;
   createDurationHours = '0';
-  createDurationMinutes = '0';
+  createDurationMinutes = '15';
   createEmployeeCount = '1';
   createEffectiveDate = '';
   createSubServiceDescription = '';
@@ -63,7 +63,7 @@ export class BusinessServiceManagerComponent implements OnInit {
   editSubServicePrice = '0';
   editConsultationNeeded = false;
   editDurationHours = '0';
-  editDurationMinutes = '0';
+  editDurationMinutes = '15';
   editEmployeeCount = '1';
   editEffectiveDate = '';
   editOriginalEffectiveDate = '';
@@ -584,7 +584,7 @@ export class BusinessServiceManagerComponent implements OnInit {
         this.createSubServicePrice = '0';
         this.createConsultationNeeded = false;
         this.createDurationHours = '0';
-        this.createDurationMinutes = '0';
+        this.createDurationMinutes = '15';
         this.createEmployeeCount = '1';
         this.createEffectiveDate = this.todayDateInputValue;
         this.createSubServiceDescription = '';
@@ -635,7 +635,7 @@ export class BusinessServiceManagerComponent implements OnInit {
     this.editSubServicePrice = '0';
     this.editConsultationNeeded = false;
     this.editDurationHours = '0';
-    this.editDurationMinutes = '0';
+    this.editDurationMinutes = '15';
     this.editEmployeeCount = '1';
     this.editEffectiveDate = '';
     this.editOriginalEffectiveDate = '';

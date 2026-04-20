@@ -2804,7 +2804,6 @@ public class BusinessController : ControllerBase
 
         return false;
     }
-
     private static List<EmployeeFilterQuery> ParseEmployeeFilters(string? filters)
     {
         if (string.IsNullOrWhiteSpace(filters))

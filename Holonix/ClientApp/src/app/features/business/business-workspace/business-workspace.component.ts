@@ -412,7 +412,7 @@ export class BusinessWorkspaceComponent implements OnInit {
     this.businessService.createBusinessSubService(businessCode, service.serviceId, {
       name,
       consultationNeeded: true,
-      durationMinutes: 60,
+      durationMinutes: 15,
       price: 0,
       employeeCount: 1,
       effectiveDate,
@@ -968,7 +968,6 @@ export class BusinessWorkspaceComponent implements OnInit {
       maximumFractionDigits: 2,
     }).format(Number.isFinite(price) ? price : 0);
   }
-
   formatPhoneNumberForDisplay(value?: string | null): string {
     const trimmed = value?.trim() ?? '';
     if (!trimmed) {

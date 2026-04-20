@@ -174,7 +174,7 @@
 
             <label class="service-field">
               <span>Duration Minutes <span class="required-indicator" aria-hidden="true">*</span></span>
-              <select [(ngModel)]="createDurationMinutes" [ngModelOptions]="{ standalone: true }">
+              <select [value]="createDurationMinutes" (change)="onCreateDurationMinutesChange($event)">
                 <option *ngFor="let option of durationMinuteOptions" [value]="option">{{ option }}</option>
               </select>
             </label>
@@ -265,7 +265,7 @@
 
             <label class="service-field">
               <span>Duration Minutes <span class="required-indicator" aria-hidden="true">*</span></span>
-              <select [(ngModel)]="editDurationMinutes" [ngModelOptions]="{ standalone: true }">
+              <select [value]="editDurationMinutes" (change)="onEditDurationMinutesChange($event)">
                 <option *ngFor="let option of durationMinuteOptions" [value]="option">{{ option }}</option>
               </select>
             </label>
