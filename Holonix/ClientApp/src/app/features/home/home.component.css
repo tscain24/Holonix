@@ -39,7 +39,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #1d4ed8;
@@ -64,7 +64,7 @@
   color: #4b6487;
   text-decoration: none;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   transition: background 0.2s ease, color 0.2s ease;
 }
 
@@ -123,7 +123,7 @@
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.03em;
   color: #ffffff;
   background: linear-gradient(140deg, #2563eb, #1d4ed8);
@@ -136,7 +136,7 @@
 
 .profile-menu-name {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   color: #1d4ed8;
   max-width: 180px;
   white-space: nowrap;
@@ -189,7 +189,7 @@
   border-radius: 999px;
   text-decoration: none;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
@@ -256,7 +256,7 @@
 
 .guest-search-kicker {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #bfdbfe;
@@ -337,7 +337,7 @@
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #ffffff;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
   box-shadow: 0 8px 14px rgba(29, 78, 216, 0.22);
 }
@@ -417,7 +417,7 @@
 .business-eyebrow {
   display: inline-block;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #2563eb;
@@ -441,7 +441,7 @@
   padding: 0 20px;
   text-decoration: none;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
   border: 1px solid transparent;
 }
 
@@ -483,7 +483,7 @@
 
 .rail-eyebrow {
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #bfdbfe;
@@ -519,7 +519,7 @@
   background: rgba(2, 6, 23, 0.2);
   color: #eff6ff;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .input-stack {
@@ -542,7 +542,7 @@
 
 .query-row strong {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   color: #ffffff;
 }
 
@@ -568,7 +568,7 @@
   background: linear-gradient(120deg, #f6cf61, #f2c14e);
   color: #102a60;
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 600;
   cursor: pointer;
   box-shadow: 0 10px 24px rgba(246, 207, 97, 0.34);
 }
@@ -576,7 +576,7 @@
 .rail-text-link {
   color: #e2e8f0;
   text-decoration: none;
-  font-weight: 800;
+  font-weight: 600;
   font-size: 13px;
 }
 
@@ -645,7 +645,7 @@
 .service-eyebrow {
   display: inline-block;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #2563eb;
@@ -724,7 +724,7 @@
   background: #dbeafe;
   color: #1e40af;
   font-size: 23px;
-  font-weight: 900;
+  font-weight: 600;
   line-height: 1;
   cursor: default;
   box-shadow: 0 4px 10px rgba(30, 64, 175, 0.18);
@@ -770,7 +770,7 @@
   background: linear-gradient(135deg, #dbeafe, #bfdbfe);
   color: #1e40af;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
 }
 

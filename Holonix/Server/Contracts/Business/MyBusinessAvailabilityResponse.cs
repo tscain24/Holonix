@@ -15,4 +15,5 @@ public sealed record MyBusinessTimeOffResponse(
     long BusinessUserTimeOffId,
     DateOnly EffectiveStartDate,
     DateOnly EffectiveEndDate,
-    bool IsAllDay);
+    TimeOnly StartTime,
+    TimeOnly EndTime);

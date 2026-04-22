@@ -30,6 +30,28 @@
   --holonix-blue-light: #60a5fa;
   --holonix-blue-rgb: 37, 99, 235;
   --date-accent: var(--holonix-blue);
+  --holonix-font-sans: "Avenir Next", "Segoe UI", "Trebuchet MS", system-ui, -apple-system, BlinkMacSystemFont,
+    "Helvetica Neue", Arial, sans-serif;
+  --holonix-font-weight-regular: 400;
+  --holonix-font-weight-medium: 500;
+  --holonix-font-weight-semibold: 600;
+
+  /* Angular Material (MDC) typography overrides */
+  --mdc-typography-font-family: var(--holonix-font-sans);
+  --mdc-typography-button-font-family: var(--holonix-font-sans);
+  --mdc-typography-button-font-weight: var(--holonix-font-weight-medium);
+  --mdc-typography-headline1-font-weight: var(--holonix-font-weight-medium);
+  --mdc-typography-headline2-font-weight: var(--holonix-font-weight-medium);
+  --mdc-typography-headline3-font-weight: var(--holonix-font-weight-medium);
+  --mdc-typography-headline4-font-weight: var(--holonix-font-weight-medium);
+  --mdc-typography-headline5-font-weight: var(--holonix-font-weight-medium);
+  --mdc-typography-headline6-font-weight: var(--holonix-font-weight-medium);
+  --mdc-typography-subtitle1-font-weight: var(--holonix-font-weight-medium);
+  --mdc-typography-subtitle2-font-weight: var(--holonix-font-weight-medium);
+  --mdc-typography-body1-font-weight: var(--holonix-font-weight-regular);
+  --mdc-typography-body2-font-weight: var(--holonix-font-weight-regular);
+  --mdc-typography-caption-font-weight: var(--holonix-font-weight-regular);
+  --mdc-typography-overline-font-weight: var(--holonix-font-weight-medium);
 }
 
 .mat-datepicker-content .mat-calendar-body-selected {
@@ -54,7 +76,26 @@ body {
 }
 
 html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+body {
+  margin: 0;
+  font-family: var(--holonix-font-sans);
+  font-weight: var(--holonix-font-weight-regular);
+}
+body.mat-typography,
+.mat-typography,
+.mat-mdc-typography {
+  font-family: var(--holonix-font-sans);
+  font-weight: var(--holonix-font-weight-regular);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: var(--holonix-font-weight-medium);
+}
 
 .mat-shell {
   width: 100%;

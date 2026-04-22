@@ -11,4 +11,6 @@ public sealed record UpdateMyBusinessAvailabilityDayRequest(
 
 public sealed record UpdateMyBusinessTimeOffRequest(
     DateOnly EffectiveStartDate,
-    DateOnly EffectiveEndDate);
+    DateOnly EffectiveEndDate,
+    TimeOnly StartTime,
+    TimeOnly EndTime);

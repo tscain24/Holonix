@@ -45,7 +45,7 @@
   color: #dbe7ff;
   text-decoration: none;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   backdrop-filter: blur(8px);
 }
 
@@ -95,7 +95,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #ffffff;
@@ -178,7 +178,7 @@ form > button {
   border-radius: 12px;
   background: linear-gradient(135deg, #123a8a, #1f57c3);
   color: #f8e7e7;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.02em;
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
@@ -215,7 +215,7 @@ form > button:not(:disabled):active {
 .secondary-action a {
   color: #ffffff;
   text-decoration: none;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .secondary-action a:hover {

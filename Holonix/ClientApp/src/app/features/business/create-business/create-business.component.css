@@ -37,7 +37,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #1d4ed8;
@@ -65,7 +65,7 @@
   color: #4b6487;
   text-decoration: none;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   transition: background 0.2s ease, color 0.2s ease;
 }
 
@@ -115,14 +115,14 @@
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   color: #ffffff;
   background: linear-gradient(140deg, #2563eb, #1d4ed8);
 }
 
 .profile-menu-name {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   color: #1d4ed8;
   max-width: 180px;
   white-space: nowrap;
@@ -156,7 +156,7 @@
   padding: 10px 12px;
   text-align: left;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   color: #173057;
   cursor: pointer;
 }
@@ -183,7 +183,7 @@
   background: rgba(255, 255, 255, 0.92);
   color: #0f172a;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -255,7 +255,7 @@
 .step-rail-item strong {
   display: block;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   color: #ffffff;
 }
 
@@ -273,7 +273,7 @@
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   color: #ffffff;
   background: rgba(255, 255, 255, 0.08);
 }
@@ -282,7 +282,7 @@
 .card-kicker {
   margin: 0;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -342,7 +342,7 @@
   display: block;
   margin-bottom: 4px;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .intro-support-item span:last-child {
@@ -363,7 +363,7 @@
 
 .intro-quote strong {
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 600;
   color: #ffffff;
 }
 
@@ -392,7 +392,7 @@
 
 .feature-title {
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   color: #ffffff;
 }
 
@@ -438,7 +438,7 @@
   border: 1px solid #cfe0f6;
   color: #1d4ed8;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -474,13 +474,13 @@
 
 .field span {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   color: #456284;
 }
 
 .field span strong {
   color: #dc2626;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .field input,
@@ -638,7 +638,7 @@
   color: #1d4ed8;
   padding: 0 12px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -754,7 +754,7 @@
   color: #0f172a;
   padding: 0 16px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -788,7 +788,7 @@
 
 .choice-card strong {
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .choice-card span {
@@ -848,7 +848,7 @@
 
 .review-list dt {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   color: #5d7499;
 }
 
@@ -889,7 +889,7 @@
   background: linear-gradient(130deg, #2563eb, #1d4ed8);
   color: #ffffff;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
   box-shadow: 0 14px 26px rgba(29, 78, 216, 0.22);
 }
@@ -929,7 +929,7 @@
 .leave-modal-kicker {
   margin: 0;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #1d4ed8;

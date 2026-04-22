@@ -164,10 +164,19 @@ export interface MyBusinessAvailabilityDay {
   endTime?: string | null;
 }
 
+export interface MyBusinessTimeOff {
+  businessUserTimeOffId: number;
+  effectiveStartDate: string;
+  effectiveEndDate: string;
+  startTime: string;
+  endTime: string;
+}
+
 export interface MyBusinessAvailability {
   businessUserId: number;
   effectiveStartDate: string;
   availability: MyBusinessAvailabilityDay[];
+  daysOff: MyBusinessTimeOff[];
 }
 
 export interface UpdateMyBusinessAvailabilityDayRequest {
@@ -176,8 +185,16 @@ export interface UpdateMyBusinessAvailabilityDayRequest {
   endTime: string;
 }
 
+export interface UpdateMyBusinessTimeOffRequest {
+  effectiveStartDate: string;
+  effectiveEndDate: string;
+  startTime: string;
+  endTime: string;
+}
+
 export interface UpdateMyBusinessAvailabilityRequest {
   availability: UpdateMyBusinessAvailabilityDayRequest[];
+  daysOff: UpdateMyBusinessTimeOffRequest[];
 }
 
 export interface BusinessWorkspace {

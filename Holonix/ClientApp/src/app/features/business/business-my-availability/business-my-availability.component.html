@@ -57,45 +57,573 @@
       </section>
 
       <section class="availability-section">
+        <div class="section-heading">
+          <h2>Upcoming Availability</h2>
+          <p>Calendar preview with time off applied.</p>
+        </div>
+
+        <div class="calendar-toolbar" aria-label="Calendar navigation">
+          <button type="button" class="ghost-btn" (click)="prevCalendarMonth()" [disabled]="!canGoPrevCalendarMonth">
+            Prev
+          </button>
+          <div class="calendar-month-label">{{ calendarMonthLabel }}</div>
+          <button type="button" class="ghost-btn" (click)="nextCalendarMonth()" [disabled]="!canGoNextCalendarMonth">
+            Next
+          </button>
+        </div>
+
+        <div class="calendar-legend" aria-label="Calendar legend">
+           <div class="legend-item">
+             <span class="legend-swatch legend-swatch-on" aria-hidden="true"></span>
+             Available
+           </div>
+           <div class="legend-item">
+             <span class="legend-swatch legend-swatch-partial" aria-hidden="true"></span>
+             Part. Avail
+           </div>
+           <div class="legend-item">
+             <span class="legend-swatch legend-swatch-off" aria-hidden="true"></span>
+             Time off
+           </div>
+           <div class="legend-item">
+            <span class="legend-swatch legend-swatch-unavailable" aria-hidden="true"></span>
+            Unavailable
+          </div>
+        </div>
+
+        <div class="calendar-grid" role="grid" aria-label="Upcoming availability calendar">
+          <div class="calendar-dow" role="columnheader" *ngFor="let label of calendarDayLabels">{{ label }}</div>
+
+          <button
+            type="button"
+            class="calendar-cell"
+            role="gridcell"
+            *ngFor="let day of calendarDays"
+            [class.calendar-cell-outside]="!day.inMonth"
+            [class.calendar-cell-past]="day.isPast"
+            [class.calendar-cell-today]="day.isToday"
+            [class.calendar-cell-selected]="selectedCalendarDay?.isoDate === day.isoDate"
+            (click)="selectCalendarDay(day)"
+            [attr.title]="day.detailLabel"
+          >
+            <div class="calendar-date">{{ day.dayNumber }}</div>
+              <div
+                class="calendar-pill"
+                [class.calendar-pill-on]="day.status === 'available'"
+                [class.calendar-pill-partial]="day.status === 'partialAvailable'"
+                [class.calendar-pill-off]="day.status === 'timeOff'"
+                [class.calendar-pill-unavailable]="day.status === 'unavailable'"
+              >
+                {{ day.pillLabel }}
+              </div>
+          </button>
+        </div>
+
+        <div class="calendar-detail" *ngIf="selectedCalendarDay as selected">
+          <div class="calendar-detail-date">{{ formatEffectiveDate(selected.isoDate) }}</div>
+          <div class="calendar-detail-hours">{{ selected.detailLabel }}</div>
+        </div>
+      </section>
+
+      <section class="availability-section">
         <div class="section-heading section-heading-row">
           <div class="section-heading-copy">
-            <h2>Weekly Availability</h2>
-            <p>Effective {{ formatEffectiveDate(effectiveStartDate) }}. Turn days on or off and adjust your working window for each one.</p>
+            <h2>Default Weekly Availability</h2>
+            <p>Effective {{ formatEffectiveDate(effectiveStartDate) }}. Mark a day as available and set a working window.</p>
           </div>
           <div class="hero-actions">
-            <button type="button" class="primary-btn" (click)="saveAvailability()" [disabled]="!canSaveAvailability">
-              {{ savingAvailability ? 'Saving...' : 'Save Availability' }}
+            <button
+              *ngIf="!isEditingAvailability"
+              type="button"
+              class="primary-btn"
+              (click)="startEditingAvailability()"
+              [disabled]="savingAvailability || loadingAvailability"
+            >
+              Edit
             </button>
+
+            <ng-container *ngIf="isEditingAvailability">
+              <button type="button" class="primary-btn" (click)="saveAvailability()" [disabled]="!canSaveAvailability">
+                {{ savingAvailability ? 'Saving...' : 'Save Availability' }}
+              </button>
+              <button
+                type="button"
+                class="ghost-btn"
+                (click)="cancelEditingAvailability()"
+                [disabled]="savingAvailability || loadingAvailability"
+              >
+                Cancel
+              </button>
+            </ng-container>
           </div>
         </div>
 
-        <div class="availability-grid">
-          <article class="availability-card" *ngFor="let day of availabilityDays">
-            <div class="availability-card-header">
-              <div>
-                <h3>{{ day.label }}</h3>
-                <p>{{ day.enabled ? 'Available' : 'Unavailable' }}</p>
+        <div class="availability-toolbar" [class.is-hidden]="!isEditingAvailability" aria-label="Availability presets">
+          <div class="toolbar-actions">
+            <button
+              type="button"
+              class="ghost-btn"
+              (click)="applyWeekdaysNineToFive()"
+              [disabled]="!isEditingAvailability || savingAvailability || loadingAvailability"
+            >
+              Weekdays 9-5
+            </button>
+            <button
+              type="button"
+              class="ghost-btn"
+              (click)="applyAllAvailableNineToFive()"
+              [disabled]="!isEditingAvailability || savingAvailability || loadingAvailability"
+            >
+              All Available 9-5
+            </button>
+            <button
+              type="button"
+              class="ghost-btn danger"
+              (click)="applyAllUnavailable()"
+              [disabled]="!isEditingAvailability || savingAvailability || loadingAvailability"
+            >
+              All Unavailable
+            </button>
+          </div>
+          <div class="toolbar-hint" *ngIf="isEditingAvailability && !canSaveAvailability">
+            Fix invalid time ranges before saving.
+          </div>
+        </div>
+
+        <div class="availability-table" role="table" aria-label="Weekly availability table">
+          <div class="availability-table-header" role="row">
+            <div class="table-col day-col" role="columnheader">Day</div>
+            <div class="table-col status-col" role="columnheader">Status</div>
+            <div class="table-col time-col" role="columnheader">Hours</div>
+          </div>
+
+          <div
+            class="availability-row"
+            role="row"
+            *ngFor="let day of availabilityDays"
+            [class.row-disabled]="!day.enabled"
+            [class.row-invalid]="isDayInvalid(day)"
+          >
+            <div class="table-col day-col" role="cell">
+              <div class="day-label">{{ day.label }}</div>
+              <div class="status-chip" [class.status-chip-on]="day.enabled" [class.status-chip-off]="!day.enabled">
+                {{ day.enabled ? 'Available' : 'Unavailable' }}
+              </div>
+            </div>
+
+            <div class="table-col status-col" role="cell">
+              <div [class.is-hidden]="!isEditingAvailability">
+                <div class="segmented" role="group" [attr.aria-label]="day.label + ' status'">
+                  <button
+                    type="button"
+                    class="segmented-btn"
+                    [class.segmented-active]="!day.enabled"
+                    [attr.aria-pressed]="!day.enabled"
+                    [disabled]="savingAvailability || loadingAvailability"
+                    (click)="setDayEnabled(day, false)"
+                  >
+                    Unavailable
+                  </button>
+                  <button
+                    type="button"
+                    class="segmented-btn"
+                    [class.segmented-active]="day.enabled"
+                    [attr.aria-pressed]="day.enabled"
+                    [disabled]="savingAvailability || loadingAvailability"
+                    (click)="setDayEnabled(day, true)"
+                  >
+                    Available
+                  </button>
+                </div>
               </div>
 
-              <label class="availability-toggle">
-                <input type="checkbox" [checked]="day.enabled" (change)="onDayEnabledChange(day, $event)" />
-                <span>{{ day.enabled ? 'On' : 'Off' }}</span>
-              </label>
+              <div class="readonly-cell" [class.is-hidden]="isEditingAvailability" aria-label="Status">
+                {{ day.enabled ? 'Available' : 'Unavailable' }}
+              </div>
             </div>
 
-            <div class="availability-time-grid">
-              <label class="availability-field">
-                <span>Start</span>
-                <input type="time" [value]="day.startTime" [disabled]="!day.enabled" (input)="onDayStartTimeChange(day, $event)" />
-              </label>
+            <div class="table-col time-col" role="cell">
+              <div class="time-frames" [class.is-hidden]="!isEditingAvailability">
+                  <div class="time-frame" *ngFor="let frame of day.timeFrames; let frameIndex = index">
+                    <div class="time-range">
+                      <div class="time-picker-shell" [class.time-picker-disabled]="!day.enabled || !isEditingAvailability">
+                        <button
+                          type="button"
+                          class="time-button"
+                          [disabled]="!isEditingAvailability || savingAvailability || loadingAvailability || !day.enabled"
+                          (click)="openPicker(day, frameIndex, 'start', $event)"
+                          aria-haspopup="listbox"
+                          [attr.aria-expanded]="isTimePickerOpen(day, frameIndex, 'start')"
+                        >
+                          <span class="time-button-label">{{ timeLabel(frame.startTime) }}</span>
+                          <span class="time-button-caret" aria-hidden="true">&#9662;</span>
+                        </button>
 
-              <label class="availability-field">
-                <span>End</span>
-                <input type="time" [value]="day.endTime" [disabled]="!day.enabled" (input)="onDayEndTimeChange(day, $event)" />
-              </label>
+                        <div
+                          class="time-popover"
+                          *ngIf="isTimePickerOpen(day, frameIndex, 'start')"
+                          role="listbox"
+                          aria-label="Start time options"
+                          [attr.data-day]="day.dayOfWeek"
+                          [attr.data-frame]="frameIndex"
+                          data-field="start"
+                          [ngStyle]="timePopoverStyle(day, frameIndex, 'start')"
+                        >
+                          <button
+                            type="button"
+                            class="time-option"
+                            *ngFor="let option of timeOptions"
+                            [class.time-option-active]="option === frame.startTime"
+                            (click)="selectTime(day, frameIndex, 'start', option)"
+                            role="option"
+                            [attr.aria-selected]="option === frame.startTime"
+                          >
+                            <span class="time-dot" aria-hidden="true"></span>
+                            <span>{{ timeLabel(option) }}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <span class="time-sep" aria-hidden="true">to</span>
+
+                      <div class="time-picker-shell" [class.time-picker-disabled]="!day.enabled || !isEditingAvailability">
+                        <button
+                          type="button"
+                          class="time-button"
+                          [disabled]="!isEditingAvailability || savingAvailability || loadingAvailability || !day.enabled"
+                          (click)="openPicker(day, frameIndex, 'end', $event)"
+                          aria-haspopup="listbox"
+                          [attr.aria-expanded]="isTimePickerOpen(day, frameIndex, 'end')"
+                        >
+                          <span class="time-button-label">{{ timeLabel(frame.endTime) }}</span>
+                          <span class="time-button-caret" aria-hidden="true">&#9662;</span>
+                        </button>
+
+                        <div
+                          class="time-popover"
+                          *ngIf="isTimePickerOpen(day, frameIndex, 'end')"
+                          role="listbox"
+                          aria-label="End time options"
+                          [attr.data-day]="day.dayOfWeek"
+                          [attr.data-frame]="frameIndex"
+                          data-field="end"
+                          [ngStyle]="timePopoverStyle(day, frameIndex, 'end')"
+                        >
+                          <button
+                            type="button"
+                            class="time-option"
+                            *ngFor="let option of endTimeOptions(day, frameIndex)"
+                            [class.time-option-active]="option === frame.endTime"
+                            (click)="selectTime(day, frameIndex, 'end', option)"
+                            role="option"
+                            [attr.aria-selected]="option === frame.endTime"
+                          >
+                            <span class="time-dot" aria-hidden="true"></span>
+                            <span>{{ timeLabel(option) }}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="frame-remove-btn"
+                      [disabled]="savingAvailability || loadingAvailability || !day.enabled || day.timeFrames.length <= 1"
+                      (click)="removeTimeFrame(day, frameIndex)"
+                      [attr.aria-label]="'Remove ' + day.label + ' time frame ' + (frameIndex + 1)"
+                    >
+                      &times;
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="frame-add-btn"
+                    [disabled]="savingAvailability || loadingAvailability || !day.enabled"
+                    (click)="addTimeFrame(day)"
+                    [attr.aria-label]="'Add time frame for ' + day.label"
+                  >
+                    + Add time frame
+                  </button>
+              </div>
+
+              <div class="readonly-hours" [class.is-hidden]="isEditingAvailability" aria-label="Hours">
+                {{ weeklyHoursLabel(day) }}
+              </div>
+
+              <div class="row-help" *ngIf="dayValidationMessage(day) as message">{{ message }}</div>
             </div>
-          </article>
+          </div>
         </div>
+      </section>
+
+      <section class="availability-section">
+        <div class="section-heading section-heading-row">
+          <div class="section-heading-copy">
+            <h2>Time Off</h2>
+            <p>Mark upcoming time off. These dates override your weekly availability.</p>
+          </div>
+        </div>
+
+        <div class="timeoff-add-row" aria-label="Add time off range">
+          <div class="timeoff-field">
+            <label class="timeoff-label" for="timeOffStartDate">Start</label>
+            <input
+              id="timeOffStartDate"
+              type="date"
+              class="timeoff-input"
+              [(ngModel)]="newDayOffStartDate"
+              (ngModelChange)="onNewDayOffChanged()"
+              [disabled]="savingAvailability || loadingAvailability"
+            />
+          </div>
+
+          <div class="timeoff-field">
+            <label class="timeoff-label" for="timeOffEndDate">End</label>
+            <input
+              id="timeOffEndDate"
+              type="date"
+              class="timeoff-input"
+              [(ngModel)]="newDayOffEndDate"
+              (ngModelChange)="onNewDayOffChanged()"
+              [disabled]="savingAvailability || loadingAvailability"
+            />
+          </div>
+
+          <div class="timeoff-field">
+            <label class="timeoff-label">Hours</label>
+            <div class="time-range">
+              <div
+                class="time-picker-shell"
+                [class.time-picker-disabled]="!canEditTimeOffHours(newDayOffStartDate, newDayOffEndDate)"
+              >
+                <button
+                  type="button"
+                  class="time-button"
+                  [disabled]="savingAvailability || loadingAvailability || !canEditTimeOffHours(newDayOffStartDate, newDayOffEndDate)"
+                  (click)="openTimeOffPickerFor(-1, 'start', $event)"
+                  aria-haspopup="listbox"
+                  [attr.aria-expanded]="isTimeOffPickerOpen(-1, 'start')"
+                >
+                  <span class="time-button-label">{{ timeLabel(newDayOffStartTime) }}</span>
+                  <span class="time-button-caret" aria-hidden="true">&#9662;</span>
+                </button>
+
+                <div
+                  class="time-popover timeoff-popover"
+                  *ngIf="isTimeOffPickerOpen(-1, 'start')"
+                  role="listbox"
+                  aria-label="Time off start time options"
+                  data-index="-1"
+                  data-field="start"
+                  [ngStyle]="timeOffPopoverStyle(-1, 'start')"
+                >
+                  <button
+                    type="button"
+                    class="time-option"
+                    *ngFor="let option of timeOptions"
+                    [class.time-option-active]="option === newDayOffStartTime"
+                    (click)="selectTimeOff(-1, 'start', option)"
+                    role="option"
+                    [attr.aria-selected]="option === newDayOffStartTime"
+                  >
+                    <span class="time-dot" aria-hidden="true"></span>
+                    <span>{{ timeLabel(option) }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <span class="time-sep" aria-hidden="true">to</span>
+
+              <div
+                class="time-picker-shell"
+                [class.time-picker-disabled]="!canEditTimeOffHours(newDayOffStartDate, newDayOffEndDate)"
+              >
+                <button
+                  type="button"
+                  class="time-button"
+                  [disabled]="savingAvailability || loadingAvailability || !canEditTimeOffHours(newDayOffStartDate, newDayOffEndDate)"
+                  (click)="openTimeOffPickerFor(-1, 'end', $event)"
+                  aria-haspopup="listbox"
+                  [attr.aria-expanded]="isTimeOffPickerOpen(-1, 'end')"
+                >
+                  <span class="time-button-label">{{ timeLabel(newDayOffEndTime) }}</span>
+                  <span class="time-button-caret" aria-hidden="true">&#9662;</span>
+                </button>
+
+                <div
+                  class="time-popover timeoff-popover"
+                  *ngIf="isTimeOffPickerOpen(-1, 'end')"
+                  role="listbox"
+                  aria-label="Time off end time options"
+                  data-index="-1"
+                  data-field="end"
+                  [ngStyle]="timeOffPopoverStyle(-1, 'end')"
+                >
+                  <button
+                    type="button"
+                    class="time-option"
+                    *ngFor="let option of timeOffEndTimeOptions(-1)"
+                    [class.time-option-active]="option === newDayOffEndTime"
+                    (click)="selectTimeOff(-1, 'end', option)"
+                    role="option"
+                    [attr.aria-selected]="option === newDayOffEndTime"
+                  >
+                    <span class="time-dot" aria-hidden="true"></span>
+                    <span>{{ timeLabel(option) }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            *ngIf="canAddDayOff"
+            type="button"
+            class="primary-btn"
+            (click)="submitTimeOff()"
+            [disabled]="savingAvailability || loadingAvailability || !!daysOffValidationMessage"
+          >
+            {{ savingAvailability ? 'Submitting...' : 'Submit Time Off' }}
+          </button>
+        </div>
+
+        <div class="row-help row-help-warn" *ngIf="daysOffValidationMessage">{{ daysOffValidationMessage }}</div>
+
+        <div class="timeoff-list" *ngIf="daysOff.length > 0; else noTimeOff">
+          <div class="timeoff-item" *ngFor="let dayOff of daysOff; let index = index">
+            <div class="timeoff-item-fields">
+              <div class="timeoff-field">
+                <label class="timeoff-label">Start</label>
+                <input
+                  type="date"
+                  class="timeoff-input"
+                  [(ngModel)]="dayOff.startDate"
+                  (ngModelChange)="onDaysOffChanged()"
+                  [disabled]="savingAvailability || loadingAvailability || isTimeOffLocked(dayOff)"
+                />
+              </div>
+
+              <div class="timeoff-field">
+                <label class="timeoff-label">End</label>
+                <input
+                  type="date"
+                  class="timeoff-input"
+                  [(ngModel)]="dayOff.endDate"
+                  (ngModelChange)="onDaysOffChanged()"
+                  [disabled]="savingAvailability || loadingAvailability || isTimeOffLocked(dayOff)"
+                />
+              </div>
+
+              <div class="timeoff-field">
+                <label class="timeoff-label">Hours</label>
+                <div class="time-range">
+                  <div
+                    class="time-picker-shell"
+                    [class.time-picker-disabled]="!canEditTimeOffHours(dayOff.startDate, dayOff.endDate)"
+                  >
+                    <button
+                      type="button"
+                      class="time-button"
+                      [disabled]="savingAvailability || loadingAvailability || isTimeOffLocked(dayOff) || !canEditTimeOffHours(dayOff.startDate, dayOff.endDate)"
+                      (click)="openTimeOffPickerFor(index, 'start', $event)"
+                      aria-haspopup="listbox"
+                      [attr.aria-expanded]="isTimeOffPickerOpen(index, 'start')"
+                    >
+                      <span class="time-button-label">{{ timeLabel(dayOff.startTime) }}</span>
+                      <span class="time-button-caret" aria-hidden="true">&#9662;</span>
+                    </button>
+
+                    <div
+                      class="time-popover timeoff-popover"
+                      *ngIf="isTimeOffPickerOpen(index, 'start')"
+                      role="listbox"
+                      aria-label="Time off start time options"
+                      [attr.data-index]="index"
+                      data-field="start"
+                      [ngStyle]="timeOffPopoverStyle(index, 'start')"
+                    >
+                      <button
+                        type="button"
+                        class="time-option"
+                        *ngFor="let option of timeOptions"
+                        [class.time-option-active]="option === dayOff.startTime"
+                        (click)="selectTimeOff(index, 'start', option)"
+                        role="option"
+                        [attr.aria-selected]="option === dayOff.startTime"
+                      >
+                        <span class="time-dot" aria-hidden="true"></span>
+                        <span>{{ timeLabel(option) }}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <span class="time-sep" aria-hidden="true">to</span>
+
+                  <div
+                    class="time-picker-shell"
+                    [class.time-picker-disabled]="!canEditTimeOffHours(dayOff.startDate, dayOff.endDate)"
+                  >
+                    <button
+                      type="button"
+                      class="time-button"
+                      [disabled]="savingAvailability || loadingAvailability || isTimeOffLocked(dayOff) || !canEditTimeOffHours(dayOff.startDate, dayOff.endDate)"
+                      (click)="openTimeOffPickerFor(index, 'end', $event)"
+                      aria-haspopup="listbox"
+                      [attr.aria-expanded]="isTimeOffPickerOpen(index, 'end')"
+                    >
+                      <span class="time-button-label">{{ timeLabel(dayOff.endTime) }}</span>
+                      <span class="time-button-caret" aria-hidden="true">&#9662;</span>
+                    </button>
+
+                    <div
+                      class="time-popover timeoff-popover"
+                      *ngIf="isTimeOffPickerOpen(index, 'end')"
+                      role="listbox"
+                      aria-label="Time off end time options"
+                      [attr.data-index]="index"
+                      data-field="end"
+                      [ngStyle]="timeOffPopoverStyle(index, 'end')"
+                    >
+                      <button
+                        type="button"
+                        class="time-option"
+                        *ngFor="let option of timeOffEndTimeOptions(index)"
+                        [class.time-option-active]="option === dayOff.endTime"
+                        (click)="selectTimeOff(index, 'end', option)"
+                        role="option"
+                        [attr.aria-selected]="option === dayOff.endTime"
+                      >
+                        <span class="time-dot" aria-hidden="true"></span>
+                        <span>{{ timeLabel(option) }}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <ng-container *ngIf="isTimeOffLocked(dayOff); else removeTimeOff">
+              <div class="timeoff-locked" aria-label="Time off locked">Locked</div>
+            </ng-container>
+
+            <ng-template #removeTimeOff>
+              <button
+                type="button"
+                class="ghost-btn danger"
+                (click)="removeDayOff(index)"
+                [disabled]="savingAvailability || loadingAvailability"
+              >
+                Remove
+              </button>
+            </ng-template>
+          </div>
+        </div>
+
+        <ng-template #noTimeOff>
+          <div class="empty-hint">No time off scheduled yet.</div>
+        </ng-template>
       </section>
     </ng-container>
   </div>

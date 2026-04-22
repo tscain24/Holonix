@@ -34,7 +34,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #1d4ed8;
@@ -62,7 +62,7 @@
   color: #4b6487;
   text-decoration: none;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   transition: background 0.2s ease, color 0.2s ease;
 }
 
@@ -112,14 +112,14 @@
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   color: #ffffff;
   background: linear-gradient(140deg, #2563eb, #1d4ed8);
 }
 
 .profile-menu-name {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   color: #1d4ed8;
   max-width: 180px;
   white-space: nowrap;
@@ -153,7 +153,7 @@
   padding: 10px 12px;
   text-align: left;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   color: #173057;
   cursor: pointer;
 }
@@ -184,7 +184,7 @@
   margin: 0 0 8px;
   color: #1d4ed8;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
@@ -211,7 +211,7 @@
   color: #ffffff;
   padding: 0 18px;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -284,7 +284,7 @@
   background: linear-gradient(140deg, #dbeafe, #eff6ff);
   color: #1d4ed8;
   font-size: 24px;
-  font-weight: 900;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -315,7 +315,7 @@
   background: #e7f0ff;
   color: #1d4ed8;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .business-badge-soft {
@@ -346,14 +346,14 @@
 
 .business-metrics dt {
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   color: #5d7499;
 }
 
 .business-metrics dd {
   margin: 0;
   font-size: 22px;
-  font-weight: 900;
+  font-weight: 600;
   color: #173057;
 }
 

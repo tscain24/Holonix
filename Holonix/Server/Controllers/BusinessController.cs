@@ -539,10 +539,10 @@ public class BusinessController : ControllerBase
                 item.BusinessUserId == businessUserId.Value &&
                 item.EffectiveStartDate.HasValue &&
                 item.EffectiveEndDate.HasValue &&
-                item.IsAllDay == true &&
                 item.EffectiveEndDate.Value >= today)
             .OrderBy(item => item.EffectiveStartDate)
             .ThenBy(item => item.EffectiveEndDate)
+            .ThenBy(item => item.EffectiveStartTime)
             .ToListAsync(cancellationToken);
 
         var effectiveStartDate = availabilityRows.Count > 0
@@ -563,8 +563,121 @@ public class BusinessController : ControllerBase
                     item.BusinessUserTimeOffId,
                     item.EffectiveStartDate!.Value,
                     item.EffectiveEndDate!.Value,
-                    item.IsAllDay ?? true))
+                    item.EffectiveStartTime ?? default,
+                    item.EffectiveEndTime ?? default))
                 .ToList()));
+    }
+
+    [Authorize]
+    [HttpGet("{businessCode}/my-availability/daily")]
+    public async Task<IActionResult> GetMyBusinessDailyAvailability(
+        string businessCode,
+        [FromQuery] DateOnly startDate,
+        [FromQuery] DateOnly endDate,
+        CancellationToken cancellationToken)
+    {
+        if (endDate < startDate)
+        {
+            return BadRequest(new { errors = new[] { "End date must be on or after the start date." } });
+        }
+
+        var totalDays = endDate.DayNumber - startDate.DayNumber + 1;
+        if (totalDays > 366)
+        {
+            return BadRequest(new { errors = new[] { "Date range must be 366 days or fewer." } });
+        }
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var businessUserId = await GetActiveBusinessUserIdAsync(businessId.Value, userId, cancellationToken);
+        if (!businessUserId.HasValue)
+        {
+            return Forbid();
+        }
+
+        var availabilityRows = await _dbContext.BusinessUserAvailabilities
+            .AsNoTracking()
+            .Where(item =>
+                item.BusinessUserId == businessUserId.Value &&
+                item.EffectiveStartDate <= endDate &&
+                (!item.EffectiveEndDate.HasValue || item.EffectiveEndDate.Value >= startDate))
+            .ToListAsync(cancellationToken);
+
+        var dayOffRows = await _dbContext.BusinessUserTimeOffs
+            .AsNoTracking()
+            .Where(item =>
+                item.BusinessUserId == businessUserId.Value &&
+                item.EffectiveStartDate.HasValue &&
+                item.EffectiveEndDate.HasValue &&
+                item.IsAllDay == true &&
+                item.EffectiveStartDate.Value <= endDate &&
+                item.EffectiveEndDate.Value >= startDate)
+            .ToListAsync(cancellationToken);
+
+        var response = new List<MyBusinessDailyAvailabilityResponse>(totalDays);
+        for (var date = startDate; date <= endDate; date = date.AddDays(1))
+        {
+            var isDayOff = dayOffRows.Any(item =>
+                item.EffectiveStartDate!.Value <= date &&
+                item.EffectiveEndDate!.Value >= date);
+
+            if (isDayOff)
+            {
+                response.Add(new MyBusinessDailyAvailabilityResponse(
+                    date,
+                    false,
+                    Array.Empty<MyBusinessDailyAvailabilityTimeFrameResponse>(),
+                    true));
+                continue;
+            }
+
+            var dayOfWeek = (byte)date.DayOfWeek;
+            var matches = availabilityRows
+                .Where(item =>
+                    item.DayOfWeek == dayOfWeek &&
+                    item.EffectiveStartDate <= date &&
+                    (!item.EffectiveEndDate.HasValue || item.EffectiveEndDate.Value >= date))
+                .ToList();
+
+            if (matches.Count == 0)
+            {
+                response.Add(new MyBusinessDailyAvailabilityResponse(
+                    date,
+                    false,
+                    Array.Empty<MyBusinessDailyAvailabilityTimeFrameResponse>(),
+                    false));
+                continue;
+            }
+
+            var effectiveStartDate = matches.Max(item => item.EffectiveStartDate);
+            var timeFrames = matches
+                .Where(item => item.EffectiveStartDate == effectiveStartDate)
+                .OrderBy(item => item.StartTime)
+                .Select(item => new MyBusinessDailyAvailabilityTimeFrameResponse(
+                    item.StartTime,
+                    item.EndTime))
+                .ToList();
+
+            response.Add(new MyBusinessDailyAvailabilityResponse(
+                date,
+                timeFrames.Count > 0,
+                timeFrames,
+                false));
+        }
+
+        return Ok(response);
     }
 
     [Authorize]
@@ -607,14 +720,14 @@ public class BusinessController : ControllerBase
             return BadRequest(new { errors = new[] { "Availability day is invalid." } });
         }
 
-        if (availability.GroupBy(item => item.DayOfWeek).Any(group => group.Count() > 1))
-        {
-            return BadRequest(new { errors = new[] { "Each day can only be configured once." } });
-        }
-
         if (availability.Any(item => item.StartTime >= item.EndTime))
         {
             return BadRequest(new { errors = new[] { "Availability start time must be earlier than end time." } });
+        }
+
+        if (HasOverlappingAvailabilityRanges(availability))
+        {
+            return BadRequest(new { errors = new[] { "Availability ranges cannot overlap within a day." } });
         }
 
         if (daysOff.Any(item => item.EffectiveStartDate > item.EffectiveEndDate))
@@ -622,10 +735,28 @@ public class BusinessController : ControllerBase
             return BadRequest(new { errors = new[] { "Day off start date must be on or before the end date." } });
         }
 
+        if (daysOff.Any(item => item.EffectiveStartDate != item.EffectiveEndDate && (item.StartTime != default || item.EndTime != default)))
+        {
+            return BadRequest(new { errors = new[] { "Multi-day time off must be 12:00 AM to 12:00 AM." } });
+        }
+
+        if (daysOff.Any(item => item.StartTime == item.EndTime && item.StartTime != default))
+        {
+            return BadRequest(new { errors = new[] { "All day time off must be 12:00 AM to 12:00 AM." } });
+        }
+
+        if (daysOff.Any(item => item.EffectiveStartDate == item.EffectiveEndDate && item.StartTime != item.EndTime && item.StartTime >= item.EndTime))
+        {
+            return BadRequest(new { errors = new[] { "Time off start time must be earlier than end time." } });
+        }
+
         if (HasOverlappingTimeOffRanges(daysOff))
         {
             return BadRequest(new { errors = new[] { "Day off ranges cannot overlap." } });
         }
+
+        // If StartTime == EndTime (both midnight), treat as all-day for the date range.
+        // Otherwise it's an hourly window and must be single-day (validated above).
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var activeRows = await _dbContext.BusinessUserAvailabilities
@@ -642,6 +773,29 @@ public class BusinessController : ControllerBase
                 item.EffectiveEndDate.Value >= today)
             .ToListAsync(cancellationToken);
 
+        var lockedTimeOffRows = activeAndUpcomingTimeOffRows
+            .Where(item => item.EffectiveStartDate!.Value <= today)
+            .ToList();
+
+        if (daysOff.Any(item => item.EffectiveStartDate <= today))
+        {
+            return BadRequest(new { errors = new[] { "Time off is locked once it starts. Choose a future start date." } });
+        }
+
+        var lockedRequests = lockedTimeOffRows
+            .Select(item => new UpdateMyBusinessTimeOffRequest(
+                item.EffectiveStartDate!.Value,
+                item.EffectiveEndDate!.Value,
+                item.EffectiveStartTime ?? default,
+                item.EffectiveEndTime ?? default))
+            .ToList();
+
+        var combinedTimeOff = lockedRequests.Concat(daysOff).ToList();
+        if (HasOverlappingTimeOffRanges(combinedTimeOff))
+        {
+            return BadRequest(new { errors = new[] { "Day off ranges cannot overlap." } });
+        }
+
         var yesterday = today.AddDays(-1);
         foreach (var row in activeRows)
         {
@@ -650,7 +804,13 @@ public class BusinessController : ControllerBase
 
         if (activeAndUpcomingTimeOffRows.Count > 0)
         {
-            _dbContext.BusinessUserTimeOffs.RemoveRange(activeAndUpcomingTimeOffRows);
+            var upcomingRows = activeAndUpcomingTimeOffRows
+                .Where(item => item.EffectiveStartDate!.Value > today)
+                .ToList();
+            if (upcomingRows.Count > 0)
+            {
+                _dbContext.BusinessUserTimeOffs.RemoveRange(upcomingRows);
+            }
         }
 
         if (availability.Count > 0)
@@ -669,15 +829,20 @@ public class BusinessController : ControllerBase
 
         if (daysOff.Count > 0)
         {
+            var futureDaysOff = daysOff.Where(item => item.EffectiveStartDate > today).ToList();
             _dbContext.BusinessUserTimeOffs.AddRange(
-                daysOff.Select(item => new BusinessUserTimeOff
+                futureDaysOff.Select(item =>
                 {
-                    BusinessUserId = businessUserId.Value,
-                    EffectiveStartDate = item.EffectiveStartDate,
-                    EffectiveEndDate = item.EffectiveEndDate,
-                    EffectiveStartTime = null,
-                    EffectiveEndTime = null,
-                    IsAllDay = true,
+                    var isAllDay = item.StartTime == item.EndTime;
+                    return new BusinessUserTimeOff
+                    {
+                        BusinessUserId = businessUserId.Value,
+                        EffectiveStartDate = item.EffectiveStartDate,
+                        EffectiveEndDate = item.EffectiveEndDate,
+                        EffectiveStartTime = isAllDay ? null : item.StartTime,
+                        EffectiveEndTime = isAllDay ? null : item.EndTime,
+                        IsAllDay = isAllDay,
+                    };
                 }));
         }
 
@@ -692,12 +857,19 @@ public class BusinessController : ControllerBase
                     item.StartTime,
                     item.EndTime))
                 .ToList(),
-            daysOff
+            lockedRequests
                 .Select(item => new MyBusinessTimeOffResponse(
                     0,
                     item.EffectiveStartDate,
                     item.EffectiveEndDate,
-                    true))
+                    item.StartTime,
+                    item.EndTime))
+                .Concat(daysOff.Select(item => new MyBusinessTimeOffResponse(
+                    0,
+                    item.EffectiveStartDate,
+                    item.EffectiveEndDate,
+                    item.StartTime,
+                    item.EndTime)))
                 .ToList()));
     }
 
@@ -2792,18 +2964,92 @@ public class BusinessController : ControllerBase
 
     private static bool HasOverlappingTimeOffRanges(IReadOnlyList<UpdateMyBusinessTimeOffRequest> daysOff)
     {
-        for (var index = 1; index < daysOff.Count; index++)
+        var allDay = daysOff
+            .Where(item => item.StartTime == item.EndTime)
+            .OrderBy(item => item.EffectiveStartDate)
+            .ThenBy(item => item.EffectiveEndDate)
+            .ToList();
+
+        for (var index = 1; index < allDay.Count; index++)
         {
-            var previous = daysOff[index - 1];
-            var current = daysOff[index];
+            var previous = allDay[index - 1];
+            var current = allDay[index];
             if (current.EffectiveStartDate <= previous.EffectiveEndDate)
             {
                 return true;
             }
         }
 
+        var hourly = daysOff
+            .Where(item => item.StartTime != item.EndTime)
+            .Select(item => new
+            {
+                Date = item.EffectiveStartDate,
+                StartTime = item.StartTime,
+                EndTime = item.EndTime,
+            })
+            .ToList();
+
+        if (hourly.Count > 0 && allDay.Count > 0)
+        {
+            foreach (var entry in hourly)
+            {
+                if (allDay.Any(range => range.EffectiveStartDate <= entry.Date && range.EffectiveEndDate >= entry.Date))
+                {
+                    return true;
+                }
+            }
+        }
+
+        foreach (var group in hourly.GroupBy(item => item.Date))
+        {
+            var ordered = group
+                .OrderBy(item => item.StartTime)
+                .ThenBy(item => item.EndTime)
+                .ToList();
+
+            for (var index = 1; index < ordered.Count; index++)
+            {
+                var previous = ordered[index - 1];
+                var current = ordered[index];
+                if (current.StartTime < previous.EndTime)
+                {
+                    return true;
+                }
+            }
+        }
+
         return false;
     }
+
+    private static bool HasOverlappingAvailabilityRanges(IReadOnlyList<UpdateMyBusinessAvailabilityDayRequest> availability)
+    {
+        if (availability.Count <= 1)
+        {
+            return false;
+        }
+
+        foreach (var group in availability.GroupBy(item => item.DayOfWeek))
+        {
+            var ordered = group
+                .OrderBy(item => item.StartTime)
+                .ThenBy(item => item.EndTime)
+                .ToList();
+
+            for (var index = 1; index < ordered.Count; index++)
+            {
+                var previous = ordered[index - 1];
+                var current = ordered[index];
+                if (current.StartTime < previous.EndTime)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private static List<EmployeeFilterQuery> ParseEmployeeFilters(string? filters)
     {
         if (string.IsNullOrWhiteSpace(filters))

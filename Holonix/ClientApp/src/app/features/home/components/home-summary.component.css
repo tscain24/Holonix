@@ -32,7 +32,7 @@
 .summary-kicker {
   margin: 0;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #1d4ed8;
@@ -42,7 +42,7 @@
   margin: 0;
   font-size: clamp(30px, 2.8vw, 40px);
   line-height: 1.05;
-  font-weight: 900;
+  font-weight: 600;
   color: #0f172a;
 }
 
@@ -105,7 +105,7 @@
   background: #edf4ff;
   color: #1d4ed8;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
 }
@@ -145,7 +145,7 @@
   background: #eff5ff;
   color: #5d7499;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -161,7 +161,7 @@
 .pending-table-primary {
   color: #0f172a;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .pending-table td {
@@ -177,7 +177,7 @@
   background: #ffffff;
   color: #1d4ed8;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -190,7 +190,7 @@
   background: #dbeafe;
   color: #1d4ed8;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -207,7 +207,7 @@
   padding: 0 16px;
   border-radius: 999px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -266,7 +266,7 @@
   margin: 0 0 8px;
   color: #1d4ed8;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -311,7 +311,7 @@
 .invite-modal-eyebrow {
   color: #5d7499;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -350,7 +350,7 @@
 .invite-status-card span {
   color: #5d7499;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -365,7 +365,7 @@
 .invite-status-card small {
   color: #5f7598;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .invite-detail-list {
@@ -391,7 +391,7 @@
 .invite-detail-row span {
   color: #5d7499;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   padding-top: 2px;
