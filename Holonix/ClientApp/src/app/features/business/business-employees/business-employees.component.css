@@ -267,7 +267,7 @@
   line-height: 1.05;
 }
 
-.employees-hero p,
+.employees-hero p:not(.employees-kicker),
 .section-heading p {
   margin: 8px 0 0;
   color: #587191;

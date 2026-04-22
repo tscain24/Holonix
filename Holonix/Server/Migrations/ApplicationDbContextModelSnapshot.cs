@@ -271,11 +271,11 @@ namespace Holonix.Server.Migrations
                     b.Property<int>("DurationMinutes")
                         .HasColumnType("int");
 
-                    b.Property<int>("EmployeeCount")
-                        .HasColumnType("int");
-
                     b.Property<DateOnly>("EffectiveDate")
                         .HasColumnType("date");
+
+                    b.Property<int>("EmployeeCount")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("InactiveDate")
                         .HasColumnType("datetime2");
@@ -292,8 +292,6 @@ namespace Holonix.Server.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("BusinessSubServiceId");
-
-                    b.HasIndex("BusinessId");
 
                     b.HasIndex("ServiceId");
 
@@ -319,8 +317,6 @@ namespace Holonix.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.HasKey("BusinessSubServiceAssignmentId");
-
-                    b.HasIndex("BusinessSubServiceId");
 
                     b.HasIndex("BusinessUserId");
 
@@ -504,50 +500,6 @@ namespace Holonix.Server.Migrations
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.EmployeeInvite", b =>
                 {
-                    b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
-                        .WithMany()
-                        .HasForeignKey("BusinessId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Holonix.Server.Domain.Entities.BusinessRole", "TargetBusinessRole")
-                        .WithMany()
-                        .HasForeignKey("TargetBusinessRoleId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Holonix.Server.Domain.Entities.ApplicationUser", "TargetUser")
-                        .WithMany()
-                        .HasForeignKey("TargetUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Business");
-
-                    b.Navigation("TargetBusinessRole");
-
-                    b.Navigation("TargetUser");
-                });
-
-            modelBuilder.Entity("Holonix.Server.Domain.Entities.EmployeeInviteWorkload", b =>
-                {
-                    b.HasOne("Holonix.Server.Domain.Entities.EmployeeInvite", "EmployeeInvite")
-                        .WithMany()
-                        .HasForeignKey("EmployeeInviteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Holonix.Server.Domain.Entities.Workload", "Workload")
-                        .WithMany()
-                        .HasForeignKey("WorkloadId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("EmployeeInvite");
-
-                    b.Navigation("Workload");
-                });
-
-            modelBuilder.Entity("Holonix.Server.Domain.Entities.EmployeeInvite", b =>
-                {
                     b.Property<long>("EmployeeInviteId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
@@ -562,13 +514,13 @@ namespace Holonix.Server.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<long?>("TargetBusinessRoleId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("TargetEmail")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
-
-                    b.Property<long?>("TargetBusinessRoleId")
-                        .HasColumnType("bigint");
 
                     b.Property<string>("TargetUserId")
                         .HasMaxLength(450)
@@ -1124,6 +1076,50 @@ namespace Holonix.Server.Migrations
                         .IsRequired();
 
                     b.Navigation("BusinessUser");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.EmployeeInvite", b =>
+                {
+                    b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Holonix.Server.Domain.Entities.BusinessRole", "TargetBusinessRole")
+                        .WithMany()
+                        .HasForeignKey("TargetBusinessRoleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Holonix.Server.Domain.Entities.ApplicationUser", "TargetUser")
+                        .WithMany()
+                        .HasForeignKey("TargetUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Business");
+
+                    b.Navigation("TargetBusinessRole");
+
+                    b.Navigation("TargetUser");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.EmployeeInviteWorkload", b =>
+                {
+                    b.HasOne("Holonix.Server.Domain.Entities.EmployeeInvite", "EmployeeInvite")
+                        .WithMany()
+                        .HasForeignKey("EmployeeInviteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Holonix.Server.Domain.Entities.Workload", "Workload")
+                        .WithMany()
+                        .HasForeignKey("WorkloadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("EmployeeInvite");
+
+                    b.Navigation("Workload");
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.Job", b =>

@@ -45,7 +45,7 @@
           <button type="button" class="workspace-tab workspace-tab-active" aria-current="page" (click)="goToOverviewTab()">Overview</button>
           <button type="button" class="workspace-tab" (click)="goToEmployeesTab()">Employees</button>
           <button type="button" class="workspace-tab" (click)="goToServiceManagerTab()">Service Manager</button>
-          <button type="button" class="workspace-tab" (click)="goToMyAvailabilityTab()">My Availability</button>
+          <button type="button" class="workspace-tab" (click)="goToMyAvailabilityTab()">Availability</button>
           <button type="button" class="workspace-tab" (click)="goToJobsTab()">Jobs</button>
         </nav>
       </div>
@@ -69,7 +69,7 @@
             </div>
 
             <div class="workspace-hero-copy">
-              <p class="workspace-kicker">Business Workspace</p>
+              <p class="workspace-kicker text-blue-600">Business Workspace</p>
               <ng-container *ngIf="!editingProfile; else businessProfileEditor">
                 <h1>{{ business.name }}</h1>
                 <p class="workspace-summary">{{ business.description || 'No business description yet.' }}</p>

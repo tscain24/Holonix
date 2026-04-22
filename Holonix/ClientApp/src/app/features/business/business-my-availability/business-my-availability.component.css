@@ -267,7 +267,7 @@
   line-height: 1.05;
 }
 
-.availability-hero p,
+.availability-hero p:not(.availability-kicker),
 .section-heading p {
   margin: 8px 0 0;
   color: #587191;
