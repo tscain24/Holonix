@@ -88,8 +88,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<Service>(entity =>
         {
-            entity.ToTable("Service", "service");
+            entity.ToTable("Category", "service");
             entity.HasKey(x => x.ServiceId);
+            entity.Property(x => x.ServiceId).HasColumnName("CategoryId");
             entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
         });
 
@@ -143,8 +144,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<BusinessService>(entity =>
         {
-            entity.ToTable("BusinessService", "business");
+            entity.ToTable("BusinessCategory", "business");
             entity.HasKey(x => x.BusinessServiceId);
+            entity.Property(x => x.BusinessServiceId).HasColumnName("BusinessCategoryId");
+            entity.Property(x => x.ServiceId).HasColumnName("CategoryId");
             entity.HasOne(x => x.Business)
                 .WithMany()
                 .HasForeignKey(x => x.BusinessId)
@@ -157,8 +160,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<BusinessSubService>(entity =>
         {
-            entity.ToTable("BusinessSubService", "business");
+            entity.ToTable("BusinessService", "business");
             entity.HasKey(x => x.BusinessSubServiceId);
+            entity.Property(x => x.BusinessSubServiceId).HasColumnName("BusinessServiceId");
+            entity.Property(x => x.ServiceId).HasColumnName("CategoryId");
             entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
             entity.Property(x => x.Description).HasColumnType("nvarchar(max)");
             entity.Property(x => x.ConsultationNeeded).HasColumnType("bit");
@@ -182,8 +187,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<BusinessSubServiceAssignment>(entity =>
         {
-            entity.ToTable("BusinessSubServiceAssignment", "business");
+            entity.ToTable("BusinessServiceAssignment", "business");
             entity.HasKey(x => x.BusinessSubServiceAssignmentId);
+            entity.Property(x => x.BusinessSubServiceAssignmentId).HasColumnName("BusinessServiceAssignmentId");
+            entity.Property(x => x.BusinessSubServiceId).HasColumnName("BusinessServiceId");
             entity.HasIndex(x => new { x.BusinessSubServiceId, x.BusinessUserId }).IsUnique();
             entity.HasOne(x => x.BusinessSubService)
                 .WithMany()

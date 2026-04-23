@@ -1,0 +1,57 @@
+<header class="app-header" *ngIf="!hideHeader">
+  <div class="app-header-inner">
+    <div class="header-left">
+      <a class="brand-mark" routerLink="/home" aria-label="Holonix Home">
+        <img src="assets/holonix-logo-blue.svg" alt="Holonix logo" />
+        <span>Holonix</span>
+      </a>
+
+      <nav class="top-links" aria-label="Primary" *ngIf="isLoggedIn">
+        <a routerLink="/home" routerLinkActive="top-link-active" class="top-link">Home</a>
+        <a routerLink="/business" routerLinkActive="top-link-active" class="top-link">Business</a>
+      </nav>
+    </div>
+
+    <form class="header-search" role="search" (submit)="onSearchSubmit($event)">
+      <mat-icon aria-hidden="true">search</mat-icon>
+      <input type="search" placeholder="Search services, businesses, or categories..." aria-label="Search" />
+    </form>
+
+    <div class="header-right">
+      <div class="header-location" role="group" aria-label="Location">
+        <mat-icon aria-hidden="true">location_on</mat-icon>
+        <input
+          type="text"
+          name="headerLocation"
+          [(ngModel)]="locationDisplay"
+          placeholder="Location"
+          aria-label="Location"
+        />
+      </div>
+
+      <div class="auth-actions" *ngIf="!isLoggedIn">
+        <a class="auth-link secondary" routerLink="/register">Sign up</a>
+        <a class="auth-link primary" routerLink="/login">Log in</a>
+      </div>
+
+      <div class="auth-actions header-actions-logged-in" *ngIf="isLoggedIn">
+        <button type="button" class="profile-menu-trigger" (click)="toggleUserMenu($event)" aria-label="Open profile menu">
+          <img
+            *ngIf="profileImageDataUrl"
+            [src]="profileImageDataUrl"
+            alt="Profile picture"
+            class="profile-menu-image"
+          />
+          <span *ngIf="!profileImageDataUrl" class="profile-menu-initials">{{ userInitials }}</span>
+          <span class="profile-menu-name">{{ displayName }}</span>
+          <span class="profile-menu-caret" aria-hidden="true">&#9662;</span>
+        </button>
+
+        <div class="user-menu" *ngIf="isUserMenuOpen">
+          <button type="button" class="user-menu-item" (click)="viewProfile()">View Profile</button>
+          <button type="button" class="user-menu-item danger" (click)="signOut()">Sign Out</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>

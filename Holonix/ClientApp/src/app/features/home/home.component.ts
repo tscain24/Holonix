@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener } from '@angular/core';
+import { Component } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { AuthSessionService } from '../../core/services/auth-session.service';
@@ -18,15 +18,20 @@ interface JwtPayload {
 export class HomeComponent {
   isLoggedIn = false;
   hasBusiness = false;
-  displayName = '';
   firstName = 'User';
-  userInitials = 'U';
-  profileImageDataUrl = '';
-  isUserMenuOpen = false;
+  guestCategories = [
+    { label: 'Cleaning', icon: 'cleaning_services' },
+    { label: 'Plumbing', icon: 'plumbing' },
+    { label: 'Electrical', icon: 'electrical_services' },
+    { label: 'Moving', icon: 'local_shipping' },
+    { label: 'Lawn Care', icon: 'grass' },
+    { label: 'Painting', icon: 'format_paint' },
+    { label: 'Handyman', icon: 'handyman' },
+    { label: 'More', icon: 'more_horiz' },
+  ];
 
   constructor(
     private router: Router,
-    private elementRef: ElementRef<HTMLElement>,
     private snackBar: MatSnackBar,
     private authSession: AuthSessionService,
     private businessService: BusinessService
@@ -44,18 +49,9 @@ export class HomeComponent {
 
     const token = localStorage.getItem('holonix_token');
     const savedDisplayName = localStorage.getItem('holonix_display_name') ?? '';
-    const savedProfileImage = localStorage.getItem('holonix_profile_image_base64') ?? '';
     this.isLoggedIn = !!token;
     this.hasBusiness = this.hasOwnerRole(this.decodeJwtPayload(token));
-    this.displayName = savedDisplayName.trim() || 'User';
-    this.firstName = this.displayName.split(' ')[0] || 'User';
-    const parts = this.displayName.split(' ').filter(Boolean);
-    const firstInitial = parts[0]?.charAt(0) ?? 'U';
-    const lastInitial = parts[1]?.charAt(0) ?? '';
-    this.userInitials = `${firstInitial}${lastInitial}`.toUpperCase();
-    this.profileImageDataUrl = savedProfileImage
-      ? `data:image/*;base64,${savedProfileImage.trim()}`
-      : '';
+    this.firstName = (savedDisplayName.trim() || 'User').split(' ')[0] || 'User';
 
     if (this.isLoggedIn) {
       this.businessService.getMyBusinesses().subscribe({
@@ -71,40 +67,12 @@ export class HomeComponent {
     }
   }
 
-  toggleUserMenu(event: MouseEvent): void {
-    event.stopPropagation();
-    this.isUserMenuOpen = !this.isUserMenuOpen;
-  }
-
-  viewProfile(): void {
-    this.isUserMenuOpen = false;
-    this.router.navigate(['/profile']);
-  }
-
-  signOut(): void {
-    this.authSession.clearSession();
-    this.isLoggedIn = false;
-    this.displayName = '';
-    this.isUserMenuOpen = false;
-    this.router.navigate(['/home']);
-  }
-
   goToBusinessEntry(): void {
     if (!this.isLoggedIn) {
       this.router.navigate(['/register']);
       return;
     }
-
     this.router.navigate([this.hasBusiness ? '/business' : '/business/create']);
-  }
-
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: MouseEvent): void {
-    const target = event.target as Node | null;
-    const element = target instanceof Element ? target : target?.parentElement;
-    if (!element?.closest('.auth-actions-logged-in')) {
-      this.isUserMenuOpen = false;
-    }
   }
 
   private decodeJwtPayload(token: string | null): JwtPayload | null {

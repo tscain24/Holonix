@@ -435,7 +435,7 @@ export class BusinessWorkspaceComponent implements OnInit {
         this.subServiceDrafts[service.serviceId] = '';
         this.subServiceEffectiveDateDrafts[service.serviceId] = this.getTodayDateInputValue();
         this.creatingSubServiceIds.delete(service.serviceId);
-        this.snackBar.open('Sub-service added.', 'Close', {
+        this.snackBar.open('Service added.', 'Close', {
           duration: 2500,
           panelClass: ['snack-success'],
         });
@@ -447,7 +447,7 @@ export class BusinessWorkspaceComponent implements OnInit {
         }
 
         const errors = err?.error?.errors as string[] | undefined;
-        this.snackBar.open(errors?.[0] ?? 'Could not add sub-service.', 'Close', {
+        this.snackBar.open(errors?.[0] ?? 'Could not add service.', 'Close', {
           duration: 3500,
           panelClass: ['snack-error'],
         });
@@ -480,7 +480,7 @@ export class BusinessWorkspaceComponent implements OnInit {
                 })
         };
         this.deletingSubServiceIds.delete(subService.businessSubServiceId);
-        this.snackBar.open('Sub-service removed.', 'Close', {
+        this.snackBar.open('Service removed.', 'Close', {
           duration: 2500,
           panelClass: ['snack-success'],
         });
@@ -492,7 +492,7 @@ export class BusinessWorkspaceComponent implements OnInit {
         }
 
         const errors = err?.error?.errors as string[] | undefined;
-        this.snackBar.open(errors?.[0] ?? 'Could not remove sub-service.', 'Close', {
+        this.snackBar.open(errors?.[0] ?? 'Could not remove service.', 'Close', {
           duration: 3500,
           panelClass: ['snack-error'],
         });
@@ -1079,7 +1079,7 @@ export class BusinessWorkspaceComponent implements OnInit {
     }
 
     if (services.length === 0) {
-      this.snackBar.open('At least one service is required.', 'Close', {
+      this.snackBar.open('At least one category is required.', 'Close', {
         duration: 3000,
         panelClass: ['snack-error'],
       });
@@ -1103,7 +1103,7 @@ export class BusinessWorkspaceComponent implements OnInit {
         };
         this.servicesExpanded = updatedServices.length <= BusinessWorkspaceComponent.MaxVisibleServiceChips;
         this.savingServices = false;
-        this.snackBar.open('Business services updated.', 'Close', {
+        this.snackBar.open('Business categories updated.', 'Close', {
           duration: 2500,
           panelClass: ['snack-success'],
         });
@@ -1115,7 +1115,7 @@ export class BusinessWorkspaceComponent implements OnInit {
         }
 
         const errors = err?.error?.errors as string[] | undefined;
-        this.snackBar.open(errors?.[0] ?? 'Could not update business services.', 'Close', {
+        this.snackBar.open(errors?.[0] ?? 'Could not update business categories.', 'Close', {
           duration: 3500,
           panelClass: ['snack-error'],
         });

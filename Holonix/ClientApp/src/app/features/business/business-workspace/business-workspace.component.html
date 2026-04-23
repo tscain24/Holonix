@@ -186,7 +186,7 @@
             <strong>{{ formatPhoneNumberForDisplay(business.businessPhoneNumber) || 'Not provided' }}</strong>
           </article>
           <article class="info-card info-card-services">
-            <span class="info-label">Services</span>
+            <span class="info-label">Categories</span>
             <strong>{{ business.serviceCount }}</strong>
 
             <div class="selected-service-list" *ngIf="business.services.length > 0">
@@ -234,15 +234,15 @@
 
             <div class="service-manager" *ngIf="editingGeneralInformation && canManageServices">
               <div class="selected-service-list" *ngIf="business.services.length > 0">
-                <span class="service-manager-label">Manage services</span>
+                <span class="service-manager-label">Manage categories</span>
               </div>
 
               <label class="service-search">
-                <span>Add services</span>
+                <span>Add categories</span>
                 <div class="service-autocomplete">
                   <input
                     type="text"
-                    placeholder="Search available services"
+                    placeholder="Search available categories"
                     [value]="serviceSearch"
                     (input)="onServiceSearchInput($event)"
                     (focus)="openServiceDropdown()"
@@ -264,9 +264,9 @@
                 </div>
               </label>
 
-              <p class="service-manager-note" *ngIf="loadingAvailableServices">Loading available services...</p>
+              <p class="service-manager-note" *ngIf="loadingAvailableServices">Loading available categories...</p>
               <p class="service-manager-note" *ngIf="!loadingAvailableServices && serviceSearch && filteredAvailableServices.length === 0">
-                No more matching services to add.
+                No more matching categories to add.
               </p>
             </div>
 
@@ -361,7 +361,7 @@
               <h2>Service Manager</h2>
               <span class="section-count-chip">{{ activeSubServiceCount }}</span>
             </div>
-            <p>View the sub-services that are configured for this business.</p>
+            <p>View the services that are configured for this business.</p>
           </div>
           <div class="hero-actions">
             <button type="button" class="hero-btn hero-btn-secondary employee-view-all-btn" (click)="goToServiceManagerTab()">
@@ -371,14 +371,14 @@
         </div>
 
         <div class="section-state" *ngIf="!hasVisibleSubServices()">
-          No sub-services have been configured for this business yet.
+          No services have been configured for this business yet.
         </div>
 
         <div class="workspace-table-shell" *ngIf="hasVisibleSubServices()">
           <table class="workspace-table">
             <thead>
               <tr>
-                <th scope="col">Sub Service</th>
+                <th scope="col">Service</th>
                 <th scope="col">Parent Service</th>
                 <th scope="col">Price</th>
                 <th scope="col">Effective Date</th>

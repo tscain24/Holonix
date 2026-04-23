@@ -513,7 +513,7 @@ export class BusinessServiceManagerComponent implements OnInit {
     }
 
     if (!name) {
-      this.snackBar.open('Sub-service name is required.', 'Close', {
+      this.snackBar.open('Service name is required.', 'Close', {
         duration: 3000,
         panelClass: ['snack-error'],
       });
@@ -590,7 +590,7 @@ export class BusinessServiceManagerComponent implements OnInit {
         this.createSubServiceDescription = '';
         this.selectedAssignedUserIds.clear();
         this.createSubServiceOpen = false;
-        this.reloadWorkspace(businessCode, 'Sub-service created.');
+        this.reloadWorkspace(businessCode, 'Service created.');
       },
       error: (err) => {
         this.creatingSubService = false;
@@ -600,7 +600,7 @@ export class BusinessServiceManagerComponent implements OnInit {
 
         const errors = (err as { error?: { errors?: unknown } } | null | undefined)?.error?.errors;
         const messages = Array.isArray(errors) ? errors.filter((value): value is string => typeof value === 'string') : [];
-        this.snackBar.open(messages[0] ?? 'Could not create sub-service.', 'Close', {
+        this.snackBar.open(messages[0] ?? 'Could not create service.', 'Close', {
           duration: 3500,
           panelClass: ['snack-error'],
         });
@@ -730,7 +730,7 @@ export class BusinessServiceManagerComponent implements OnInit {
     }).subscribe({
       next: () => {
         this.cancelEditSubService();
-        this.reloadWorkspace(businessCode, 'Sub-service updated.');
+        this.reloadWorkspace(businessCode, 'Service updated.');
       },
       error: (err) => {
         this.savingSubService = false;
@@ -740,7 +740,7 @@ export class BusinessServiceManagerComponent implements OnInit {
 
         const errors = (err as { error?: { errors?: unknown } } | null | undefined)?.error?.errors;
         const messages = Array.isArray(errors) ? errors.filter((value): value is string => typeof value === 'string') : [];
-        this.snackBar.open(messages[0] ?? 'Could not update sub-service.', 'Close', {
+        this.snackBar.open(messages[0] ?? 'Could not update service.', 'Close', {
           duration: 3500,
           panelClass: ['snack-error'],
         });
@@ -771,7 +771,7 @@ export class BusinessServiceManagerComponent implements OnInit {
           })),
         };
         this.deletingSubServiceIds.delete(subService.businessSubServiceId);
-        this.snackBar.open('Sub-service removed.', 'Close', {
+        this.snackBar.open('Service removed.', 'Close', {
           duration: 2500,
           panelClass: ['snack-success'],
         });
@@ -784,7 +784,7 @@ export class BusinessServiceManagerComponent implements OnInit {
 
         const errors = (err as { error?: { errors?: unknown } } | null | undefined)?.error?.errors;
         const messages = Array.isArray(errors) ? errors.filter((value): value is string => typeof value === 'string') : [];
-        this.snackBar.open(messages[0] ?? 'Could not remove sub-service.', 'Close', {
+        this.snackBar.open(messages[0] ?? 'Could not remove service.', 'Close', {
           duration: 3500,
           panelClass: ['snack-error'],
         });
@@ -898,11 +898,11 @@ export class BusinessServiceManagerComponent implements OnInit {
 
   filterFieldLabel(field: SubServiceFilter['field']): string {
     if (field === 'subService') {
-      return 'Sub Service';
+      return 'Service';
     }
 
     if (field === 'parentService') {
-      return 'Parent Service';
+      return 'Category';
     }
 
     if (field === 'assignedUser') {
@@ -1021,7 +1021,7 @@ export class BusinessServiceManagerComponent implements OnInit {
 
         const errors = (err as { error?: { errors?: unknown } } | null | undefined)?.error?.errors;
         const messages = Array.isArray(errors) ? errors.filter((value): value is string => typeof value === 'string') : [];
-        this.snackBar.open(messages[0] ?? 'Sub-service saved, but the page could not refresh.', 'Close', {
+        this.snackBar.open(messages[0] ?? 'Service saved, but the page could not refresh.', 'Close', {
           duration: 3500,
           panelClass: ['snack-error'],
         });

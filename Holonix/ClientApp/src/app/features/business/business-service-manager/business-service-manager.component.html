@@ -57,11 +57,11 @@
           <div class="service-manager-hero-copy">
             <p class="service-manager-kicker text-blue-600">Business Workspace</p>
             <h1>{{ business.name }} Service Manager</h1>
-            <p>Create sub-services your customers can buy and decide which employees can perform them.</p>
+            <p>Create services your customers can buy and decide which employees can perform them.</p>
           </div>
           <div class="service-manager-hero-actions" *ngIf="canManageSubServices">
             <button type="button" class="primary-btn" (click)="toggleCreateSubService()">
-              {{ createSubServiceOpen ? 'Close' : 'Create Sub-Service' }}
+              {{ createSubServiceOpen ? 'Close' : 'Create Service' }}
             </button>
           </div>
         </div>
@@ -70,8 +70,8 @@
       <section class="service-manager-section">
         <div class="section-heading section-heading-row">
           <div class="section-heading-copy">
-            <h2>Sub-Services</h2>
-            <p>All sub-services currently configured for this business.</p>
+            <h2>Services</h2>
+            <p>All services currently configured for this business.</p>
           </div>
           <div class="table-toolbar" *ngIf="canManageSubServices">
             <div class="table-toolbar-actions">
@@ -80,11 +80,11 @@
                   Filter
                 </button>
                 <div class="table-toolbar-menu" *ngIf="filterMenuOpen">
-                  <div class="table-toolbar-menu-header">Show sub-services where</div>
+                  <div class="table-toolbar-menu-header">Show services where</div>
                   <div class="filter-builder-row" *ngFor="let filter of draftFilters; let i = index">
                     <select [value]="filter.field" (change)="updateDraftFilterField(i, $any($event.target).value)">
-                      <option value="subService">Sub Service</option>
-                      <option value="parentService">Parent Service</option>
+                      <option value="subService">Service</option>
+                      <option value="parentService">Category</option>
                       <option value="assignedUser">Assigned User</option>
                       <option value="pricing">Pricing</option>
                     </select>
@@ -186,14 +186,14 @@
 
             <label class="service-field service-field-wide">
               <span>Description</span>
-              <textarea rows="4" [value]="createSubServiceDescription" (input)="onSubServiceDescriptionInput($event)" placeholder="Optional description for customers to identify the proper sub-service."></textarea>
+              <textarea rows="4" [value]="createSubServiceDescription" (input)="onSubServiceDescriptionInput($event)" placeholder="Optional description for customers to identify the proper service."></textarea>
             </label>
           </div>
 
           <div class="assignment-shell">
             <div class="assignment-copy">
               <span class="assignment-label">Assigned Users</span>
-              <p>Select employees who can perform this sub-service.</p>
+              <p>Select employees who can perform this service.</p>
             </div>
 
             <div class="assignment-grid" *ngIf="activeAssignableEmployees.length > 0; else noAssignableEmployees">
@@ -213,7 +213,7 @@
 
           <div class="service-form-actions">
             <button type="button" class="primary-btn" (click)="createSubService()" [disabled]="!canCreateSubService">
-              {{ creatingSubService ? 'Creating...' : 'Create Sub-Service' }}
+              {{ creatingSubService ? 'Creating...' : 'Create Service' }}
             </button>
           </div>
         </div>
@@ -221,7 +221,7 @@
         <div class="create-sub-service-panel" *ngIf="canManageSubServices && editingSubServiceId">
           <div class="section-heading">
             <h2>Edit Sub-Service</h2>
-            <p>Update the selected sub-service or move it to another parent service.</p>
+            <p>Update the selected service or move it to another category.</p>
           </div>
 
           <div class="service-form-grid">
@@ -231,9 +231,9 @@
             </label>
 
             <label class="service-field">
-              <span>Parent Service <span class="required-indicator" aria-hidden="true">*</span></span>
+              <span>Category <span class="required-indicator" aria-hidden="true">*</span></span>
               <select [value]="editParentServiceId ?? ''" (change)="onEditParentServiceChange($event)">
-                <option value="" disabled>Select a parent service</option>
+                <option value="" disabled>Select a category</option>
                 <option *ngFor="let service of business.services" [value]="service.serviceId">{{ service.name }}</option>
               </select>
             </label>
@@ -284,7 +284,7 @@
           <div class="assignment-shell">
             <div class="assignment-copy">
               <span class="assignment-label">Assigned Users</span>
-              <p>Select employees who can perform this sub-service.</p>
+              <p>Select employees who can perform this service.</p>
             </div>
 
             <div class="assignment-grid" *ngIf="activeAssignableEmployees.length > 0">
@@ -307,14 +307,14 @@
         </div>
 
         <div class="page-state section-state" *ngIf="!hasVisibleSubServices()">
-          No sub-services have been configured for this business yet.
+          No services have been configured for this business yet.
         </div>
 
         <div class="service-table-shell" *ngIf="hasVisibleSubServices()" (scroll)="closeSubServiceMenu()">
           <table class="service-table">
             <thead>
               <tr>
-                <th scope="col">Sub Service</th>
+                <th scope="col">Service</th>
                 <th scope="col">Price</th>
                 <th scope="col">Duration</th>
                 <th scope="col">Employees Needed</th>
@@ -340,7 +340,7 @@
                       type="button"
                       class="menu-trigger-btn"
                       (click)="toggleSubServiceMenu($event, subService)"
-                      aria-label="Open sub-service actions">
+                      aria-label="Open service actions">
                       ⋯
                     </button>
                   </div>

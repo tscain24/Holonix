@@ -1,66 +1,75 @@
 <div class="uber-home-shell">
-  <header class="top-nav">
-    <div class="brand-mark">
-      <img src="assets/holonix-logo-blue.svg" alt="Holonix logo" />
-      <span>Holonix</span>
-    </div>
-
-    <nav class="top-links" aria-label="Primary" *ngIf="isLoggedIn">
-      <a routerLink="/home" routerLinkActive="top-link-active" class="top-link">Home</a>
-      <a routerLink="/business" routerLinkActive="top-link-active" class="top-link">Business</a>
-    </nav>
-
-    <div class="auth-actions" *ngIf="!isLoggedIn">
-      <a class="auth-link secondary" routerLink="/register">Sign up</a>
-      <a class="auth-link primary" routerLink="/login">Log in</a>
-    </div>
-
-    <div class="auth-actions auth-actions-logged-in" *ngIf="isLoggedIn">
-      <button type="button" class="profile-menu-trigger" (click)="toggleUserMenu($event)" aria-label="Open profile menu">
-        <img
-          *ngIf="profileImageDataUrl"
-          [src]="profileImageDataUrl"
-          alt="Profile picture"
-          class="profile-menu-image"
-        />
-        <span *ngIf="!profileImageDataUrl" class="profile-menu-initials">{{ userInitials }}</span>
-        <span class="profile-menu-name">{{ displayName }}</span>
-        <span class="profile-menu-caret" aria-hidden="true">&#9662;</span>
-      </button>
-
-      <div class="user-menu" *ngIf="isUserMenuOpen">
-        <button type="button" class="user-menu-item" (click)="viewProfile()">View Profile</button>
-        <button type="button" class="user-menu-item danger" (click)="signOut()">Sign Out</button>
-      </div>
-    </div>
-  </header>
-
   <app-home-summary *ngIf="isLoggedIn" [firstName]="firstName"></app-home-summary>
 
-  <section class="guest-search" [class.member-search]="isLoggedIn" aria-label="Service search">
-    <div class="guest-search-panel">
-      <span class="guest-search-kicker">{{ isLoggedIn ? 'Find Your Next Service' : 'Holonix Match' }}</span>
-      <h2>
-        {{ isLoggedIn
-          ? 'Search trusted local pros and book with confidence.'
-          : 'Find trusted local businesses for what you need.' }}
-      </h2>
-      <div class="guest-search-row">
-        <input
-          id="guestServiceInput"
-          type="search"
-          placeholder="What service do you need?"
-          aria-label="Service"
-        />
-        <div class="guest-search-location">
-          <span class="location-glyph" aria-hidden="true"></span>
-          <input 
-            id="guestLocationInput" 
-            type="text" 
-            placeholder="City or ZIP" 
-          aria-label="Location" />
+  <section class="guest-search" aria-label="Service search">
+    <div class="guest-search-inner">
+      <div class="guest-search-pill" aria-label="Trusted pros">
+        <mat-icon aria-hidden="true">verified</mat-icon>
+        <span>Trusted pros. On demand.</span>
+      </div>
+
+      <h1 class="guest-search-title">What do you need done?</h1>
+      <p class="guest-search-subtitle">Find trusted local pros and book with confidence.</p>
+
+      <div class="guest-search-card" role="search">
+        <div class="guest-search-field guest-search-field-service">
+          <mat-icon aria-hidden="true">search</mat-icon>
+          <div class="guest-search-field-body">
+            <label class="guest-search-label" for="guestServiceInput">What do you need?</label>
+            <input
+              id="guestServiceInput"
+              type="search"
+              placeholder="Ex: Plumbing repair, house cleaning, lawn mowing"
+              aria-label="What do you need?"
+            />
+          </div>
         </div>
-        <button type="button" aria-label="Search">{{ isLoggedIn ? 'Find Pros' : 'Search' }}</button>
+
+        <div class="guest-search-divider" aria-hidden="true"></div>
+
+        <div class="guest-search-field guest-search-field-location">
+          <mat-icon aria-hidden="true">location_on</mat-icon>
+          <div class="guest-search-field-body">
+            <label class="guest-search-label" for="guestLocationInput">Location</label>
+            <div class="guest-search-location-row">
+              <input
+                id="guestLocationInput"
+                type="text"
+                placeholder="Woodstock, GA 30188"
+                aria-label="Location"
+              />
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="guest-search-submit" aria-label="Search">Search</button>
+      </div>
+
+      <div class="guest-search-categories" aria-label="Popular categories">
+        <button
+          type="button"
+          class="guest-search-category"
+          *ngFor="let category of guestCategories"
+          [attr.aria-label]="category.label"
+        >
+          <mat-icon aria-hidden="true">{{ category.icon }}</mat-icon>
+          <span>{{ category.label }}</span>
+        </button>
+      </div>
+
+      <div class="guest-search-trust" aria-label="Trust signals">
+        <span class="guest-search-trust-item">
+          <mat-icon aria-hidden="true">verified_user</mat-icon>
+          Background checked
+        </span>
+        <span class="guest-search-trust-item">
+          <mat-icon aria-hidden="true">stars</mat-icon>
+          Verified reviews
+        </span>
+        <span class="guest-search-trust-item">
+          <mat-icon aria-hidden="true">lock</mat-icon>
+          Secure payments
+        </span>
       </div>
     </div>
   </section>

@@ -103,7 +103,7 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
       },
       error: () => {
         this.loadingServices = false;
-        this.snackBar.open('Could not load business services.', 'Close', {
+        this.snackBar.open('Could not load business categories.', 'Close', {
           duration: 3000,
           panelClass: ['snack-error'],
         });

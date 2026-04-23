@@ -26,10 +26,12 @@ import { BusinessEmployeesComponent } from './features/business/business-employe
 import { BusinessServiceManagerComponent } from './features/business/business-service-manager/business-service-manager.component';
 import { BusinessMyAvailabilityComponent } from './features/business/business-my-availability/business-my-availability.component';
 import { AuthInterceptor } from './core/services/auth.interceptor';
+import { AppHeaderComponent } from './core/components/app-header/app-header.component';
 
 @NgModule({
   declarations: [
     AppComponent,
+    AppHeaderComponent,
     LoginComponent,
     RegisterComponent,
     HomeComponent,

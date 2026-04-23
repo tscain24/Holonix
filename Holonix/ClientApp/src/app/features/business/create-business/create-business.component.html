@@ -51,7 +51,7 @@
             <span class="step-rail-number">1</span>
             <div>
               <strong>Business Details</strong>
-              <span>Name, services, and address</span>
+              <span>Name, categories, and address</span>
             </div>
           </div>
           <div class="step-rail-item" [class.step-rail-item-active]="currentStep === 2" [class.step-rail-item-complete]="currentStep > 2">
@@ -75,7 +75,7 @@
             <span class="intro-support-dot" aria-hidden="true"></span>
             <div>
               <strong>Get discovered for the right work</strong>
-              <span>Select the services you want to lead with so your business is positioned around what you do best.</span>
+              <span>Select the categories you want to lead with so your business is positioned around what you do best.</span>
             </div>
           </div>
           <div class="intro-support-item">
@@ -161,7 +161,7 @@
         </label>
 
         <div class="field field-span-2">
-          <span>Services <strong aria-hidden="true">*</strong></span>
+          <span>Categories <strong aria-hidden="true">*</strong></span>
           <div class="service-picker" [class.service-picker-invalid]="submitAttempted && selectedServices.length === 0">
             <div class="selected-service-list" *ngIf="selectedServices.length > 0">
               <button
@@ -191,7 +191,7 @@
               [class.service-dropdown-up]="serviceDropdownDirection === 'up'"
               *ngIf="serviceDropdownOpen"
             >
-              <div class="service-dropdown-state" *ngIf="loadingServices">Loading services...</div>
+              <div class="service-dropdown-state" *ngIf="loadingServices">Loading categories...</div>
               <button
                 *ngFor="let service of filteredServices; let i = index"
                 type="button"
@@ -202,7 +202,7 @@
                 {{ service.name }}
               </button>
               <div class="service-dropdown-state" *ngIf="!loadingServices && filteredServices.length === 0">
-                No matching services found.
+                No matching categories found.
               </div>
             </div>
           </div>
@@ -378,7 +378,7 @@
               <dd>{{ formatPhoneNumberForDisplay(businessForm.controls.businessPhoneNumber.value) || 'Not provided' }}</dd>
             </div>
             <div>
-              <dt>Services</dt>
+              <dt>Categories</dt>
               <dd>{{ selectedServicesSummary }}</dd>
             </div>
             <div>
