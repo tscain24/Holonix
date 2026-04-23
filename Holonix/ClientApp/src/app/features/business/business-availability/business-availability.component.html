@@ -53,7 +53,7 @@
       <section class="availability-hero">
         <p class="availability-kicker text-blue-600">Business Workspace</p>
         <h1>{{ business.name }} Availability</h1>
-        <p>Set the hours you are available to work for this business. These hours are specific to your membership here.</p>
+        <p>Set the hours you are available to work for this business.</p>
       </section>
 
       <section class="availability-section">
@@ -75,19 +75,47 @@
         <div class="calendar-legend" aria-label="Calendar legend">
            <div class="legend-item">
              <span class="legend-swatch legend-swatch-on" aria-hidden="true"></span>
-             Available
+             <span>Available</span>
            </div>
            <div class="legend-item">
              <span class="legend-swatch legend-swatch-partial" aria-hidden="true"></span>
-             Part. Avail
+             <span>Part. Avail</span>
            </div>
            <div class="legend-item">
              <span class="legend-swatch legend-swatch-off" aria-hidden="true"></span>
-             Time off
+             <span>Time off</span>
            </div>
            <div class="legend-item">
             <span class="legend-swatch legend-swatch-unavailable" aria-hidden="true"></span>
-            Unavailable
+            <span>Unavailable</span>
+            <span class="legend-info-shell">
+              <button
+                type="button"
+                class="legend-info-btn"
+                (click)="toggleLegendInfo($event)"
+                [attr.aria-expanded]="legendInfoOpen"
+                aria-label="Legend info"
+              >
+                i
+              </button>
+              <div
+                class="legend-info-popover"
+                *ngIf="legendInfoOpen"
+                role="dialog"
+                aria-label="Legend info details"
+              >
+                <div class="legend-info-title">Legend</div>
+                <div class="legend-info-list">
+                  <div class="legend-info-row" *ngFor="let item of legendInfoItems">
+                    <span class="legend-swatch" [ngClass]="item.swatchClass" aria-hidden="true"></span>
+                    <div class="legend-info-copy">
+                      <div class="legend-info-row-title">{{ item.title }}</div>
+                      <div class="legend-info-text">{{ item.description }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </span>
           </div>
         </div>
 
@@ -122,6 +150,16 @@
         <div class="calendar-detail" *ngIf="selectedCalendarDay as selected">
           <div class="calendar-detail-date">{{ formatEffectiveDate(selected.isoDate) }}</div>
           <div class="calendar-detail-hours">{{ selected.detailLabel }}</div>
+
+          <div class="calendar-team" *ngIf="loadingTeamAvailability">Loading team availability...</div>
+
+          <ng-container *ngIf="!loadingTeamAvailability && hasVisibleTeamAvailability">
+            <div class="calendar-team-title">Team availability</div>
+            <div class="calendar-team-row" *ngFor="let member of teamAvailabilityMembers">
+              <div class="calendar-team-name">{{ member.firstName }} {{ member.lastName }}</div>
+              <div class="calendar-team-hours">{{ teamMemberDetailLabel(member) }}</div>
+            </div>
+          </ng-container>
         </div>
       </section>
 

@@ -26,6 +26,7 @@ Base route: `api/business`
 - `POST /{businessCode}/leave`: current user leaves business.
 - `GET /{businessCode}/my-availability`: current user's availability for business.
 - `PUT /{businessCode}/my-availability`: replace current user's weekly availability.
+- `GET /{businessCode}/availability/team/daily`: role-filtered daily availability for visible team members.
 
 ## Entity Mapping
 

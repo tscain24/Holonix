@@ -681,6 +681,171 @@ public class BusinessController : ControllerBase
     }
 
     [Authorize]
+    [HttpGet("{businessCode}/availability/team/daily")]
+    public async Task<IActionResult> GetBusinessTeamDailyAvailability(
+        string businessCode,
+        [FromQuery] DateOnly date,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var currentBusinessUserId = await GetActiveBusinessUserIdAsync(businessId.Value, userId, cancellationToken);
+        if (!currentBusinessUserId.HasValue)
+        {
+            return Forbid();
+        }
+
+        var currentHierarchy = await GetActiveBusinessRoleHierarchyNumberAsync(businessId.Value, userId, cancellationToken);
+        if (!currentHierarchy.HasValue)
+        {
+            return Forbid();
+        }
+
+        var memberRows = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId.Value &&
+                businessUser.IsActive &&
+                businessUser.EndDate == null)
+            .Join(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRole) => new
+                {
+                    businessUser.BusinessUserId,
+                    businessUser.User.FirstName,
+                    businessUser.User.LastName,
+                    businessUserRole.BusinessRoleId,
+                })
+            .Join(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                item => item.BusinessRoleId,
+                role => role.BusinessRoleId,
+                (item, role) => new
+                {
+                    item.BusinessUserId,
+                    item.FirstName,
+                    item.LastName,
+                    role.HierarchyNumber,
+                })
+            .GroupBy(item => new
+            {
+                item.BusinessUserId,
+                item.FirstName,
+                item.LastName,
+            })
+            .Select(group => new
+            {
+                group.Key.BusinessUserId,
+                group.Key.FirstName,
+                group.Key.LastName,
+                HierarchyNumber = group.Max(item => item.HierarchyNumber),
+            })
+            .ToListAsync(cancellationToken);
+
+        var visibleMembers = memberRows
+            .Where(member =>
+                member.BusinessUserId == currentBusinessUserId.Value ||
+                member.HierarchyNumber < currentHierarchy.Value)
+            .OrderBy(member => member.LastName)
+            .ThenBy(member => member.FirstName)
+            .ToList();
+
+        var visibleMemberIds = visibleMembers.Select(member => member.BusinessUserId).ToList();
+        if (visibleMemberIds.Count == 0)
+        {
+            return Ok(new BusinessDailyTeamAvailabilityResponse(date, Array.Empty<BusinessDailyTeamAvailabilityMemberResponse>()));
+        }
+
+        var dayOfWeek = (byte)date.DayOfWeek;
+        var availabilityRows = await _dbContext.BusinessUserAvailabilities
+            .AsNoTracking()
+            .Where(item =>
+                visibleMemberIds.Contains(item.BusinessUserId) &&
+                item.DayOfWeek == dayOfWeek &&
+                item.EffectiveStartDate <= date &&
+                (!item.EffectiveEndDate.HasValue || item.EffectiveEndDate.Value >= date))
+            .ToListAsync(cancellationToken);
+
+        var dayOffMemberIds = await _dbContext.BusinessUserTimeOffs
+            .AsNoTracking()
+            .Where(item =>
+                visibleMemberIds.Contains(item.BusinessUserId) &&
+                item.EffectiveStartDate.HasValue &&
+                item.EffectiveEndDate.HasValue &&
+                item.IsAllDay == true &&
+                item.EffectiveStartDate.Value <= date &&
+                item.EffectiveEndDate.Value >= date)
+            .Select(item => item.BusinessUserId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var dayOffSet = dayOffMemberIds.ToHashSet();
+        var members = new List<BusinessDailyTeamAvailabilityMemberResponse>(visibleMembers.Count);
+
+        foreach (var member in visibleMembers)
+        {
+            if (dayOffSet.Contains(member.BusinessUserId))
+            {
+                members.Add(new BusinessDailyTeamAvailabilityMemberResponse(
+                    member.BusinessUserId,
+                    member.FirstName,
+                    member.LastName,
+                    false,
+                    Array.Empty<BusinessDailyTeamAvailabilityTimeFrameResponse>(),
+                    true));
+                continue;
+            }
+
+            var matches = availabilityRows
+                .Where(item => item.BusinessUserId == member.BusinessUserId)
+                .ToList();
+
+            if (matches.Count == 0)
+            {
+                members.Add(new BusinessDailyTeamAvailabilityMemberResponse(
+                    member.BusinessUserId,
+                    member.FirstName,
+                    member.LastName,
+                    false,
+                    Array.Empty<BusinessDailyTeamAvailabilityTimeFrameResponse>(),
+                    false));
+                continue;
+            }
+
+            var effectiveStartDate = matches.Max(item => item.EffectiveStartDate);
+            var frames = matches
+                .Where(item => item.EffectiveStartDate == effectiveStartDate)
+                .OrderBy(item => item.StartTime)
+                .Select(item => new BusinessDailyTeamAvailabilityTimeFrameResponse(item.StartTime, item.EndTime))
+                .ToList();
+
+            members.Add(new BusinessDailyTeamAvailabilityMemberResponse(
+                member.BusinessUserId,
+                member.FirstName,
+                member.LastName,
+                frames.Count > 0,
+                frames,
+                false));
+        }
+
+        return Ok(new BusinessDailyTeamAvailabilityResponse(date, members));
+    }
+
+    [Authorize]
     [HttpPut("{businessCode}/my-availability")]
     public async Task<IActionResult> UpdateMyBusinessAvailability(
         string businessCode,
@@ -2926,6 +3091,33 @@ public class BusinessController : ControllerBase
                 })
             .OrderByDescending(businessRole => businessRole.HierarchyNumber)
             .Select(businessRole => businessRole.Name)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<long?> GetActiveBusinessRoleHierarchyNumberAsync(
+        int businessId,
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        return await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId &&
+                businessUser.UserId == userId &&
+                businessUser.IsActive &&
+                businessUser.EndDate == null)
+            .Join(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (_, businessUserRole) => businessUserRole.BusinessRoleId)
+            .Join(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                businessRoleId => businessRoleId,
+                businessRole => businessRole.BusinessRoleId,
+                (_, businessRole) => businessRole.HierarchyNumber)
+            .OrderByDescending(hierarchyNumber => hierarchyNumber)
+            .Select(hierarchyNumber => (long?)hierarchyNumber)
             .FirstOrDefaultAsync(cancellationToken);
     }
 

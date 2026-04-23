@@ -4,6 +4,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   BusinessService,
   BusinessWorkspace,
+  BusinessDailyTeamAvailabilityMember,
   MyBusinessAvailability,
   MyBusinessAvailabilityDay,
   MyBusinessTimeOff,
@@ -68,12 +69,14 @@ type CalendarDay = {
   detailLabel: string;
 };
 
+type LegendInfoKey = 'available' | 'partialAvailable' | 'timeOff' | 'unavailable';
+
 @Component({
-  selector: 'app-business-my-availability',
-  templateUrl: './business-my-availability.component.html',
-  styleUrls: ['./business-my-availability.component.css'],
+  selector: 'app-business-availability',
+  templateUrl: './business-availability.component.html',
+  styleUrls: ['./business-availability.component.css'],
 })
-export class BusinessMyAvailabilityComponent implements OnInit {
+export class BusinessAvailabilityComponent implements OnInit {
   private static readonly TimeStepMinutes = 30;
   private static readonly TimePopoverMaxHeight = 280;
   private static readonly TimePopoverPadding = 8;
@@ -99,6 +102,7 @@ export class BusinessMyAvailabilityComponent implements OnInit {
   isEditingAvailability = false;
   private availabilityDaysSnapshot: AvailabilityDayEditor[] | null = null;
   businessWorkspace: BusinessWorkspace | null = null;
+  currentBusinessUserId = 0;
   effectiveStartDate = '';
   openTimePicker: OpenTimePickerState | null = null;
   openTimeOffPicker: OpenTimeOffPickerState | null = null;
@@ -115,6 +119,47 @@ export class BusinessMyAvailabilityComponent implements OnInit {
   calendarMonthLabel = '';
   calendarDays: CalendarDay[] = [];
   selectedCalendarDay: CalendarDay | null = null;
+  loadingTeamAvailability = false;
+  teamAvailabilityMembers: BusinessDailyTeamAvailabilityMember[] = [];
+  legendInfoOpen = false;
+  readonly legendInfoItems: Array<{
+    key: LegendInfoKey;
+    label: string;
+    swatchClass: string;
+    title: string;
+    description: string;
+  }> = [
+    {
+      key: 'available',
+      label: 'Available',
+      swatchClass: 'legend-swatch-on',
+      title: 'Available',
+      description: 'You have weekly availability hours set for this day, and no time off is affecting the day.',
+    },
+    {
+      key: 'partialAvailable',
+      label: 'Part. Avail',
+      swatchClass: 'legend-swatch-partial',
+      title: 'Part. Avail',
+      description:
+        'You have weekly availability hours, but time off overlaps some of those hours so only part of the day is available.',
+    },
+    {
+      key: 'timeOff',
+      label: 'Time off',
+      swatchClass: 'legend-swatch-off',
+      title: 'Time off',
+      description:
+        'Time off is applied for this day. This can be all-day time off, or time off that fully covers your weekly availability.',
+    },
+    {
+      key: 'unavailable',
+      label: 'Unavailable',
+      swatchClass: 'legend-swatch-unavailable',
+      title: 'Unavailable',
+      description: 'No weekly availability hours are set for this day (and no time off is applied).',
+    },
+  ];
   private calendarMonthStart: Date = new Date();
   private readonly minCalendarMonthKey: number;
   private readonly maxCalendarMonthKey: number;
@@ -292,11 +337,11 @@ export class BusinessMyAvailabilityComponent implements OnInit {
     }
 
     if (start !== end) {
-      return startTime === BusinessMyAvailabilityComponent.Midnight && endTime === BusinessMyAvailabilityComponent.Midnight;
+      return startTime === BusinessAvailabilityComponent.Midnight && endTime === BusinessAvailabilityComponent.Midnight;
     }
 
     if (startTime === endTime) {
-      return startTime === BusinessMyAvailabilityComponent.Midnight;
+      return startTime === BusinessAvailabilityComponent.Midnight;
     }
 
     return startTime < endTime;
@@ -324,11 +369,11 @@ export class BusinessMyAvailabilityComponent implements OnInit {
       return 'Time off must include both start and end times.';
     }
 
-    if (normalized.some((item) => item.startTime === item.endTime && item.startTime !== BusinessMyAvailabilityComponent.Midnight)) {
+    if (normalized.some((item) => item.startTime === item.endTime && item.startTime !== BusinessAvailabilityComponent.Midnight)) {
       return 'All day time off must be 12:00 AM to 12:00 AM.';
     }
 
-    if (normalized.some((item) => item.startDate !== item.endDate && (item.startTime !== BusinessMyAvailabilityComponent.Midnight || item.endTime !== BusinessMyAvailabilityComponent.Midnight))) {
+    if (normalized.some((item) => item.startDate !== item.endDate && (item.startTime !== BusinessAvailabilityComponent.Midnight || item.endTime !== BusinessAvailabilityComponent.Midnight))) {
       return 'Multi-day time off must be 12:00 AM to 12:00 AM.';
     }
 
@@ -337,7 +382,7 @@ export class BusinessMyAvailabilityComponent implements OnInit {
     }
 
     const allDay = normalized
-      .filter((item) => item.startTime === BusinessMyAvailabilityComponent.Midnight && item.endTime === BusinessMyAvailabilityComponent.Midnight)
+      .filter((item) => item.startTime === BusinessAvailabilityComponent.Midnight && item.endTime === BusinessAvailabilityComponent.Midnight)
       .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.endDate.localeCompare(b.endDate));
 
     for (let index = 1; index < allDay.length; index += 1) {
@@ -469,8 +514,8 @@ export class BusinessMyAvailabilityComponent implements OnInit {
     let startTime = (this.newDayOffStartTime ?? '').trim() || '00:00';
     let endTime = (this.newDayOffEndTime ?? '').trim() || '00:00';
     if (startDate !== endDate) {
-      startTime = BusinessMyAvailabilityComponent.Midnight;
-      endTime = BusinessMyAvailabilityComponent.Midnight;
+      startTime = BusinessAvailabilityComponent.Midnight;
+      endTime = BusinessAvailabilityComponent.Midnight;
     }
 
     this.daysOff = [
@@ -486,8 +531,8 @@ export class BusinessMyAvailabilityComponent implements OnInit {
 
     this.newDayOffStartDate = '';
     this.newDayOffEndDate = '';
-    this.newDayOffStartTime = BusinessMyAvailabilityComponent.Midnight;
-    this.newDayOffEndTime = BusinessMyAvailabilityComponent.Midnight;
+    this.newDayOffStartTime = BusinessAvailabilityComponent.Midnight;
+    this.newDayOffEndTime = BusinessAvailabilityComponent.Midnight;
 
     this.normalizeDaysOff();
     this.rebuildCalendar();
@@ -526,19 +571,19 @@ export class BusinessMyAvailabilityComponent implements OnInit {
     const start = (this.newDayOffStartDate ?? '').trim();
     const end = (this.newDayOffEndDate ?? '').trim();
     if (!start || !end || start !== end) {
-      this.newDayOffStartTime = BusinessMyAvailabilityComponent.Midnight;
-      this.newDayOffEndTime = BusinessMyAvailabilityComponent.Midnight;
+      this.newDayOffStartTime = BusinessAvailabilityComponent.Midnight;
+      this.newDayOffEndTime = BusinessAvailabilityComponent.Midnight;
       return;
     }
 
-    this.newDayOffStartTime = (this.newDayOffStartTime ?? '').trim() || BusinessMyAvailabilityComponent.Midnight;
-    this.newDayOffEndTime = (this.newDayOffEndTime ?? '').trim() || BusinessMyAvailabilityComponent.Midnight;
+    this.newDayOffStartTime = (this.newDayOffStartTime ?? '').trim() || BusinessAvailabilityComponent.Midnight;
+    this.newDayOffEndTime = (this.newDayOffEndTime ?? '').trim() || BusinessAvailabilityComponent.Midnight;
     if (
       this.newDayOffStartTime === this.newDayOffEndTime &&
-      this.newDayOffStartTime !== BusinessMyAvailabilityComponent.Midnight
+      this.newDayOffStartTime !== BusinessAvailabilityComponent.Midnight
     ) {
-      this.newDayOffStartTime = BusinessMyAvailabilityComponent.Midnight;
-      this.newDayOffEndTime = BusinessMyAvailabilityComponent.Midnight;
+      this.newDayOffStartTime = BusinessAvailabilityComponent.Midnight;
+      this.newDayOffEndTime = BusinessAvailabilityComponent.Midnight;
     }
   }
 
@@ -570,6 +615,43 @@ export class BusinessMyAvailabilityComponent implements OnInit {
 
   selectCalendarDay(day: CalendarDay): void {
     this.selectedCalendarDay = day;
+    this.loadTeamAvailabilityForSelectedDay();
+  }
+
+  toggleLegendInfo(event: MouseEvent): void {
+    event.stopPropagation();
+    this.legendInfoOpen = !this.legendInfoOpen;
+  }
+
+  get hasVisibleTeamAvailability(): boolean {
+    return (this.teamAvailabilityMembers ?? []).length > 0;
+  }
+
+  teamMemberDetailLabel(member: BusinessDailyTeamAvailabilityMember): string {
+    if (!member) {
+      return '';
+    }
+
+    if (member.isDayOff) {
+      return 'Time off';
+    }
+
+    if (!member.isAvailable) {
+      return 'Unavailable';
+    }
+
+    const frames = (member.timeFrames ?? [])
+      .map((frame) => {
+        const start = this.normalizeTime(frame?.startTime);
+        const end = this.normalizeTime(frame?.endTime);
+        if (!start || !end) {
+          return '';
+        }
+        return `${this.timeLabel(start)} - ${this.timeLabel(end)}`;
+      })
+      .filter(Boolean);
+
+    return frames.length > 0 ? frames.join(', ') : 'Available';
   }
 
   saveAvailability(): void {
@@ -707,15 +789,15 @@ export class BusinessMyAvailabilityComponent implements OnInit {
     const anchorLeft = rect?.left ?? 0;
 
     const width = this.computePopoverWidth();
-    const left = this.clamp(anchorLeft, BusinessMyAvailabilityComponent.TimePopoverPadding, window.innerWidth - width - BusinessMyAvailabilityComponent.TimePopoverPadding);
+    const left = this.clamp(anchorLeft, BusinessAvailabilityComponent.TimePopoverPadding, window.innerWidth - width - BusinessAvailabilityComponent.TimePopoverPadding);
 
     const direction = this.computePopoverDirection(anchorTop, anchorBottom);
     const top =
       direction === 'down'
-        ? anchorBottom + BusinessMyAvailabilityComponent.TimePopoverPadding
+        ? anchorBottom + BusinessAvailabilityComponent.TimePopoverPadding
         : Math.max(
-            BusinessMyAvailabilityComponent.TimePopoverPadding,
-            anchorTop - BusinessMyAvailabilityComponent.TimePopoverPadding - BusinessMyAvailabilityComponent.TimePopoverMaxHeight
+            BusinessAvailabilityComponent.TimePopoverPadding,
+            anchorTop - BusinessAvailabilityComponent.TimePopoverPadding - BusinessAvailabilityComponent.TimePopoverMaxHeight
           );
 
     this.openTimePicker = {
@@ -885,19 +967,19 @@ export class BusinessMyAvailabilityComponent implements OnInit {
     const width = this.computePopoverWidth();
     const left = this.clamp(
       anchorLeft,
-      BusinessMyAvailabilityComponent.TimePopoverPadding,
-      window.innerWidth - width - BusinessMyAvailabilityComponent.TimePopoverPadding
+      BusinessAvailabilityComponent.TimePopoverPadding,
+      window.innerWidth - width - BusinessAvailabilityComponent.TimePopoverPadding
     );
 
     const direction = this.computePopoverDirection(anchorTop, anchorBottom);
     const top =
       direction === 'down'
-        ? anchorBottom + BusinessMyAvailabilityComponent.TimePopoverPadding
+        ? anchorBottom + BusinessAvailabilityComponent.TimePopoverPadding
         : Math.max(
-            BusinessMyAvailabilityComponent.TimePopoverPadding,
+            BusinessAvailabilityComponent.TimePopoverPadding,
             anchorTop -
-              BusinessMyAvailabilityComponent.TimePopoverPadding -
-              BusinessMyAvailabilityComponent.TimePopoverMaxHeight
+              BusinessAvailabilityComponent.TimePopoverPadding -
+              BusinessAvailabilityComponent.TimePopoverMaxHeight
           );
 
     this.openTimeOffPicker = {
@@ -1048,6 +1130,10 @@ export class BusinessMyAvailabilityComponent implements OnInit {
     if (!element?.closest('.time-picker-shell')) {
       this.closePicker();
     }
+
+    if (!element?.closest('.legend-info-shell')) {
+      this.legendInfoOpen = false;
+    }
   }
 
   private loadAvailability(businessCode: string): void {
@@ -1081,6 +1167,7 @@ export class BusinessMyAvailabilityComponent implements OnInit {
       byDay.set(dayOfWeek, [...existing, entry]);
     }
 
+    this.currentBusinessUserId = response.businessUserId ?? 0;
     this.effectiveStartDate = response.effectiveStartDate ?? '';
     for (const day of this.availabilityDays) {
       const matches = byDay.get(day.dayOfWeek) ?? [];
@@ -1106,6 +1193,53 @@ export class BusinessMyAvailabilityComponent implements OnInit {
     this.availabilityDaysSnapshot = null;
     this.isEditingAvailability = false;
     this.closePicker();
+  }
+
+  private loadTeamAvailabilityForSelectedDay(): void {
+    const businessCode = (this.businessWorkspace?.businessCode ?? '').trim();
+    const dateIso = (this.selectedCalendarDay?.isoDate ?? '').trim();
+    if (!businessCode || !dateIso) {
+      this.teamAvailabilityMembers = [];
+      this.loadingTeamAvailability = false;
+      return;
+    }
+
+    this.loadingTeamAvailability = true;
+    this.businessService.getBusinessTeamDailyAvailability(businessCode, dateIso).subscribe({
+      next: (response) => {
+        this.loadingTeamAvailability = false;
+        const members = (response?.members ?? [])
+          .filter((member) => !!member)
+          .slice()
+          .sort((a, b) => {
+            const last = (a.lastName ?? '').localeCompare(b.lastName ?? '');
+            if (last !== 0) {
+              return last;
+            }
+            return (a.firstName ?? '').localeCompare(b.firstName ?? '');
+          });
+
+        const currentId = this.currentBusinessUserId;
+        this.teamAvailabilityMembers = currentId
+          ? members.filter((member) => (member?.businessUserId ?? 0) !== currentId)
+          : members;
+      },
+      error: (err) => {
+        this.loadingTeamAvailability = false;
+        this.teamAvailabilityMembers = [];
+
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
+        const errors = (err as { error?: { errors?: unknown } } | null | undefined)?.error?.errors;
+        const messages = Array.isArray(errors) ? errors.filter((value): value is string => typeof value === 'string') : [];
+        this.snackBar.open(messages[0] ?? 'Could not load team availability.', 'Close', {
+          duration: 3500,
+          panelClass: ['snack-error'],
+        });
+      },
+    });
   }
 
   private mapTimeOff(rows: MyBusinessTimeOff[]): DayOffEditor[] {
@@ -1371,7 +1505,7 @@ export class BusinessMyAvailabilityComponent implements OnInit {
   private buildTimeOptions(): string[] {
     const options: string[] = [];
     for (let hour = 0; hour < 24; hour += 1) {
-      for (let minutes = 0; minutes < 60; minutes += BusinessMyAvailabilityComponent.TimeStepMinutes) {
+      for (let minutes = 0; minutes < 60; minutes += BusinessAvailabilityComponent.TimeStepMinutes) {
         const hourLabel = `${hour}`.padStart(2, '0');
         const minuteLabel = `${minutes}`.padStart(2, '0');
         options.push(`${hourLabel}:${minuteLabel}`);
@@ -1585,10 +1719,10 @@ export class BusinessMyAvailabilityComponent implements OnInit {
       return;
     }
 
-    const popoverHeight = popover.offsetHeight || BusinessMyAvailabilityComponent.TimePopoverMaxHeight;
+    const popoverHeight = popover.offsetHeight || BusinessAvailabilityComponent.TimePopoverMaxHeight;
     const popoverWidth = popover.offsetWidth || state.width;
 
-    const padding = BusinessMyAvailabilityComponent.TimePopoverPadding;
+    const padding = BusinessAvailabilityComponent.TimePopoverPadding;
     const maxTop = Math.max(padding, window.innerHeight - popoverHeight - padding);
 
     const top =
@@ -1642,10 +1776,10 @@ export class BusinessMyAvailabilityComponent implements OnInit {
       return;
     }
 
-    const popoverHeight = popover.offsetHeight || BusinessMyAvailabilityComponent.TimePopoverMaxHeight;
+    const popoverHeight = popover.offsetHeight || BusinessAvailabilityComponent.TimePopoverMaxHeight;
     const popoverWidth = popover.offsetWidth || state.width;
 
-    const padding = BusinessMyAvailabilityComponent.TimePopoverPadding;
+    const padding = BusinessAvailabilityComponent.TimePopoverPadding;
     const maxTop = Math.max(padding, window.innerHeight - popoverHeight - padding);
 
     const top =
@@ -1659,8 +1793,8 @@ export class BusinessMyAvailabilityComponent implements OnInit {
   }
 
   private computePopoverDirection(anchorTop: number, anchorBottom: number): 'up' | 'down' {
-    const padding = BusinessMyAvailabilityComponent.TimePopoverPadding;
-    const required = BusinessMyAvailabilityComponent.TimePopoverMaxHeight + padding * 2;
+    const padding = BusinessAvailabilityComponent.TimePopoverPadding;
+    const required = BusinessAvailabilityComponent.TimePopoverMaxHeight + padding * 2;
     const spaceBelow = window.innerHeight - anchorBottom;
     const spaceAbove = anchorTop;
 

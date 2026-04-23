@@ -9,7 +9,7 @@ Business frontend work spans this folder and `src/app/core/services/business.ser
 - `business-workspace/`: overview tab, profile/general information editing, selected parent services, quick sub-service add/remove, job/employee summaries, delete/leave business.
 - `business-employees/`: employees tab, invites, paged employees, filters, sorting, role update, deactivate.
 - `business-service-manager/`: services tab focused on sub-services, assignment, filtering, paging, create/edit/delete.
-- `business-my-availability/`: current user's weekly availability for the business.
+- `business-availability/`: current user's weekly availability for the business.
 
 Routes are defined in `src/app/app-routing.module.ts` and use `businessCode`:
 
@@ -45,7 +45,7 @@ Keep frontend interfaces aligned with `Server/Contracts/Business/*` when changin
 - `business-workspace`: owner can manage parent services, edit profile/general information, delete business; owner/admin can manage sub-services; non-owner can leave.
 - `business-employees`: owner/admin can invite, close eligible invites, update eligible roles, and deactivate eligible employees based on backend flags.
 - `business-service-manager`: owner/admin can create/edit/delete sub-services.
-- `business-my-availability`: any active business member can edit their own availability.
+- `business-availability`: any active business member can edit their own availability.
 
 Backend remains the source of truth, but keep these guards aligned so UI does not expose impossible actions.
 

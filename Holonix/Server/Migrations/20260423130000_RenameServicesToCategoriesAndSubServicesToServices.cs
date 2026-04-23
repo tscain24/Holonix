@@ -149,6 +149,21 @@ public partial class RenameServicesToCategoriesAndSubServicesToServices : Migrat
             newName: "BusinessServiceAssignment",
             newSchema: "business");
 
+        migrationBuilder.DropIndex(
+            name: "IX_BusinessSubServiceAssignment_BusinessSubServiceId",
+            schema: "business",
+            table: "BusinessServiceAssignment");
+
+        migrationBuilder.DropIndex(
+            name: "IX_BusinessSubServiceAssignment_BusinessUserId",
+            schema: "business",
+            table: "BusinessServiceAssignment");
+
+        migrationBuilder.DropIndex(
+            name: "IX_BusinessSubServiceAssignment_BusinessSubServiceId_BusinessUserId",
+            schema: "business",
+            table: "BusinessServiceAssignment");
+
         migrationBuilder.RenameColumn(
             name: "BusinessSubServiceAssignmentId",
             schema: "business",
@@ -161,29 +176,30 @@ public partial class RenameServicesToCategoriesAndSubServicesToServices : Migrat
             table: "BusinessServiceAssignment",
             newName: "BusinessServiceId");
 
-        migrationBuilder.RenameIndex(
-            name: "IX_BusinessSubServiceAssignment_BusinessSubServiceId",
-            schema: "business",
-            table: "BusinessServiceAssignment",
-            newName: "IX_BusinessServiceAssignment_BusinessServiceId");
-
-        migrationBuilder.RenameIndex(
-            name: "IX_BusinessSubServiceAssignment_BusinessUserId",
-            schema: "business",
-            table: "BusinessServiceAssignment",
-            newName: "IX_BusinessServiceAssignment_BusinessUserId");
-
-        migrationBuilder.RenameIndex(
-            name: "IX_BusinessSubServiceAssignment_BusinessSubServiceId_BusinessUserId",
-            schema: "business",
-            table: "BusinessServiceAssignment",
-            newName: "IX_BusinessServiceAssignment_BusinessServiceId_BusinessUserId");
-
         migrationBuilder.AddPrimaryKey(
             name: "PK_BusinessServiceAssignment",
             schema: "business",
             table: "BusinessServiceAssignment",
             column: "BusinessServiceAssignmentId");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_BusinessServiceAssignment_BusinessServiceId",
+            schema: "business",
+            table: "BusinessServiceAssignment",
+            column: "BusinessServiceId");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_BusinessServiceAssignment_BusinessUserId",
+            schema: "business",
+            table: "BusinessServiceAssignment",
+            column: "BusinessUserId");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_BusinessServiceAssignment_BusinessServiceId_BusinessUserId",
+            schema: "business",
+            table: "BusinessServiceAssignment",
+            columns: new[] { "BusinessServiceId", "BusinessUserId" },
+            unique: true);
 
         migrationBuilder.AddForeignKey(
             name: "FK_BusinessCategory_Category_CategoryId",
@@ -238,23 +254,20 @@ public partial class RenameServicesToCategoriesAndSubServicesToServices : Migrat
             schema: "business",
             table: "BusinessServiceAssignment");
 
-        migrationBuilder.RenameIndex(
+        migrationBuilder.DropIndex(
             name: "IX_BusinessServiceAssignment_BusinessServiceId",
             schema: "business",
-            table: "BusinessServiceAssignment",
-            newName: "IX_BusinessSubServiceAssignment_BusinessSubServiceId");
+            table: "BusinessServiceAssignment");
 
-        migrationBuilder.RenameIndex(
+        migrationBuilder.DropIndex(
             name: "IX_BusinessServiceAssignment_BusinessUserId",
             schema: "business",
-            table: "BusinessServiceAssignment",
-            newName: "IX_BusinessSubServiceAssignment_BusinessUserId");
+            table: "BusinessServiceAssignment");
 
-        migrationBuilder.RenameIndex(
+        migrationBuilder.DropIndex(
             name: "IX_BusinessServiceAssignment_BusinessServiceId_BusinessUserId",
             schema: "business",
-            table: "BusinessServiceAssignment",
-            newName: "IX_BusinessSubServiceAssignment_BusinessSubServiceId_BusinessUserId");
+            table: "BusinessServiceAssignment");
 
         migrationBuilder.RenameColumn(
             name: "BusinessServiceAssignmentId",
@@ -279,6 +292,25 @@ public partial class RenameServicesToCategoriesAndSubServicesToServices : Migrat
             schema: "business",
             table: "BusinessSubServiceAssignment",
             column: "BusinessSubServiceAssignmentId");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_BusinessSubServiceAssignment_BusinessSubServiceId",
+            schema: "business",
+            table: "BusinessSubServiceAssignment",
+            column: "BusinessSubServiceId");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_BusinessSubServiceAssignment_BusinessUserId",
+            schema: "business",
+            table: "BusinessSubServiceAssignment",
+            column: "BusinessUserId");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_BusinessSubServiceAssignment_BusinessSubServiceId_BusinessUserId",
+            schema: "business",
+            table: "BusinessSubServiceAssignment",
+            columns: new[] { "BusinessSubServiceId", "BusinessUserId" },
+            unique: true);
 
         migrationBuilder.DropPrimaryKey(
             name: "PK_BusinessService",
@@ -422,4 +454,3 @@ public partial class RenameServicesToCategoriesAndSubServicesToServices : Migrat
             onDelete: ReferentialAction.Restrict);
     }
 }
-

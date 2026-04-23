@@ -24,7 +24,7 @@ import { BusinessOverviewComponent } from './features/business/business-overview
 import { BusinessWorkspaceComponent } from './features/business/business-workspace/business-workspace.component';
 import { BusinessEmployeesComponent } from './features/business/business-employees/business-employees.component';
 import { BusinessServiceManagerComponent } from './features/business/business-service-manager/business-service-manager.component';
-import { BusinessMyAvailabilityComponent } from './features/business/business-my-availability/business-my-availability.component';
+import { BusinessAvailabilityComponent } from './features/business/business-availability/business-availability.component';
 import { AuthInterceptor } from './core/services/auth.interceptor';
 import { AppHeaderComponent } from './core/components/app-header/app-header.component';
 
@@ -43,7 +43,7 @@ import { AppHeaderComponent } from './core/components/app-header/app-header.comp
     BusinessWorkspaceComponent,
     BusinessEmployeesComponent,
     BusinessServiceManagerComponent,
-    BusinessMyAvailabilityComponent
+    BusinessAvailabilityComponent
   ],
   imports: [
     BrowserModule,

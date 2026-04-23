@@ -197,6 +197,25 @@ export interface UpdateMyBusinessAvailabilityRequest {
   daysOff: UpdateMyBusinessTimeOffRequest[];
 }
 
+export interface BusinessDailyTeamAvailabilityTimeFrame {
+  startTime: string;
+  endTime: string;
+}
+
+export interface BusinessDailyTeamAvailabilityMember {
+  businessUserId: number;
+  firstName: string;
+  lastName: string;
+  isAvailable: boolean;
+  timeFrames: BusinessDailyTeamAvailabilityTimeFrame[];
+  isDayOff: boolean;
+}
+
+export interface BusinessDailyTeamAvailabilityResponse {
+  date: string;
+  members: BusinessDailyTeamAvailabilityMember[];
+}
+
 export interface BusinessWorkspace {
   businessId: number;
   businessCode: string;
@@ -338,6 +357,19 @@ export class BusinessService {
         }
 
         return this.tryGetMyBusinessAvailabilityFallback(businessCode, 0);
+      })
+    );
+  }
+
+  getBusinessTeamDailyAvailability(businessCode: string, dateIso: string): Observable<BusinessDailyTeamAvailabilityResponse> {
+    const url = `${this.businessEndpoint}/${businessCode}/availability/team/daily?date=${encodeURIComponent(dateIso)}`;
+    return this.http.get<BusinessDailyTeamAvailabilityResponse>(url).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryGetBusinessTeamDailyAvailabilityFallback(businessCode, dateIso, 0);
       })
     );
   }
@@ -648,6 +680,27 @@ export class BusinessService {
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
           return this.tryGetMyBusinessAvailabilityFallback(businessCode, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryGetBusinessTeamDailyAvailabilityFallback(
+    businessCode: string,
+    dateIso: string,
+    index: number
+  ): Observable<BusinessDailyTeamAvailabilityResponse> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Business team availability endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/availability/team/daily?date=${encodeURIComponent(dateIso)}`;
+    return this.http.get<BusinessDailyTeamAvailabilityResponse>(url).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryGetBusinessTeamDailyAvailabilityFallback(businessCode, dateIso, index + 1);
         }
 
         return throwError(() => err);
