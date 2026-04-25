@@ -200,8 +200,8 @@ export class BusinessEmployeesComponent implements OnInit {
   }
 
   signOut(): void {
-    this.authSession.clearSession();
-    this.router.navigate(['/login']);
+    this.isUserMenuOpen = false;
+    this.authSession.logout();
   }
 
   formatHiredDate(value: string): string {

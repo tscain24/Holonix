@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpBackend, HttpClient, HttpHeaders } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, catchError, finalize, map, of, shareReplay, tap, throwError } from 'rxjs';
+import { Observable, Subject, catchError, finalize, map, of, shareReplay, tap, throwError } from 'rxjs';
 import { LoginResponse } from './auth.service';
 
 @Injectable({
@@ -24,6 +24,8 @@ export class AuthSessionService {
 
   private readonly rawHttp: HttpClient;
   private refreshInFlight$: Observable<string> | null = null;
+  private readonly sessionChangedSubject = new Subject<void>();
+  readonly sessionChanged$ = this.sessionChangedSubject.asObservable();
 
   constructor(
     httpBackend: HttpBackend,
@@ -51,12 +53,19 @@ export class AuthSessionService {
     }
 
     localStorage.removeItem(this.sessionExpiredKey);
+    this.sessionChangedSubject.next();
   }
 
   clearSession(): void {
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.displayNameKey);
     localStorage.removeItem(this.profileImageKey);
+    this.sessionChangedSubject.next();
+  }
+
+  logout(): void {
+    this.clearSession();
+    void this.router.navigate(['/home'], { replaceUrl: true });
   }
 
   logoutDueToExpiredSession(): void {

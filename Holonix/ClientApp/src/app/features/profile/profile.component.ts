@@ -166,8 +166,7 @@ export class ProfileComponent implements OnInit {
   }
 
   signOut(): void {
-    this.authSession.clearSession();
-    this.router.navigate(['/login']);
+    this.authSession.logout();
   }
 
   openDeleteAccountModal(): void {

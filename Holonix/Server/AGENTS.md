@@ -4,7 +4,7 @@ This is the ASP.NET Core backend for Holonix.
 
 ## Stack
 
-- Target framework: `net8.0`.
+- Target framework: `net10.0`.
 - Main entry point: `Program.cs`.
 - Persistence: EF Core SQL Server with migrations in `Migrations/`.
 - Auth: ASP.NET Core Identity plus JWT bearer tokens.

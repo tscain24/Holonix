@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
+import { Subject, takeUntil } from 'rxjs';
 import { AuthSessionService } from '../../core/services/auth-session.service';
 import { BusinessService } from '../../core/services/business.service';
 
@@ -15,10 +16,11 @@ interface JwtPayload {
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.css'],
 })
-export class HomeComponent {
+export class HomeComponent implements OnInit, OnDestroy {
   isLoggedIn = false;
   hasBusiness = false;
   firstName = 'User';
+  private readonly destroyed$ = new Subject<void>();
   guestCategories = [
     { label: 'Cleaning', icon: 'cleaning_services' },
     { label: 'Plumbing', icon: 'plumbing' },
@@ -47,24 +49,16 @@ export class HomeComponent {
       history.replaceState({}, '');
     }
 
-    const token = localStorage.getItem('holonix_token');
-    const savedDisplayName = localStorage.getItem('holonix_display_name') ?? '';
-    this.isLoggedIn = !!token;
-    this.hasBusiness = this.hasOwnerRole(this.decodeJwtPayload(token));
-    this.firstName = (savedDisplayName.trim() || 'User').split(' ')[0] || 'User';
+    this.refreshSessionFromStorage(true);
 
-    if (this.isLoggedIn) {
-      this.businessService.getMyBusinesses().subscribe({
-        next: (businesses) => {
-          this.hasBusiness = businesses.length > 0;
-        },
-        error: () => {
-          if (this.authSession.hasSessionExpiredFlag()) {
-            return;
-          }
-        },
-      });
-    }
+    this.authSession.sessionChanged$
+      .pipe(takeUntil(this.destroyed$))
+      .subscribe(() => this.refreshSessionFromStorage(false));
+  }
+
+  ngOnDestroy(): void {
+    this.destroyed$.next();
+    this.destroyed$.complete();
   }
 
   goToBusinessEntry(): void {
@@ -106,5 +100,32 @@ export class HomeComponent {
     ].flatMap((value) => Array.isArray(value) ? value : value ? [value] : []);
 
     return roleValues.some((role) => role.toLowerCase() === 'owner');
+  }
+
+  private refreshSessionFromStorage(forceBusinessRefresh: boolean): void {
+    const previousLoggedIn = this.isLoggedIn;
+    const token = localStorage.getItem('holonix_token');
+    const savedDisplayName = localStorage.getItem('holonix_display_name') ?? '';
+    const nextLoggedIn = !!token;
+
+    this.isLoggedIn = nextLoggedIn;
+    this.hasBusiness = nextLoggedIn ? this.hasOwnerRole(this.decodeJwtPayload(token)) : false;
+    this.firstName = (savedDisplayName.trim() || 'User').split(' ')[0] || 'User';
+
+    const shouldRefreshBusinesses = nextLoggedIn && (forceBusinessRefresh || !previousLoggedIn);
+    if (!shouldRefreshBusinesses) {
+      return;
+    }
+
+    this.businessService.getMyBusinesses().subscribe({
+      next: (businesses) => {
+        this.hasBusiness = businesses.length > 0;
+      },
+      error: () => {
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+      },
+    });
   }
 }

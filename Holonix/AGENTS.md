@@ -4,7 +4,7 @@ Use this file as the first stop for Codex sessions. It is intentionally compact 
 
 ## Project Shape
 
-- `Server/`: ASP.NET Core Web API targeting `net8.0`.
+- `Server/`: ASP.NET Core Web API targeting `net10.0`.
 - `ClientApp/`: Angular 16 app using Angular Material, RxJS, Tailwind/PostCSS, and the Angular CLI.
 - Development entry point is the repo root PowerShell script `.\start-dev.ps1`; clean shutdown is `.\stop-dev.ps1`.
 - Expected local URLs: frontend `http://localhost:4200`, backend HTTP `http://localhost:5237`, backend HTTPS `https://localhost:7241`, Swagger `http://localhost:5237/swagger`.

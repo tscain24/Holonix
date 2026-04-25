@@ -3,17 +3,17 @@ using System;
 using Holonix.Server.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
 namespace Holonix.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260321161653_RenameIsSingleServiceToIsProductBased")]
-    partial class RenameIsSingleServiceToIsProductBased
+    [Migration("20260423195648_InitialPostgres")]
+    partial class InitialPostgres
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -22,86 +22,90 @@ namespace Holonix.Server.Migrations
             modelBuilder
                 .HasDefaultSchema("authentication")
                 .HasAnnotation("ProductVersion", "8.0.8")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)")
+                        .HasColumnType("text")
                         .HasColumnName("UsersId");
 
                     b.Property<int>("AccessFailedCount")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<DateOnly?>("DateOfBirth")
                         .HasColumnType("date");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("FirstName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("InactiveDate")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("LastName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<bool>("LockoutEnabled")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("NormalizedUserName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("PasswordHash")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("PhoneNumber")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("ProfileImageBase64")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("SecurityStamp")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<bool>("TwoFactorEnabled")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedEmail")
-                        .HasDatabaseName("EmailIndex");
+                        .IsUnique()
+                        .HasDatabaseName("EmailIndex")
+                        .HasFilter("\"NormalizedEmail\" IS NOT NULL AND \"InactiveDate\" IS NULL");
 
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
-                        .HasDatabaseName("UserNameIndex")
-                        .HasFilter("[NormalizedUserName] IS NOT NULL");
+                        .HasDatabaseName("UserNameIndex");
 
                     b.ToTable("Users", "authentication");
                 });
@@ -110,25 +114,36 @@ namespace Holonix.Server.Migrations
                 {
                     b.Property<int>("BusinessId")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BusinessId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("BusinessId"));
+
+                    b.Property<string>("BusinessCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateTime?>("InactiveDate")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsProductBased")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsRecurring")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");
 
                     b.HasKey("BusinessId");
+
+                    b.HasIndex("BusinessCode")
+                        .IsUnique();
 
                     b.ToTable("Business", "business");
                 });
@@ -136,31 +151,39 @@ namespace Holonix.Server.Migrations
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessDetails", b =>
                 {
                     b.Property<int>("BusinessId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Address1")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("Address2")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("BusinessEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("BusinessIconBase64")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<decimal>("BusinessJobPercentage")
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<string>("BusinessPhoneNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<string>("City")
                         .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
+                        .HasColumnType("character varying(120)");
 
                     b.Property<int?>("CountryId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<decimal?>("Latitude")
                         .HasColumnType("decimal(9,6)");
@@ -170,11 +193,11 @@ namespace Holonix.Server.Migrations
 
                     b.Property<string>("State")
                         .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
+                        .HasColumnType("character varying(120)");
 
                     b.Property<string>("ZipCode")
                         .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
+                        .HasColumnType("character varying(32)");
 
                     b.HasKey("BusinessId");
 
@@ -189,7 +212,7 @@ namespace Holonix.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("BusinessRoleId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("BusinessRoleId"));
 
                     b.Property<long>("HierarchyNumber")
                         .HasColumnType("bigint");
@@ -197,9 +220,12 @@ namespace Holonix.Server.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.HasKey("BusinessRoleId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
 
                     b.ToTable("BusinessRole", "business");
                 });
@@ -208,15 +234,17 @@ namespace Holonix.Server.Migrations
                 {
                     b.Property<long>("BusinessServiceId")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("bigint")
+                        .HasColumnName("BusinessCategoryId");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("BusinessServiceId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("BusinessServiceId"));
 
                     b.Property<int>("BusinessId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<int>("ServiceId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("CategoryId");
 
                     b.HasKey("BusinessServiceId");
 
@@ -224,7 +252,86 @@ namespace Holonix.Server.Migrations
 
                     b.HasIndex("ServiceId");
 
+                    b.ToTable("BusinessCategory", "business");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessSubService", b =>
+                {
+                    b.Property<long>("BusinessSubServiceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("BusinessServiceId");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("BusinessSubServiceId"));
+
+                    b.Property<int>("BusinessId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("ConsultationNeeded")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("EffectiveDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("EmployeeCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("InactiveDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ServiceId")
+                        .HasColumnType("integer")
+                        .HasColumnName("CategoryId");
+
+                    b.HasKey("BusinessSubServiceId");
+
+                    b.HasIndex("ServiceId");
+
+                    b.HasIndex("BusinessId", "ServiceId", "Name")
+                        .IsUnique()
+                        .HasFilter("\"InactiveDate\" IS NULL");
+
                     b.ToTable("BusinessService", "business");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessSubServiceAssignment", b =>
+                {
+                    b.Property<long>("BusinessSubServiceAssignmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("BusinessServiceAssignmentId");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("BusinessSubServiceAssignmentId"));
+
+                    b.Property<long>("BusinessSubServiceId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("BusinessServiceId");
+
+                    b.Property<long>("BusinessUserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("BusinessSubServiceAssignmentId");
+
+                    b.HasIndex("BusinessUserId");
+
+                    b.HasIndex("BusinessSubServiceId", "BusinessUserId")
+                        .IsUnique();
+
+                    b.ToTable("BusinessServiceAssignment", "business");
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessUser", b =>
@@ -233,28 +340,34 @@ namespace Holonix.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("BusinessUserId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("BusinessUserId"));
 
                     b.Property<int>("BusinessId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("EndDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ReportsToUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
 
                     b.Property<DateTime>("StartDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("character varying(450)");
 
                     b.HasKey("BusinessUserId");
 
                     b.HasIndex("BusinessId");
+
+                    b.HasIndex("ReportsToUserId");
 
                     b.HasIndex("UserId");
 
@@ -267,13 +380,13 @@ namespace Holonix.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("BusinessUserAvailabilityId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("BusinessUserAvailabilityId"));
 
                     b.Property<long>("BusinessUserId")
                         .HasColumnType("bigint");
 
                     b.Property<byte>("DayOfWeek")
-                        .HasColumnType("tinyint");
+                        .HasColumnType("smallint");
 
                     b.Property<DateOnly?>("EffectiveEndDate")
                         .HasColumnType("date");
@@ -282,10 +395,10 @@ namespace Holonix.Server.Migrations
                         .HasColumnType("date");
 
                     b.Property<TimeOnly>("EndTime")
-                        .HasColumnType("time");
+                        .HasColumnType("time without time zone");
 
                     b.Property<TimeOnly>("StartTime")
-                        .HasColumnType("time");
+                        .HasColumnType("time without time zone");
 
                     b.HasKey("BusinessUserAvailabilityId");
 
@@ -300,7 +413,7 @@ namespace Holonix.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("BusinessUserRoleId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("BusinessUserRoleId"));
 
                     b.Property<long>("BusinessRoleId")
                         .HasColumnType("bigint");
@@ -309,10 +422,10 @@ namespace Holonix.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<DateTime?>("EndDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("StartDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("BusinessUserRoleId");
 
@@ -329,7 +442,7 @@ namespace Holonix.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("BusinessUserTimeOffId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("BusinessUserTimeOffId"));
 
                     b.Property<long>("BusinessUserId")
                         .HasColumnType("bigint");
@@ -338,16 +451,16 @@ namespace Holonix.Server.Migrations
                         .HasColumnType("date");
 
                     b.Property<TimeOnly?>("EffectiveEndTime")
-                        .HasColumnType("time");
+                        .HasColumnType("time without time zone");
 
                     b.Property<DateOnly?>("EffectiveStartDate")
                         .HasColumnType("date");
 
                     b.Property<TimeOnly?>("EffectiveStartTime")
-                        .HasColumnType("time");
+                        .HasColumnType("time without time zone");
 
                     b.Property<bool?>("IsAllDay")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.HasKey("BusinessUserTimeOffId");
 
@@ -360,23 +473,23 @@ namespace Holonix.Server.Migrations
                 {
                     b.Property<int>("CountryId")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("CountryId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("CountryId"));
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
+                        .HasColumnType("character varying(120)");
 
                     b.Property<string>("ThreeLetterIsoCode")
                         .HasMaxLength(3)
-                        .HasColumnType("nvarchar(3)");
+                        .HasColumnType("character varying(3)");
 
                     b.Property<string>("TwoLetterIsoCode")
                         .IsRequired()
                         .HasMaxLength(2)
-                        .HasColumnType("nvarchar(2)");
+                        .HasColumnType("character varying(2)");
 
                     b.HasKey("CountryId");
 
@@ -385,12 +498,78 @@ namespace Holonix.Server.Migrations
 
                     b.HasIndex("ThreeLetterIsoCode")
                         .IsUnique()
-                        .HasFilter("[ThreeLetterIsoCode] IS NOT NULL");
+                        .HasFilter("\"ThreeLetterIsoCode\" IS NOT NULL");
 
                     b.HasIndex("TwoLetterIsoCode")
                         .IsUnique();
 
                     b.ToTable("Country", "reference");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.EmployeeInvite", b =>
+                {
+                    b.Property<long>("EmployeeInviteId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("EmployeeInviteId"));
+
+                    b.Property<int>("BusinessId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("NormalizedTargetEmail")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<long?>("TargetBusinessRoleId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("TargetEmail")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("TargetUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.HasKey("EmployeeInviteId");
+
+                    b.HasIndex("BusinessId");
+
+                    b.HasIndex("NormalizedTargetEmail");
+
+                    b.HasIndex("TargetBusinessRoleId");
+
+                    b.HasIndex("TargetUserId");
+
+                    b.ToTable("EmployeeInvite", "business");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.EmployeeInviteWorkload", b =>
+                {
+                    b.Property<long>("EmployeeInviteWorkloadId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("EmployeeInviteWorkloadId"));
+
+                    b.Property<long>("EmployeeInviteId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("WorkloadId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("EmployeeInviteWorkloadId");
+
+                    b.HasIndex("EmployeeInviteId")
+                        .IsUnique();
+
+                    b.HasIndex("WorkloadId")
+                        .IsUnique();
+
+                    b.ToTable("EmployeeInviteWorkload", "work");
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.Job", b =>
@@ -399,10 +578,10 @@ namespace Holonix.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("JobId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("JobId"));
 
                     b.Property<int>("BusinessId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<long?>("BusinessUserId")
                         .HasColumnType("bigint");
@@ -411,27 +590,27 @@ namespace Holonix.Server.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("EndDateTime")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsContract")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<long?>("JobRecurrenceId")
                         .HasColumnType("bigint");
 
                     b.Property<string>("Name")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<decimal>("NetCost")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("StartDateTime")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UserId")
                         .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("character varying(450)");
 
                     b.HasKey("JobId");
 
@@ -452,28 +631,28 @@ namespace Holonix.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("JobRecurrenceId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("JobRecurrenceId"));
 
                     b.Property<DateOnly?>("EndEffectiveDate")
                         .HasColumnType("date");
 
                     b.Property<TimeOnly>("EndTime")
-                        .HasColumnType("time");
+                        .HasColumnType("time without time zone");
 
                     b.Property<byte>("FrequencyId")
-                        .HasColumnType("tinyint");
+                        .HasColumnType("smallint");
 
                     b.Property<int>("Interval")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<DateOnly>("StartEffectiveDate")
                         .HasColumnType("date");
 
                     b.Property<TimeOnly>("StartTime")
-                        .HasColumnType("time");
+                        .HasColumnType("time without time zone");
 
                     b.HasKey("JobRecurrenceId");
 
@@ -486,7 +665,7 @@ namespace Holonix.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("JobRecurrenceExceptionId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("JobRecurrenceExceptionId"));
 
                     b.Property<DateOnly>("ExceptionDate")
                         .HasColumnType("date");
@@ -495,10 +674,10 @@ namespace Holonix.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<DateTime?>("OverrideEndDateTime")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("OverrideStartDateTime")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("JobRecurrenceExceptionId");
 
@@ -513,7 +692,7 @@ namespace Holonix.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("JobWorkloadId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("JobWorkloadId"));
 
                     b.Property<long>("JobId")
                         .HasColumnType("bigint");
@@ -534,21 +713,22 @@ namespace Holonix.Server.Migrations
                 {
                     b.Property<int>("ServiceId")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("CategoryId");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ServiceId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ServiceId"));
 
                     b.Property<DateTime?>("InactiveDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.HasKey("ServiceId");
 
-                    b.ToTable("Service", "service");
+                    b.ToTable("Category", "service");
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.Workload", b =>
@@ -557,10 +737,15 @@ namespace Holonix.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("WorkloadId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("WorkloadId"));
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
 
                     b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<long>("WorkloadStatusId")
                         .HasColumnType("bigint");
@@ -570,9 +755,11 @@ namespace Holonix.Server.Migrations
 
                     b.HasKey("WorkloadId");
 
-                    b.HasIndex("WorkloadStatusId");
+                    b.HasIndex("CreatedByUserId");
 
                     b.HasIndex("WorkloadTypeId");
+
+                    b.HasIndex("WorkloadStatusId", "WorkloadTypeId");
 
                     b.ToTable("Workload", "work");
                 });
@@ -583,19 +770,23 @@ namespace Holonix.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("WorkloadStatusId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("WorkloadStatusId"));
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
+                        .HasColumnType("character varying(120)");
 
                     b.Property<long>("WorkloadTypeId")
                         .HasColumnType("bigint");
 
                     b.HasKey("WorkloadStatusId");
 
-                    b.HasIndex("WorkloadTypeId");
+                    b.HasIndex("WorkloadStatusId", "WorkloadTypeId")
+                        .IsUnique();
+
+                    b.HasIndex("WorkloadTypeId", "Status")
+                        .IsUnique();
 
                     b.ToTable("WorkloadStatus", "work");
                 });
@@ -606,14 +797,17 @@ namespace Holonix.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("WorkloadTypeId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("WorkloadTypeId"));
 
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
+                        .HasColumnType("character varying(120)");
 
                     b.HasKey("WorkloadTypeId");
+
+                    b.HasIndex("Type")
+                        .IsUnique();
 
                     b.ToTable("WorkloadType", "work");
                 });
@@ -621,26 +815,25 @@ namespace Holonix.Server.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
                     b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("NormalizedName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedName")
                         .IsUnique()
-                        .HasDatabaseName("RoleNameIndex")
-                        .HasFilter("[NormalizedName] IS NOT NULL");
+                        .HasDatabaseName("RoleNameIndex");
 
                     b.ToTable("Roles", "authentication");
                 });
@@ -649,19 +842,19 @@ namespace Holonix.Server.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("RoleId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -674,19 +867,19 @@ namespace Holonix.Server.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("UserId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -698,17 +891,17 @@ namespace Holonix.Server.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ProviderKey")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ProviderDisplayName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("UserId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.HasKey("LoginProvider", "ProviderKey");
 
@@ -720,10 +913,10 @@ namespace Holonix.Server.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
                 {
                     b.Property<string>("UserId")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("RoleId")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.HasKey("UserId", "RoleId");
 
@@ -735,16 +928,16 @@ namespace Holonix.Server.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
                 {
                     b.Property<string>("UserId")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Value")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
@@ -788,6 +981,44 @@ namespace Holonix.Server.Migrations
                     b.Navigation("Service");
                 });
 
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessSubService", b =>
+                {
+                    b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Holonix.Server.Domain.Entities.Service", "Service")
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Business");
+
+                    b.Navigation("Service");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessSubServiceAssignment", b =>
+                {
+                    b.HasOne("Holonix.Server.Domain.Entities.BusinessSubService", "BusinessSubService")
+                        .WithMany()
+                        .HasForeignKey("BusinessSubServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Holonix.Server.Domain.Entities.BusinessUser", "BusinessUser")
+                        .WithMany()
+                        .HasForeignKey("BusinessUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BusinessSubService");
+
+                    b.Navigation("BusinessUser");
+                });
+
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessUser", b =>
                 {
                     b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
@@ -796,6 +1027,11 @@ namespace Holonix.Server.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Holonix.Server.Domain.Entities.ApplicationUser", "ReportsToUser")
+                        .WithMany()
+                        .HasForeignKey("ReportsToUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Holonix.Server.Domain.Entities.ApplicationUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -803,6 +1039,8 @@ namespace Holonix.Server.Migrations
                         .IsRequired();
 
                     b.Navigation("Business");
+
+                    b.Navigation("ReportsToUser");
 
                     b.Navigation("User");
                 });
@@ -846,6 +1084,50 @@ namespace Holonix.Server.Migrations
                         .IsRequired();
 
                     b.Navigation("BusinessUser");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.EmployeeInvite", b =>
+                {
+                    b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Holonix.Server.Domain.Entities.BusinessRole", "TargetBusinessRole")
+                        .WithMany()
+                        .HasForeignKey("TargetBusinessRoleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Holonix.Server.Domain.Entities.ApplicationUser", "TargetUser")
+                        .WithMany()
+                        .HasForeignKey("TargetUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Business");
+
+                    b.Navigation("TargetBusinessRole");
+
+                    b.Navigation("TargetUser");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.EmployeeInviteWorkload", b =>
+                {
+                    b.HasOne("Holonix.Server.Domain.Entities.EmployeeInvite", "EmployeeInvite")
+                        .WithMany()
+                        .HasForeignKey("EmployeeInviteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Holonix.Server.Domain.Entities.Workload", "Workload")
+                        .WithMany()
+                        .HasForeignKey("WorkloadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("EmployeeInvite");
+
+                    b.Navigation("Workload");
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.Job", b =>
@@ -912,9 +1194,9 @@ namespace Holonix.Server.Migrations
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.Workload", b =>
                 {
-                    b.HasOne("Holonix.Server.Domain.Entities.WorkloadStatus", "WorkloadStatus")
+                    b.HasOne("Holonix.Server.Domain.Entities.ApplicationUser", "CreatedByUser")
                         .WithMany()
-                        .HasForeignKey("WorkloadStatusId")
+                        .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -923,6 +1205,15 @@ namespace Holonix.Server.Migrations
                         .HasForeignKey("WorkloadTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Holonix.Server.Domain.Entities.WorkloadStatus", "WorkloadStatus")
+                        .WithMany()
+                        .HasForeignKey("WorkloadStatusId", "WorkloadTypeId")
+                        .HasPrincipalKey("WorkloadStatusId", "WorkloadTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
 
                     b.Navigation("WorkloadStatus");
 

@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Holonix.Server.Application.Interfaces;
 using Holonix.Server.Application.Results;
 using Holonix.Server.Contracts.Auth;
 using Holonix.Server.Domain.Entities;
+using System.Data.Common;
 
 namespace Holonix.Server.Application.Handlers.Auth;
 
@@ -56,7 +56,7 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
                     user => user.NormalizedEmail == normalizedEmail && user.InactiveDate == null,
                     cancellationToken);
         }
-        catch (SqlException ex)
+        catch (DbException ex)
         {
             _logger.LogError(ex, "Database unavailable while checking for existing email during registration.");
             return HandlerResult<RegisterResponse>.Fail(
@@ -92,7 +92,7 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
         {
             result = await _userManager.CreateAsync(user, request.Password);
         }
-        catch (SqlException ex)
+        catch (DbException ex)
         {
             _logger.LogError(ex, "Database unavailable while creating user during registration.");
             return HandlerResult<RegisterResponse>.Fail(

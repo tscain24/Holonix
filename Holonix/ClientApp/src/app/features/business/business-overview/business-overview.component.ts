@@ -91,8 +91,8 @@ export class BusinessOverviewComponent implements OnInit {
   }
 
   signOut(): void {
-    this.authSession.clearSession();
-    this.router.navigate(['/login']);
+    this.isUserMenuOpen = false;
+    this.authSession.logout();
   }
 
   getBusinessIconDataUrl(base64: string | null | undefined): string {

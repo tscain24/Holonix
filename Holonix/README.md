@@ -3,7 +3,7 @@
 Minimal ASP.NET Core Web API + Angular (ClientApp) starter scaffold.
 
 ## Structure
-- Server: `Server` — ASP.NET Core Web API (net8.0)
+- Server: `Server` — ASP.NET Core Web API (net10.0)
 - Client: `ClientApp` — Angular app (created with @angular/cli v16)
 
 ## Requirements
@@ -21,7 +21,7 @@ Preferred start from the repo root:
 This script:
 - stops previously recorded dev processes,
 - clears listeners on ports `4200`, `5237`, and `7241`,
-- stages the backend from `Server\bin\Debug\net8.0` into `.dev-runtime\server-run` before launch,
+- stages the backend from `Server\bin\Debug\net10.0` into `.dev-runtime\server-run` before launch,
 - starts the backend first and waits for Swagger,
 - starts the frontend second and waits for `http://localhost:4200`,
 - writes logs under `.dev-runtime/logs`.

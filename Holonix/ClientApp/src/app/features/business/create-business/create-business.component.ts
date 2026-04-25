@@ -159,8 +159,8 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
   }
 
   signOut(): void {
-    this.authSession.clearSession();
-    this.router.navigate(['/login']);
+    this.isUserMenuOpen = false;
+    this.authSession.logout();
   }
 
   goBack(): void {

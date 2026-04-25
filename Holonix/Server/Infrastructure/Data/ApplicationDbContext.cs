@@ -45,14 +45,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasKey(user => user.Id);
             entity.Property(user => user.Id)
                 .HasColumnName("UsersId");
-            entity.Property(user => user.InactiveDate)
-                .HasColumnType("datetime2");
-            entity.Property(user => user.ProfileImageBase64)
-                .HasColumnType("nvarchar(max)");
             entity.HasIndex(user => user.NormalizedEmail)
                 .HasDatabaseName("EmailIndex")
                 .IsUnique()
-                .HasFilter("[NormalizedEmail] IS NOT NULL AND [InactiveDate] IS NULL");
+                .HasFilter("\"NormalizedEmail\" IS NOT NULL AND \"InactiveDate\" IS NULL");
         });
 
         builder.Entity<IdentityRole>(entity =>
@@ -100,7 +96,6 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasKey(x => x.BusinessId);
             entity.Property(x => x.BusinessCode).IsRequired().HasMaxLength(10);
             entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
-            entity.Property(x => x.InactiveDate).HasColumnType("datetime2");
             entity.HasIndex(x => x.BusinessCode).IsUnique();
             entity.HasOne(x => x.Details)
                 .WithOne(x => x.Business)
@@ -112,7 +107,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         {
             entity.ToTable("BusinessDetails", "business");
             entity.HasKey(x => x.BusinessId);
-            entity.Property(x => x.Description).HasColumnType("nvarchar(max)");
+            entity.Property(x => x.Description);
             entity.Property(x => x.BusinessEmail).HasMaxLength(256);
             entity.Property(x => x.BusinessPhoneNumber).HasMaxLength(32);
             entity.Property(x => x.Address1).HasMaxLength(200);
@@ -122,7 +117,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(x => x.ZipCode).HasMaxLength(32);
             entity.Property(x => x.Latitude).HasColumnType("decimal(9,6)");
             entity.Property(x => x.Longitude).HasColumnType("decimal(9,6)");
-            entity.Property(x => x.BusinessIconBase64).HasColumnType("nvarchar(max)");
+            entity.Property(x => x.BusinessIconBase64);
             entity.Property(x => x.BusinessJobPercentage).HasColumnType("decimal(5,2)");
             entity.HasOne(x => x.Country)
                 .WithMany()
@@ -139,7 +134,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(x => x.ThreeLetterIsoCode).HasMaxLength(3);
             entity.HasIndex(x => x.Name).IsUnique();
             entity.HasIndex(x => x.TwoLetterIsoCode).IsUnique();
-            entity.HasIndex(x => x.ThreeLetterIsoCode).IsUnique().HasFilter("[ThreeLetterIsoCode] IS NOT NULL");
+            entity.HasIndex(x => x.ThreeLetterIsoCode).IsUnique().HasFilter("\"ThreeLetterIsoCode\" IS NOT NULL");
         });
 
         builder.Entity<BusinessService>(entity =>
@@ -165,16 +160,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(x => x.BusinessSubServiceId).HasColumnName("BusinessServiceId");
             entity.Property(x => x.ServiceId).HasColumnName("CategoryId");
             entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
-            entity.Property(x => x.Description).HasColumnType("nvarchar(max)");
-            entity.Property(x => x.ConsultationNeeded).HasColumnType("bit");
-            entity.Property(x => x.DurationMinutes).HasColumnType("int");
+            entity.Property(x => x.Description);
             entity.Property(x => x.Price).HasColumnType("decimal(18,2)");
-            entity.Property(x => x.EmployeeCount).HasColumnType("int");
             entity.Property(x => x.EffectiveDate).HasColumnType("date");
-            entity.Property(x => x.InactiveDate).HasColumnType("datetime2");
             entity.HasIndex(x => new { x.BusinessId, x.ServiceId, x.Name })
                 .IsUnique()
-                .HasFilter("[InactiveDate] IS NULL");
+                .HasFilter("\"InactiveDate\" IS NULL");
             entity.HasOne(x => x.Business)
                 .WithMany()
                 .HasForeignKey(x => x.BusinessId)

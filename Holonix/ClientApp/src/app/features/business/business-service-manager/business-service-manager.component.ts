@@ -191,8 +191,8 @@ export class BusinessServiceManagerComponent implements OnInit {
   }
 
   signOut(): void {
-    this.authSession.clearSession();
-    this.router.navigate(['/login']);
+    this.isUserMenuOpen = false;
+    this.authSession.logout();
   }
 
   get canManageSubServices(): boolean {

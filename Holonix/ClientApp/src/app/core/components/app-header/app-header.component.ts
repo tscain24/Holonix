@@ -46,10 +46,9 @@ export class AppHeaderComponent {
   }
 
   signOut(): void {
-    this.authSession.clearSession();
-    this.refreshSessionFromStorage();
     this.isUserMenuOpen = false;
-    this.router.navigate(['/home']);
+    this.authSession.logout();
+    this.refreshSessionFromStorage();
   }
 
   onSearchSubmit(event: Event): void {
@@ -85,4 +84,3 @@ export class AppHeaderComponent {
     this.hideHeader = route === '/login' || route === '/register';
   }
 }
-

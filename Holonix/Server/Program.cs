@@ -1,43 +1,28 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging.EventLog;
 using Holonix.Server.Application.Handlers.Auth;
 using Holonix.Server.Application.Interfaces;
 using Holonix.Server.Domain.Entities;
 using Holonix.Server.Infrastructure.Configuration;
 using Holonix.Server.Infrastructure.Data;
 using Holonix.Server.Infrastructure.Services;
-using System.Runtime.InteropServices;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+if (OperatingSystem.IsWindows())
 {
-    var azureCliPath = @"C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin";
-    var currentPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
-    if (Directory.Exists(azureCliPath) &&
-        !currentPath.Contains(azureCliPath, StringComparison.OrdinalIgnoreCase))
-    {
-        Environment.SetEnvironmentVariable("PATH", $"{azureCliPath};{currentPath}");
-    }
+    builder.Logging.AddFilter<EventLogLoggerProvider>(null, LogLevel.None);
 }
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<MapboxOptions>(builder.Configuration.GetSection(MapboxOptions.SectionName));
 
-if (builder.Environment.IsDevelopment())
-{
-    var tenantId = Environment.GetEnvironmentVariable("AZURE_TENANT_ID");
-    SqlAuthenticationProvider.SetProvider(
-        SqlAuthenticationMethod.ActiveDirectoryDefault,
-        new AzureCliSqlAuthenticationProvider(tenantId));
-}
-
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services
     .AddIdentityCore<ApplicationUser>(options =>
@@ -121,6 +106,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     await dbContext.Database.MigrateAsync();
 }
 
+await CountrySeeder.SeedAsync(app.Services);
 await BusinessRoleSeeder.SeedAsync(app.Services);
 await ServiceSeeder.SeedAsync(app.Services);
 await WorkloadReferenceSeeder.SeedAsync(app.Services);
@@ -139,4 +125,3 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
-

@@ -243,8 +243,8 @@ export class BusinessAvailabilityComponent implements OnInit {
   }
 
   signOut(): void {
-    this.authSession.clearSession();
-    this.router.navigate(['/login']);
+    this.isUserMenuOpen = false;
+    this.authSession.logout();
   }
 
   toggleUserMenu(event: MouseEvent): void {

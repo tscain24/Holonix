@@ -5,7 +5,7 @@ $serverDir = Join-Path $repoRoot "Server"
 $clientDir = Join-Path $repoRoot "ClientApp"
 $runtimeDir = Join-Path $repoRoot ".dev-runtime"
 $logDir = Join-Path $runtimeDir "logs"
-$serverBuildDir = Join-Path $serverDir "bin\Debug\net8.0"
+$serverBuildDir = Join-Path $serverDir "bin\Debug\net10.0"
 $serverRuntimeDir = Join-Path $runtimeDir "server-run"
 $serverPidFile = Join-Path $runtimeDir "server.pid"
 $clientPidFile = Join-Path $runtimeDir "client.pid"
@@ -151,15 +151,57 @@ function Start-BackgroundShell {
         -PassThru
 }
 
+function Assert-AspNetCoreRuntimeInstalled {
+    param(
+        [string]$RequiredMajorMinor = "8.0"
+    )
+
+    $runtimes = @()
+    try {
+        $runtimes = & dotnet --list-runtimes 2>$null
+    }
+    catch {
+        throw "dotnet is required but could not be executed. Ensure the .NET SDK is installed and available on PATH."
+    }
+
+    $requiredMajorMinorEscaped = [Regex]::Escape($RequiredMajorMinor)
+    $hasAspNet = $runtimes | Where-Object { $_ -match "^Microsoft\.AspNetCore\.App\s+$requiredMajorMinorEscaped\." } | Select-Object -First 1
+    if ($null -ne $hasAspNet) {
+        return
+    }
+
+    Write-Host ""
+    Write-Host "Missing required ASP.NET Core shared framework Microsoft.AspNetCore.App $RequiredMajorMinor.x."
+    Write-Host "The backend targets net$RequiredMajorMinor and cannot start without it."
+    Write-Host ""
+    Write-Host "Install one of the following, then re-run .\\start-dev.ps1:"
+    Write-Host "  - .NET SDK $RequiredMajorMinor (includes the ASP.NET Core runtime)"
+    Write-Host "  - ASP.NET Core Runtime $RequiredMajorMinor"
+    Write-Host ""
+
+    throw "Microsoft.AspNetCore.App $RequiredMajorMinor.x is not installed."
+}
+
 function Wait-ForUrl {
     param(
         [string]$Url,
         [string]$Name,
-        [int]$TimeoutSeconds = 120
+        [int]$TimeoutSeconds = 120,
+        [System.Diagnostics.Process]$Process = $null
     )
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     do {
+        if ($null -ne $Process -and $Process.HasExited) {
+            $exitCode = $null
+            try { $exitCode = $Process.ExitCode } catch { }
+            if ($null -ne $exitCode) {
+                throw "$Name process exited (exit code $exitCode) before becoming ready at $Url."
+            }
+
+            throw "$Name process exited before becoming ready at $Url."
+        }
+
         try {
             $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 5
             if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) {
@@ -219,14 +261,100 @@ function Stage-ServerBuildOutput {
     }
 }
 
+function Should-BuildBackend {
+    param(
+        [string]$ProjectDirectory,
+        [string]$ExecutablePath
+    )
+
+    if (-not (Test-Path $ExecutablePath)) {
+        return $true
+    }
+
+    $exeTime = (Get-Item $ExecutablePath).LastWriteTimeUtc
+    $newestSource = Get-ChildItem -Path $ProjectDirectory -Recurse -File `
+        -Include *.cs, *.csproj, *.json `
+        -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.FullName -notmatch '[\\/](bin|obj)[\\/]'
+        } |
+        Sort-Object LastWriteTimeUtc -Descending |
+        Select-Object -First 1
+
+    if ($null -eq $newestSource) {
+        return $false
+    }
+
+    return $newestSource.LastWriteTimeUtc -gt $exeTime
+}
+
+function Get-PostgresConnectionString {
+    $connectionFile = Join-Path $runtimeDir "postgres-connection-string.txt"
+
+    $existing = $env:ConnectionStrings__DefaultConnection
+    if (-not [string]::IsNullOrWhiteSpace($existing)) {
+        $trimmed = $existing.Trim()
+        if (-not (Test-Path $connectionFile)) {
+            $trimmed | Set-Content -Path $connectionFile
+            Write-Host "Saved connection string to $connectionFile"
+        }
+        return $trimmed
+    }
+
+    if (Test-Path $connectionFile) {
+        $saved = (Get-Content $connectionFile -ErrorAction SilentlyContinue | Select-Object -First 1).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($saved)) {
+            return $saved
+        }
+    }
+
+    Write-Host ""
+    Write-Host "Postgres connection is not configured via ConnectionStrings__DefaultConnection."
+    Write-Host "Enter your Azure Postgres Flexible Server connection details."
+    Write-Host ""
+
+    $defaultHost = "holonix.postgres.database.azure.com"
+    $hostValue = Read-Host "Host [$defaultHost]"
+    if ([string]::IsNullOrWhiteSpace($hostValue)) { $hostValue = $defaultHost }
+
+    $defaultDb = "postgres"
+    $dbValue = Read-Host "Database [$defaultDb]"
+    if ([string]::IsNullOrWhiteSpace($dbValue)) { $dbValue = $defaultDb }
+
+    $defaultUser = ""
+    $userValue = Read-Host "Username (server admin or app user)"
+    if ([string]::IsNullOrWhiteSpace($userValue)) {
+        throw "Username is required."
+    }
+
+    $passwordSecure = Read-Host "Password" -AsSecureString
+    $passwordValue = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+        [Runtime.InteropServices.Marshal]::SecureStringToBSTR($passwordSecure)
+    )
+    if ([string]::IsNullOrWhiteSpace($passwordValue)) {
+        throw "Password is required."
+    }
+
+    $connectionString = "Host=$hostValue;Port=5432;Database=$dbValue;Username=$userValue;Password=$passwordValue;Ssl Mode=Require;Include Error Detail=true"
+    $connectionString | Set-Content -Path $connectionFile
+    Write-Host "Saved connection string to $connectionFile"
+    return $connectionString
+}
+
 Stop-RecordedProcess -PidPath $serverPidFile -Name "backend"
 Stop-RecordedProcess -PidPath $clientPidFile -Name "frontend"
 Stop-PortListeners -Ports @(4200, 5237, 7241)
 Stop-RepoProcesses -RepoRoot $repoRoot
 Remove-LogFiles
 
+Assert-AspNetCoreRuntimeInstalled -RequiredMajorMinor "10.0"
+
 if (-not (Test-Path $serverExecutable)) {
-    Write-Host "Backend executable missing, building backend"
+    # Legacy fallback: handled by Should-BuildBackend.
+}
+
+if (Should-BuildBackend -ProjectDirectory $serverDir -ExecutablePath $serverExecutable) {
+    Write-Host "Building backend (source is newer than executable)"
     dotnet build $serverDir\Holonix.Server.csproj
 
     if (-not (Test-Path $serverExecutable)) {
@@ -236,9 +364,13 @@ if (-not (Test-Path $serverExecutable)) {
 
 Stage-ServerBuildOutput -SourceDirectory $serverBuildDir -DestinationDirectory $serverRuntimeDir
 
+$postgresConnectionString = Get-PostgresConnectionString
+$escapedConnectionString = $postgresConnectionString.Replace("'", "''")
+
 $serverCommand = @"
 `$env:ASPNETCORE_ENVIRONMENT = 'Development'
 `$env:ASPNETCORE_URLS = '$serverHttpsUrl;$serverHttpUrl'
+`$env:ConnectionStrings__DefaultConnection = '$escapedConnectionString'
 Set-Location '$serverRuntimeDir'
 & '$serverRuntimeExecutable'
 "@
@@ -261,7 +393,7 @@ $serverProcess.Id | Set-Content $serverPidFile
 "client stderr: $clientErr" | Add-Content $latestLogsFile
 
 try {
-    Wait-ForUrl -Url $serverSwaggerUrl -Name "Backend"
+    Wait-ForUrl -Url $serverSwaggerUrl -Name "Backend" -Process $serverProcess
 }
 catch {
     if (-not $serverProcess.HasExited) {
@@ -283,7 +415,7 @@ $clientProcess = Start-BackgroundShell `
 $clientProcess.Id | Set-Content $clientPidFile
 
 try {
-    Wait-ForUrl -Url $clientUrl -Name "Frontend"
+    Wait-ForUrl -Url $clientUrl -Name "Frontend" -Process $clientProcess
 }
 catch {
     if (-not $clientProcess.HasExited) {
