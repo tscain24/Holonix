@@ -7,11 +7,13 @@ namespace Holonix.Server.Infrastructure.Data;
 
 public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 {
+    public DbSet<UserAddress> UserAddresses => Set<UserAddress>();
     public DbSet<Service> Services => Set<Service>();
     public DbSet<BusinessService> BusinessServices => Set<BusinessService>();
     public DbSet<BusinessSubService> BusinessSubServices => Set<BusinessSubService>();
     public DbSet<BusinessSubServiceAssignment> BusinessSubServiceAssignments => Set<BusinessSubServiceAssignment>();
     public DbSet<Business> Businesses => Set<Business>();
+    public DbSet<BusinessAddress> BusinessAddresses => Set<BusinessAddress>();
     public DbSet<BusinessDetails> BusinessDetails => Set<BusinessDetails>();
     public DbSet<Country> Countries => Set<Country>();
     public DbSet<BusinessRole> BusinessRoles => Set<BusinessRole>();
@@ -49,6 +51,24 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .HasDatabaseName("EmailIndex")
                 .IsUnique()
                 .HasFilter("\"NormalizedEmail\" IS NOT NULL AND \"InactiveDate\" IS NULL");
+        });
+
+        builder.Entity<UserAddress>(entity =>
+        {
+            entity.ToTable("UserAddress");
+            entity.HasKey(x => x.UserId);
+            entity.Property(x => x.UserId).HasMaxLength(450);
+            entity.Property(x => x.Address1).IsRequired().HasMaxLength(200);
+            entity.Property(x => x.Address2).HasMaxLength(200);
+            entity.Property(x => x.City).IsRequired().HasMaxLength(120);
+            entity.Property(x => x.State).IsRequired().HasMaxLength(120);
+            entity.Property(x => x.ZipCode).IsRequired().HasMaxLength(32);
+            entity.Property(x => x.Latitude).HasColumnType("decimal(9,6)");
+            entity.Property(x => x.Longitude).HasColumnType("decimal(9,6)");
+            entity.HasOne(x => x.User)
+                .WithOne()
+                .HasForeignKey<UserAddress>(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<IdentityRole>(entity =>
@@ -101,6 +121,32 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .WithOne(x => x.Business)
                 .HasForeignKey<BusinessDetails>(x => x.BusinessId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<BusinessAddress>(entity =>
+        {
+            entity.ToTable("BusinessAddress", "business");
+            entity.HasKey(x => x.BusinessAddressId);
+            entity.Property(x => x.Address1).IsRequired().HasMaxLength(200);
+            entity.Property(x => x.Address2).HasMaxLength(200);
+            entity.Property(x => x.City).IsRequired().HasMaxLength(120);
+            entity.Property(x => x.State).IsRequired().HasMaxLength(120);
+            entity.Property(x => x.ZipCode).IsRequired().HasMaxLength(32);
+            entity.Property(x => x.Latitude).HasColumnType("decimal(9,6)");
+            entity.Property(x => x.Longitude).HasColumnType("decimal(9,6)");
+            entity.HasIndex(x => new { x.BusinessId, x.InactiveDate });
+            entity.HasIndex(x => x.CountryId);
+            entity.HasIndex(x => x.BusinessId)
+                .IsUnique()
+                .HasFilter("\"IsPrimary\" = TRUE AND \"InactiveDate\" IS NULL");
+            entity.HasOne(x => x.Business)
+                .WithMany(business => business.Addresses)
+                .HasForeignKey(x => x.BusinessId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Country)
+                .WithMany()
+                .HasForeignKey(x => x.CountryId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<BusinessDetails>(entity =>

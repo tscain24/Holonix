@@ -1,9 +1,14 @@
 using Holonix.Server.Application.Results;
-using Holonix.Server.Domain.Entities;
 
 namespace Holonix.Server.Application.Interfaces;
 
 public interface IGeocodingService
 {
-    Task<GeocodeAddressResult?> GeocodeBusinessDetailsAsync(BusinessDetails businessDetails, CancellationToken cancellationToken = default);
+    Task<GeocodeAddressResult?> GeocodeAsync(GeocodeAddressRequest request, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<GeocodeSuggestionResult>> AutocompleteAsync(
+        string query,
+        string? countryCode = null,
+        int limit = 5,
+        CancellationToken cancellationToken = default);
 }

@@ -6,6 +6,7 @@ using Holonix.Server.Application.Interfaces;
 using Holonix.Server.Application.Results;
 using Holonix.Server.Contracts.Auth;
 using Holonix.Server.Domain.Entities;
+using Holonix.Server.Infrastructure.Data;
 using System.Data.Common;
 
 namespace Holonix.Server.Application.Handlers.Auth;
@@ -13,13 +14,16 @@ namespace Holonix.Server.Application.Handlers.Auth;
 public sealed class RegisterUserHandler : IRegisterUserHandler
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ApplicationDbContext _dbContext;
     private readonly ILogger<RegisterUserHandler> _logger;
 
     public RegisterUserHandler(
         UserManager<ApplicationUser> userManager,
+        ApplicationDbContext dbContext,
         ILogger<RegisterUserHandler> logger)
     {
         _userManager = userManager;
+        _dbContext = dbContext;
         _logger = logger;
     }
 
@@ -33,6 +37,24 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
         if (string.IsNullOrWhiteSpace(request.FirstName) || string.IsNullOrWhiteSpace(request.LastName))
         {
             return HandlerResult<RegisterResponse>.Fail(StatusCodes.Status400BadRequest, "First and last name are required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Address1)
+            || string.IsNullOrWhiteSpace(request.City)
+            || string.IsNullOrWhiteSpace(request.State)
+            || string.IsNullOrWhiteSpace(request.ZipCode))
+        {
+            return HandlerResult<RegisterResponse>.Fail(StatusCodes.Status400BadRequest, "Address, city, state, and zip code are required.");
+        }
+
+        if (request.Latitude is < -90 or > 90)
+        {
+            return HandlerResult<RegisterResponse>.Fail(StatusCodes.Status400BadRequest, "Latitude must be between -90 and 90.");
+        }
+
+        if (request.Longitude is < -180 or > 180)
+        {
+            return HandlerResult<RegisterResponse>.Fail(StatusCodes.Status400BadRequest, "Longitude must be between -180 and 180.");
         }
 
         DateOnly? dateOfBirth = null;
@@ -113,6 +135,40 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
             return HandlerResult<RegisterResponse>.Fail(StatusCodes.Status400BadRequest, errors);
         }
 
+        try
+        {
+            var address = new UserAddress
+            {
+                UserId = user.Id,
+                Address1 = request.Address1.Trim(),
+                Address2 = string.IsNullOrWhiteSpace(request.Address2) ? null : request.Address2.Trim(),
+                City = request.City.Trim(),
+                State = request.State.Trim(),
+                ZipCode = request.ZipCode.Trim(),
+                Latitude = request.Latitude,
+                Longitude = request.Longitude,
+            };
+
+            _dbContext.UserAddresses.Add(address);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbException ex)
+        {
+            _logger.LogError(ex, "Database unavailable while saving user address during registration.");
+            await TryRollbackUserAsync(user);
+            return HandlerResult<RegisterResponse>.Fail(
+                StatusCodes.Status503ServiceUnavailable,
+                "Registration is temporarily unavailable. Please try again in a moment.");
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database update error while saving user address during registration.");
+            await TryRollbackUserAsync(user);
+            return HandlerResult<RegisterResponse>.Fail(
+                StatusCodes.Status503ServiceUnavailable,
+                "Registration is temporarily unavailable. Please try again in a moment.");
+        }
+
         var response = new RegisterResponse(
             user.FirstName,
             user.LastName,
@@ -120,6 +176,18 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
             user.PhoneNumber,
             user.ProfileImageBase64);
         return HandlerResult<RegisterResponse>.Ok(response);
+    }
+
+    private async Task TryRollbackUserAsync(ApplicationUser user)
+    {
+        try
+        {
+            await _userManager.DeleteAsync(user);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to rollback newly created user after address save failed.");
+        }
     }
 
     private static string? NormalizePhoneNumber(string? value)

@@ -22,6 +22,13 @@ export interface RegisterRequest {
   email: string;
   password: string;
   profileImageBase64?: string | null;
+  address1: string;
+  address2?: string | null;
+  city: string;
+  state: string;
+  zipCode: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface RegisterResponse {

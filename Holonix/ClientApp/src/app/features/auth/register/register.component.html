@@ -147,6 +147,90 @@
           </span>
         </label>
 
+        <div class="section-header full-span">
+          <h2>Address Information</h2>
+        </div>
+        <label class="full-span">
+          <span class="label-text">Address<span class="required">*</span></span>
+          <mat-form-field class="mat-shell" appearance="fill">
+            <input
+              matInput
+              type="text"
+              formControlName="address1"
+              placeholder="123 Main St"
+              autocomplete="street-address"
+            />
+          </mat-form-field>
+          <span class="error" *ngIf="form.controls.address1.touched && form.controls.address1.invalid">
+            Enter your street address.
+          </span>
+        </label>
+
+        <label class="full-span">
+          <span class="label-text">Address Line 2</span>
+          <mat-form-field class="mat-shell" appearance="fill">
+            <input
+              matInput
+              type="text"
+              formControlName="address2"
+              placeholder="Apt, suite, etc."
+              autocomplete="address-line2"
+            />
+          </mat-form-field>
+          <span class="error" *ngIf="form.controls.address2.touched && form.controls.address2.invalid">
+            Address line 2 must be 200 characters or fewer.
+          </span>
+        </label>
+
+        <label>
+          <span class="label-text">City<span class="required">*</span></span>
+          <mat-form-field class="mat-shell" appearance="fill">
+            <input
+              matInput
+              type="text"
+              formControlName="city"
+              placeholder="Woodstock"
+              autocomplete="address-level2"
+            />
+          </mat-form-field>
+          <span class="error" *ngIf="form.controls.city.touched && form.controls.city.invalid">
+            City is required.
+          </span>
+        </label>
+
+        <label>
+          <span class="label-text">State<span class="required">*</span></span>
+          <mat-form-field class="mat-shell" appearance="fill">
+            <input
+              matInput
+              type="text"
+              formControlName="state"
+              placeholder="GA"
+              autocomplete="address-level1"
+            />
+          </mat-form-field>
+          <span class="error" *ngIf="form.controls.state.touched && form.controls.state.invalid">
+            State is required.
+          </span>
+        </label>
+
+        <label class="full-span">
+          <span class="label-text">Zip Code<span class="required">*</span></span>
+          <mat-form-field class="mat-shell" appearance="fill">
+            <input
+              matInput
+              type="text"
+              formControlName="zipCode"
+              placeholder="30188"
+              autocomplete="postal-code"
+              inputmode="numeric"
+            />
+          </mat-form-field>
+          <span class="error" *ngIf="form.controls.zipCode.touched && form.controls.zipCode.invalid">
+            Zip code is required.
+          </span>
+        </label>
+
         <div class="form-note full-span">
           <span class="pill soft">Tips</span>
           <ul>

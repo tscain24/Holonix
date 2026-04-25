@@ -3,7 +3,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Holonix.Server.Application.Interfaces;
 using Holonix.Server.Application.Results;
-using Holonix.Server.Domain.Entities;
 using Holonix.Server.Infrastructure.Configuration;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
@@ -23,14 +22,14 @@ public sealed class MapboxGeocodingService : IGeocodingService
         _options = options.Value;
     }
 
-    public async Task<GeocodeAddressResult?> GeocodeBusinessDetailsAsync(BusinessDetails businessDetails, CancellationToken cancellationToken = default)
+    public async Task<GeocodeAddressResult?> GeocodeAsync(GeocodeAddressRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(_options.AccessToken))
         {
             throw new InvalidOperationException("Mapbox access token is missing.");
         }
 
-        var query = BuildQuery(businessDetails);
+        var query = BuildQuery(request);
         var requestUri = QueryHelpers.AddQueryString("/search/geocode/v6/forward", query);
 
         using var response = await _httpClient.GetAsync(requestUri, cancellationToken);
@@ -55,17 +54,86 @@ public sealed class MapboxGeocodingService : IGeocodingService
             FormattedAddress: feature?.Properties?.FullAddress ?? feature?.Properties?.PlaceFormatted);
     }
 
-    private Dictionary<string, string?> BuildQuery(BusinessDetails businessDetails)
+    public async Task<IReadOnlyList<GeocodeSuggestionResult>> AutocompleteAsync(
+        string query,
+        string? countryCode = null,
+        int limit = 5,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(_options.AccessToken))
+        {
+            throw new InvalidOperationException("Mapbox access token is missing.");
+        }
+
+        limit = Math.Clamp(limit, 1, 10);
+
+        var requestUri = QueryHelpers.AddQueryString("/search/geocode/v6/forward", new Dictionary<string, string?>
+        {
+            ["q"] = query.Trim(),
+            ["autocomplete"] = "true",
+            ["types"] = "address",
+            ["limit"] = limit.ToString(CultureInfo.InvariantCulture),
+            ["country"] = NormalizeOptional(countryCode) ?? _options.CountryCode,
+            ["permanent"] = _options.PermanentGeocoding ? "true" : "false",
+            ["access_token"] = _options.AccessToken,
+        }.Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
+            .ToDictionary(pair => pair.Key, pair => pair.Value));
+
+        using var response = await _httpClient.GetAsync(requestUri, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var geocodeResponse = await JsonSerializer.DeserializeAsync<MapboxGeocodeResponse>(responseStream, JsonOptions, cancellationToken);
+        var features = geocodeResponse?.Features ?? new List<MapboxFeature>();
+
+        return features
+            .Select(feature =>
+            {
+                var coordinates = feature.Geometry?.Coordinates;
+                if (coordinates is null || coordinates.Count < 2)
+                {
+                    return null;
+                }
+
+                var longitude = Convert.ToDecimal(coordinates[0], CultureInfo.InvariantCulture);
+                var latitude = Convert.ToDecimal(coordinates[1], CultureInfo.InvariantCulture);
+                var properties = feature.Properties;
+                var context = properties?.Context;
+
+                var address1 = (properties?.NamePreferred ?? properties?.Name ?? properties?.FullAddress ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(address1))
+                {
+                    return null;
+                }
+
+                var state = NormalizeOptional(context?.Region?.RegionCode) ?? NormalizeOptional(context?.Region?.Name);
+
+                return new GeocodeSuggestionResult(
+                    MapboxId: properties?.MapboxId ?? feature.Id,
+                    FullAddress: NormalizeOptional(properties?.FullAddress) ?? NormalizeOptional(properties?.PlaceFormatted),
+                    Address1: address1,
+                    City: NormalizeOptional(context?.Place?.Name),
+                    State: state,
+                    ZipCode: NormalizeOptional(context?.Postcode?.Name),
+                    CountryCode: NormalizeOptional(context?.Country?.CountryCode),
+                    Latitude: latitude,
+                    Longitude: longitude);
+            })
+            .Where(item => item is not null)
+            .Cast<GeocodeSuggestionResult>()
+            .ToList();
+    }
+
+    private Dictionary<string, string?> BuildQuery(GeocodeAddressRequest request)
     {
         var query = new Dictionary<string, string?>
         {
-            ["address_line1"] = BuildAddressLine1(businessDetails),
-            ["place"] = businessDetails.City,
-            ["region"] = businessDetails.State,
-            ["postcode"] = businessDetails.ZipCode,
-            ["country"] = string.IsNullOrWhiteSpace(businessDetails.Country?.TwoLetterIsoCode)
-                ? _options.CountryCode
-                : businessDetails.Country.TwoLetterIsoCode,
+            ["address_line1"] = NormalizeRequired(request.Address1),
+            ["address_line2"] = NormalizeOptional(request.Address2),
+            ["place"] = NormalizeRequired(request.City),
+            ["region"] = NormalizeRequired(request.State),
+            ["postcode"] = NormalizeRequired(request.ZipCode),
+            ["country"] = NormalizeOptional(request.CountryCode) ?? _options.CountryCode,
             ["autocomplete"] = "false",
             ["permanent"] = _options.PermanentGeocoding ? "true" : "false",
             ["access_token"] = _options.AccessToken,
@@ -76,14 +144,19 @@ public sealed class MapboxGeocodingService : IGeocodingService
             .ToDictionary(pair => pair.Key, pair => pair.Value);
     }
 
-    private static string? BuildAddressLine1(BusinessDetails businessDetails)
+    private static string NormalizeRequired(string value)
     {
-        if (string.IsNullOrWhiteSpace(businessDetails.Address1))
+        return value.Trim();
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
         {
             return null;
         }
 
-        return businessDetails.Address1.Trim();
+        return value.Trim();
     }
 
     private sealed class MapboxGeocodeResponse
@@ -94,6 +167,9 @@ public sealed class MapboxGeocodingService : IGeocodingService
 
     private sealed class MapboxFeature
     {
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
         [JsonPropertyName("geometry")]
         public MapboxGeometry? Geometry { get; set; }
 
@@ -109,10 +185,55 @@ public sealed class MapboxGeocodingService : IGeocodingService
 
     private sealed class MapboxProperties
     {
+        [JsonPropertyName("mapbox_id")]
+        public string? MapboxId { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("name_preferred")]
+        public string? NamePreferred { get; set; }
+
         [JsonPropertyName("full_address")]
         public string? FullAddress { get; set; }
 
         [JsonPropertyName("place_formatted")]
         public string? PlaceFormatted { get; set; }
+
+        [JsonPropertyName("context")]
+        public MapboxContext? Context { get; set; }
+    }
+
+    private sealed class MapboxContext
+    {
+        [JsonPropertyName("country")]
+        public MapboxContextItem? Country { get; set; }
+
+        [JsonPropertyName("region")]
+        public MapboxContextRegionItem? Region { get; set; }
+
+        [JsonPropertyName("postcode")]
+        public MapboxContextItem? Postcode { get; set; }
+
+        [JsonPropertyName("place")]
+        public MapboxContextItem? Place { get; set; }
+    }
+
+    private sealed class MapboxContextItem
+    {
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("country_code")]
+        public string? CountryCode { get; set; }
+    }
+
+    private sealed class MapboxContextRegionItem
+    {
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("region_code")]
+        public string? RegionCode { get; set; }
     }
 }

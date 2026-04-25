@@ -19,6 +19,11 @@ export class RegisterComponent {
     lastname: ['', [Validators.required, Validators.minLength(2)]],
     phoneNumber: ['', [Validators.maxLength(32)]],
     dateOfBirth: [null as Date | null, [Validators.required, minimumAgeValidator(13)]],
+    address1: ['', [Validators.required, Validators.maxLength(200)]],
+    address2: ['', [Validators.maxLength(200)]],
+    city: ['', [Validators.required, Validators.maxLength(120)]],
+    state: ['', [Validators.required, Validators.maxLength(120)]],
+    zipCode: ['', [Validators.required, Validators.maxLength(32)]],
     email: ['', [Validators.required, Validators.email]],
     password: [
       '',
@@ -97,6 +102,13 @@ export class RegisterComponent {
       email: rawValue.email ?? '',
       password: rawValue.password ?? '',
       dateOfBirth: dateValue instanceof Date ? dateValue.toISOString().split('T')[0] : '',
+      address1: (rawValue.address1 ?? '').trim(),
+      address2: (rawValue.address2 ?? '').trim() || null,
+      city: (rawValue.city ?? '').trim(),
+      state: (rawValue.state ?? '').trim(),
+      zipCode: (rawValue.zipCode ?? '').trim(),
+      latitude: null,
+      longitude: null,
     };
     this.auth.register(payload).subscribe({
       next: (res) => {

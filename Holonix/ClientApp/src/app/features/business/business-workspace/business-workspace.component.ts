@@ -1,6 +1,7 @@
 import { Component, ElementRef, HostListener, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, of, switchMap } from 'rxjs';
 import {
   BusinessService,
   BusinessServiceOption,
@@ -10,6 +11,7 @@ import {
   BusinessWorkspaceSubService,
 } from '../../../core/services/business.service';
 import { AuthSessionService } from '../../../core/services/auth-session.service';
+import { AddressSuggestion, GeocodingService } from '../../../core/services/geocoding.service';
 
 interface VisibleBusinessSubService extends BusinessWorkspaceSubService {
   parentServiceName: string;
@@ -49,6 +51,8 @@ export class BusinessWorkspaceComponent implements OnInit {
   editBusinessIconBase64: string | null = null;
   editAddress1 = '';
   editAddress2 = '';
+  editLatitude: number | null = null;
+  editLongitude: number | null = null;
   editBusinessEmail = '';
   editBusinessPhoneNumber = '';
   editCity = '';
@@ -58,6 +62,15 @@ export class BusinessWorkspaceComponent implements OnInit {
   deleteBusinessConfirmation = '';
   businessWorkspace: BusinessWorkspace | null = null;
   allServices: BusinessServiceOption[] = [];
+  addressSuggestions: AddressSuggestion[] = [];
+  addressDropdownOpen = false;
+  highlightedAddressIndex = -1;
+  loadingAddressSuggestions = false;
+  addressAutocompleteError: string | null = null;
+  confirmGeneralInfoAddressModalOpen = false;
+  pendingGeneralInfoAddress: AddressSuggestion | null = null;
+  resolvingGeneralInfoAddress = false;
+  private readonly addressSearch$ = new Subject<string>();
   subServiceDrafts: Record<number, string> = {};
   subServiceEffectiveDateDrafts: Record<number, string> = {};
 
@@ -67,7 +80,8 @@ export class BusinessWorkspaceComponent implements OnInit {
     private readonly elementRef: ElementRef<HTMLElement>,
     private readonly snackBar: MatSnackBar,
     private readonly businessService: BusinessService,
-    private readonly authSession: AuthSessionService
+    private readonly authSession: AuthSessionService,
+    private readonly geocodingService: GeocodingService
   ) {}
 
   ngOnInit(): void {
@@ -87,6 +101,46 @@ export class BusinessWorkspaceComponent implements OnInit {
       this.router.navigate(['/business']);
       return;
     }
+
+    this.addressSearch$
+      .pipe(
+        debounceTime(350),
+        distinctUntilChanged(),
+        switchMap((value) => {
+          const term = value.trim();
+          if (term.length < 3 || !this.editingGeneralInformation) {
+            this.addressSuggestions = [];
+            this.loadingAddressSuggestions = false;
+            this.addressAutocompleteError = null;
+            return of([]);
+          }
+
+          this.loadingAddressSuggestions = true;
+          this.addressAutocompleteError = null;
+          return this.geocodingService.getAddressSuggestions(term, null, 5).pipe(
+            catchError((err) => {
+              // eslint-disable-next-line no-console
+              console.error('Failed to load address suggestions.', err);
+              if (err?.status === 401) {
+                this.addressAutocompleteError = 'Your session expired. Please sign in again.';
+              } else {
+                this.addressAutocompleteError = 'Could not load address suggestions.';
+              }
+
+              return of([]);
+            }),
+            finalize(() => {
+              this.loadingAddressSuggestions = false;
+            })
+          );
+        })
+      )
+      .subscribe((suggestions) => {
+        this.addressSuggestions = suggestions;
+        if (this.addressDropdownOpen && suggestions.length === 0) {
+          this.highlightedAddressIndex = -1;
+        }
+      });
 
     this.businessService.getBusinessWorkspace(businessCode).subscribe({
       next: (workspace) => {
@@ -582,10 +636,78 @@ export class BusinessWorkspaceComponent implements OnInit {
 
   onAddress1Input(event: Event): void {
     this.editAddress1 = (event.target as HTMLInputElement).value;
+    this.editLatitude = null;
+    this.editLongitude = null;
+    this.addressDropdownOpen = true;
+    this.highlightedAddressIndex = this.addressSuggestions.length > 0 ? 0 : -1;
+    this.addressSearch$.next(this.editAddress1);
+  }
+
+  openAddressDropdown(): void {
+    this.addressDropdownOpen = true;
+    this.highlightedAddressIndex = this.addressSuggestions.length > 0 ? 0 : -1;
+    this.addressSearch$.next(this.editAddress1);
+  }
+
+  closeAddressDropdown(): void {
+    window.setTimeout(() => {
+      this.addressDropdownOpen = false;
+      this.highlightedAddressIndex = -1;
+    }, 120);
+  }
+
+  onAddressSearchKeydown(event: KeyboardEvent): void {
+    const options = this.addressSuggestions;
+    if (options.length === 0 && event.key !== 'Escape') {
+      return;
+    }
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        this.addressDropdownOpen = true;
+        this.highlightedAddressIndex = options.length === 0
+          ? -1
+          : (this.highlightedAddressIndex + 1 + options.length) % options.length;
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        this.addressDropdownOpen = true;
+        this.highlightedAddressIndex = options.length === 0
+          ? -1
+          : (this.highlightedAddressIndex - 1 + options.length) % options.length;
+        break;
+      case 'Enter':
+        if (!this.addressDropdownOpen || this.highlightedAddressIndex < 0 || this.highlightedAddressIndex >= options.length) {
+          return;
+        }
+
+        event.preventDefault();
+        this.selectAddressSuggestion(options[this.highlightedAddressIndex]);
+        break;
+      case 'Escape':
+        this.addressDropdownOpen = false;
+        this.highlightedAddressIndex = -1;
+        break;
+    }
+  }
+
+  selectAddressSuggestion(suggestion: AddressSuggestion): void {
+    this.editAddress1 = suggestion.address1;
+    this.editCity = suggestion.city ?? '';
+    this.editState = suggestion.state ?? '';
+    this.editZipCode = suggestion.zipCode ?? '';
+    this.editLatitude = suggestion.latitude;
+    this.editLongitude = suggestion.longitude;
+
+    this.addressDropdownOpen = false;
+    this.highlightedAddressIndex = -1;
   }
 
   onAddress2Input(event: Event): void {
     this.editAddress2 = (event.target as HTMLInputElement).value;
+    this.editLatitude = null;
+    this.editLongitude = null;
   }
 
   onBusinessEmailInput(event: Event): void {
@@ -608,14 +730,20 @@ export class BusinessWorkspaceComponent implements OnInit {
 
   onCityInput(event: Event): void {
     this.editCity = (event.target as HTMLInputElement).value;
+    this.editLatitude = null;
+    this.editLongitude = null;
   }
 
   onStateInput(event: Event): void {
     this.editState = (event.target as HTMLInputElement).value;
+    this.editLatitude = null;
+    this.editLongitude = null;
   }
 
   onZipCodeInput(event: Event): void {
     this.editZipCode = (event.target as HTMLInputElement).value;
+    this.editLatitude = null;
+    this.editLongitude = null;
   }
 
   onBusinessJobPercentageInput(event: Event): void {
@@ -651,6 +779,8 @@ export class BusinessWorkspaceComponent implements OnInit {
       city: workspace.city?.trim() || '',
       state: workspace.state?.trim() || '',
       zipCode: workspace.zipCode?.trim() || '',
+      latitude: null,
+      longitude: null,
       businessJobPercentage: workspace.businessJobPercentage,
     }).subscribe({
       next: (updatedProfile) => {
@@ -719,6 +849,82 @@ export class BusinessWorkspaceComponent implements OnInit {
       return;
     }
 
+    const shouldResolveCoordinates =
+      this.editLatitude === null
+      && this.editLongitude === null
+      && this.editAddress1.trim().length > 0
+      && this.editCity.trim().length > 0
+      && this.editState.trim().length > 0
+      && this.editZipCode.trim().length > 0;
+
+    if (shouldResolveCoordinates) {
+      this.resolvingGeneralInfoAddress = true;
+      this.geocodingService.resolveAddress({
+        address1: this.editAddress1.trim(),
+        address2: this.editAddress2.trim() || null,
+        city: this.editCity.trim(),
+        state: this.editState.trim(),
+        zipCode: this.editZipCode.trim(),
+        countryCode: null,
+      }).pipe(
+        catchError((err) => {
+          // eslint-disable-next-line no-console
+          console.error('Failed to resolve address coordinates.', err);
+          return of(null);
+        }),
+        finalize(() => {
+          this.resolvingGeneralInfoAddress = false;
+        })
+      ).subscribe((result) => {
+        if (!result) {
+          this.snackBar.open('Could not confirm the address location. Please select an address suggestion.', 'Close', {
+            duration: 4000,
+            panelClass: ['snack-error'],
+          });
+          this.addressDropdownOpen = true;
+          this.highlightedAddressIndex = this.addressSuggestions.length > 0 ? 0 : -1;
+          return;
+        }
+
+        this.pendingGeneralInfoAddress = result;
+        this.confirmGeneralInfoAddressModalOpen = true;
+      });
+
+      return;
+    }
+
+    this.performGeneralInformationSave();
+  }
+
+  confirmGeneralInfoAddress(useRecommended: boolean): void {
+    if (!useRecommended) {
+      this.confirmGeneralInfoAddressModalOpen = false;
+      this.pendingGeneralInfoAddress = null;
+      this.addressDropdownOpen = true;
+      this.highlightedAddressIndex = this.addressSuggestions.length > 0 ? 0 : -1;
+      return;
+    }
+
+    if (this.pendingGeneralInfoAddress) {
+      this.editAddress1 = this.pendingGeneralInfoAddress.address1;
+      this.editCity = this.pendingGeneralInfoAddress.city ?? this.editCity;
+      this.editState = this.pendingGeneralInfoAddress.state ?? this.editState;
+      this.editZipCode = this.pendingGeneralInfoAddress.zipCode ?? this.editZipCode;
+      this.editLatitude = this.pendingGeneralInfoAddress.latitude;
+      this.editLongitude = this.pendingGeneralInfoAddress.longitude;
+    }
+
+    this.confirmGeneralInfoAddressModalOpen = false;
+    this.pendingGeneralInfoAddress = null;
+    this.performGeneralInformationSave();
+  }
+
+  private performGeneralInformationSave(): void {
+    const workspace = this.businessWorkspace;
+    if (!workspace || this.savingGeneralInformation) {
+      return;
+    }
+
     this.savingGeneralInformation = true;
     this.businessService.updateBusinessProfile(workspace.businessCode, {
       name: workspace.name,
@@ -731,8 +937,14 @@ export class BusinessWorkspaceComponent implements OnInit {
       city: this.editCity.trim(),
       state: this.editState.trim(),
       zipCode: this.editZipCode.trim(),
+      latitude: this.editLatitude,
+      longitude: this.editLongitude,
       businessJobPercentage: Math.round(this.editBusinessJobPercentage),
-    }).subscribe({
+    }).pipe(
+      finalize(() => {
+        this.savingGeneralInformation = false;
+      })
+    ).subscribe({
       next: (updatedProfile) => {
         if (!this.businessWorkspace) {
           return;
@@ -754,7 +966,6 @@ export class BusinessWorkspaceComponent implements OnInit {
           businessJobPercentage: updatedProfile.businessJobPercentage,
         };
         this.editingGeneralInformation = false;
-        this.savingGeneralInformation = false;
         this.resetProfileEditor(this.businessWorkspace);
         this.resetGeneralInformationEditor(this.businessWorkspace);
         this.snackBar.open('General information updated.', 'Close', {
@@ -763,7 +974,6 @@ export class BusinessWorkspaceComponent implements OnInit {
         });
       },
       error: (err) => {
-        this.savingGeneralInformation = false;
         if (this.authSession.hasSessionExpiredFlag()) {
           return;
         }
@@ -1064,6 +1274,11 @@ export class BusinessWorkspaceComponent implements OnInit {
   private resetGeneralInformationEditor(workspace: BusinessWorkspace): void {
     this.editAddress1 = workspace.address1 ?? '';
     this.editAddress2 = workspace.address2 ?? '';
+    this.editLatitude = null;
+    this.editLongitude = null;
+    this.addressSuggestions = [];
+    this.addressDropdownOpen = false;
+    this.highlightedAddressIndex = -1;
     this.editBusinessEmail = workspace.businessEmail ?? '';
     this.editBusinessPhoneNumber = this.formatPhoneNumberForDisplay(workspace.businessPhoneNumber);
     this.editCity = workspace.city ?? '';

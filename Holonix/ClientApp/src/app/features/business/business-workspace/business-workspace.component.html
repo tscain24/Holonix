@@ -149,7 +149,7 @@
                 type="button"
                 class="hero-btn hero-btn-secondary"
                 (click)="cancelGeneralInformationEdit()"
-                [disabled]="savingGeneralInformation"
+                [disabled]="savingGeneralInformation || resolvingGeneralInfoAddress"
               >
                 Cancel
               </button>
@@ -157,16 +157,20 @@
                 type="button"
                 class="hero-btn hero-btn-primary"
                 (click)="saveGeneralInformation()"
-                [disabled]="savingGeneralInformation"
+                [disabled]="savingGeneralInformation || resolvingGeneralInfoAddress"
               >
-                {{ savingGeneralInformation ? 'Saving...' : 'Save Changes' }}
+                {{
+                  resolvingGeneralInfoAddress
+                    ? 'Finding location...'
+                    : (savingGeneralInformation ? 'Saving...' : 'Save Changes')
+                }}
               </button>
             </ng-container>
           </div>
         </div>
 
         <div class="info-grid">
-          <article class="info-card info-card-address">
+          <article class="info-card info-card-address" [class.info-card-wide]="editingGeneralInformation">
             <span class="info-label">Business Address</span>
             <ng-container *ngIf="!editingGeneralInformation; else generalAddressEditor">
               <div class="address-block">
@@ -179,11 +183,15 @@
           </article>
           <article class="info-card">
             <span class="info-label">Business Email</span>
-            <strong>{{ business.businessEmail || 'Not provided' }}</strong>
+            <ng-container *ngIf="!editingGeneralInformation; else businessEmailEditor">
+              <strong>{{ business.businessEmail || 'Not provided' }}</strong>
+            </ng-container>
           </article>
           <article class="info-card">
             <span class="info-label">Business Phone</span>
-            <strong>{{ formatPhoneNumberForDisplay(business.businessPhoneNumber) || 'Not provided' }}</strong>
+            <ng-container *ngIf="!editingGeneralInformation; else businessPhoneEditor">
+              <strong>{{ formatPhoneNumberForDisplay(business.businessPhoneNumber) || 'Not provided' }}</strong>
+            </ng-container>
           </article>
           <article class="info-card info-card-services">
             <span class="info-label">Categories</span>
@@ -296,22 +304,40 @@
           <div class="general-info-form">
             <label class="hero-field">
               <span>Address Line 1</span>
-              <input type="text" [value]="editAddress1" (input)="onAddress1Input($event)" />
+              <div class="service-autocomplete">
+                <input
+                  type="text"
+                  [value]="editAddress1"
+                  (input)="onAddress1Input($event)"
+                  (keydown)="onAddressSearchKeydown($event)"
+                  (focus)="openAddressDropdown()"
+                  (blur)="closeAddressDropdown()"
+                />
+
+                <div class="service-dropdown" *ngIf="addressDropdownOpen">
+                  <div class="service-manager-note" *ngIf="loadingAddressSuggestions">Searching addresses...</div>
+                  <div class="service-manager-note field-error" *ngIf="!loadingAddressSuggestions && addressAutocompleteError">
+                    {{ addressAutocompleteError }}
+                  </div>
+                  <button
+                    type="button"
+                    class="service-dropdown-option"
+                    *ngFor="let suggestion of addressSuggestions; let i = index"
+                    [class.service-option-active]="highlightedAddressIndex === i"
+                    (mousedown)="selectAddressSuggestion(suggestion)"
+                  >
+                    {{ suggestion.fullAddress || suggestion.address1 }}
+                  </button>
+                  <div class="service-manager-note" *ngIf="!loadingAddressSuggestions && !addressAutocompleteError && addressSuggestions.length === 0">
+                    Start typing to see address suggestions.
+                  </div>
+                </div>
+              </div>
             </label>
 
             <label class="hero-field">
               <span>Address Line 2</span>
               <input type="text" [value]="editAddress2" (input)="onAddress2Input($event)" />
-            </label>
-
-            <label class="hero-field">
-              <span>Business Email</span>
-              <input type="email" [value]="editBusinessEmail" (input)="onBusinessEmailInput($event)" />
-            </label>
-
-            <label class="hero-field">
-              <span>Business Phone</span>
-              <input type="text" [value]="editBusinessPhoneNumber" (input)="onBusinessPhoneNumberInput($event)" />
             </label>
 
             <label class="hero-field">
@@ -334,6 +360,14 @@
               <strong>{{ business.countryName || 'Country not provided' }}</strong>
             </div>
           </div>
+        </ng-template>
+
+        <ng-template #businessEmailEditor>
+          <input class="info-edit-input" type="email" [value]="editBusinessEmail" (input)="onBusinessEmailInput($event)" />
+        </ng-template>
+
+        <ng-template #businessPhoneEditor>
+          <input class="info-edit-input" type="text" [value]="editBusinessPhoneNumber" (input)="onBusinessPhoneNumberInput($event)" />
         </ng-template>
 
         <ng-template #earningsEditor>
@@ -542,6 +576,36 @@
         (click)="confirmLeaveBusiness()"
       >
         {{ leavingBusiness ? 'Leaving...' : 'Leave Business' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="workspace-modal-overlay" *ngIf="confirmGeneralInfoAddressModalOpen" (click)="confirmGeneralInfoAddress(false)">
+  <div
+    class="workspace-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="confirm-address-modal-title"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="workspace-modal-copy">
+      <p class="workspace-modal-kicker">Confirm Location</p>
+      <h2 id="confirm-address-modal-title">Use this recommended location?</h2>
+      <p>
+        Holonix found a potential match for the address you entered.  Your address is used to help customers find your business.  Please confirm that the following location is correct or choose to edit the address.
+      </p>
+      <p *ngIf="pendingGeneralInfoAddress">
+        <strong>{{ pendingGeneralInfoAddress.fullAddress || pendingGeneralInfoAddress.address1 }}</strong>
+      </p>
+    </div>
+
+    <div class="workspace-modal-actions">
+      <button type="button" class="hero-btn hero-btn-secondary" (click)="confirmGeneralInfoAddress(false)">
+        Edit address
+      </button>
+      <button type="button" class="hero-btn hero-btn-primary" (click)="confirmGeneralInfoAddress(true)">
+        Use this location
       </button>
     </div>
   </div>

@@ -214,7 +214,42 @@
 
         <label class="field field-span-2">
           <span>Address 1 <strong aria-hidden="true">*</strong></span>
-          <input type="text" formControlName="address1" placeholder="123 Main Street" />
+          <div class="address-autocomplete">
+            <input
+              #address1Input
+              type="text"
+              formControlName="address1"
+              placeholder="123 Main Street"
+              autocomplete="street-address"
+              (input)="onAddressSearchInput($event, address1Input)"
+              (keydown)="onAddressSearchKeydown($event, address1Input)"
+              (focus)="openAddressDropdown(address1Input)"
+              (blur)="closeAddressDropdown()"
+            />
+
+            <div
+              class="service-dropdown"
+              [class.service-dropdown-up]="addressDropdownDirection === 'up'"
+              *ngIf="addressDropdownOpen"
+            >
+              <div class="service-dropdown-state" *ngIf="loadingAddressSuggestions">Searching addresses...</div>
+              <div class="service-dropdown-state field-error" *ngIf="!loadingAddressSuggestions && addressAutocompleteError">
+                {{ addressAutocompleteError }}
+              </div>
+              <button
+                *ngFor="let suggestion of addressSuggestions; let i = index"
+                type="button"
+                class="service-option"
+                [class.service-option-active]="highlightedAddressIndex === i"
+                (mousedown)="selectAddressSuggestion(suggestion)"
+              >
+                {{ suggestion.fullAddress || suggestion.address1 }}
+              </button>
+              <div class="service-dropdown-state" *ngIf="!loadingAddressSuggestions && !addressAutocompleteError && addressSuggestions.length === 0">
+                Start typing to see address suggestions.
+              </div>
+            </div>
+          </div>
           <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.address1.invalid">
             Address 1 is required.
           </small>
@@ -441,14 +476,38 @@
         <p>Review everything before creating the business profile and setting the current user as the business owner.</p>
         <div class="footer-actions">
           <button type="button" class="ghost-btn" (click)="editStep(2)">Back to Setup</button>
-          <button type="submit" class="submit-btn" [disabled]="launchingBusiness">
-            {{ launchingBusiness ? 'Launching...' : 'Launch Business' }}
+          <button type="submit" class="submit-btn" [disabled]="launchingBusiness || resolvingLaunchAddress">
+            {{
+              resolvingLaunchAddress
+                ? 'Finding location...'
+                : (launchingBusiness ? 'Launching...' : 'Launch Business')
+            }}
           </button>
         </div>
       </div>
     </form>
   </div>
 </section>
+
+<div class="leave-modal-overlay" *ngIf="confirmLaunchAddressModalOpen" (click)="confirmLaunchAddress(false)">
+  <div class="leave-modal" role="dialog" aria-modal="true" aria-labelledby="address-confirm-modal-title" (click)="$event.stopPropagation()">
+    <div class="leave-modal-copy">
+      <p class="leave-modal-kicker">Confirm Location</p>
+      <h2 id="address-confirm-modal-title">Use this recommended location?</h2>
+      <p>
+        Holonix found a match for the address you entered. Confirming will set the latitude and longitude used for map search and nearby discovery.
+      </p>
+      <p *ngIf="pendingLaunchAddress">
+        <strong>{{ pendingLaunchAddress.fullAddress || pendingLaunchAddress.address1 }}</strong>
+      </p>
+    </div>
+
+    <div class="leave-modal-actions">
+      <button type="button" class="ghost-btn" (click)="confirmLaunchAddress(false)">Edit address</button>
+      <button type="button" class="submit-btn" (click)="confirmLaunchAddress(true)">Use this location</button>
+    </div>
+  </div>
+</div>
 
 <div class="leave-modal-overlay" *ngIf="showLeaveConfirmation" (click)="cancelLeaveConfirmation()">
   <div class="leave-modal" role="dialog" aria-modal="true" aria-labelledby="leave-modal-title" (click)="$event.stopPropagation()">

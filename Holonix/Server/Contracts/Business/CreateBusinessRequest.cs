@@ -10,6 +10,8 @@ public sealed record CreateBusinessRequest(
     string City,
     string State,
     string ZipCode,
+    decimal? Latitude,
+    decimal? Longitude,
     int CountryId,
     string? BusinessIconBase64,
     decimal BusinessJobPercentage,

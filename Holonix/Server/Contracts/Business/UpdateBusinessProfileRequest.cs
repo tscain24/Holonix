@@ -11,4 +11,6 @@ public sealed record UpdateBusinessProfileRequest(
     string City,
     string State,
     string ZipCode,
+    decimal? Latitude,
+    decimal? Longitude,
     decimal BusinessJobPercentage);

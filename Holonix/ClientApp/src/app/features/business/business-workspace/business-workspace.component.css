@@ -560,6 +560,23 @@
   line-height: 1.6;
 }
 
+.info-edit-input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #cfdbed;
+  background: #ffffff;
+  padding: 12px 14px;
+  color: #0f172a;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.info-edit-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
 .general-info-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -741,6 +758,11 @@ span.selected-service-chip {
 }
 
 .service-dropdown-option:hover {
+  background: #eef4ff;
+  color: #1d4ed8;
+}
+
+.service-option-active {
   background: #eef4ff;
   color: #1d4ed8;
 }

@@ -604,6 +604,10 @@
   box-shadow: none;
 }
 
+.address-autocomplete {
+  position: relative;
+}
+
 .service-picker-single {
   padding: 14px 15px;
   min-height: 52px;

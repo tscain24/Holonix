@@ -1,4 +1,5 @@
 using Holonix.Server.Application.Interfaces;
+using Holonix.Server.Application.Results;
 using Holonix.Server.Contracts.Business;
 using Holonix.Server.Domain.Entities;
 using Holonix.Server.Infrastructure.Data;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -22,15 +24,21 @@ public class BusinessController : ControllerBase
     private readonly ApplicationDbContext _dbContext;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ITokenService _tokenService;
+    private readonly IGeocodingService _geocodingService;
+    private readonly ILogger<BusinessController> _logger;
 
     public BusinessController(
         ApplicationDbContext dbContext,
         UserManager<ApplicationUser> userManager,
-        ITokenService tokenService)
+        ITokenService tokenService,
+        IGeocodingService geocodingService,
+        ILogger<BusinessController> logger)
     {
         _dbContext = dbContext;
         _userManager = userManager;
         _tokenService = tokenService;
+        _geocodingService = geocodingService;
+        _logger = logger;
     }
 
     [HttpGet("services")]
@@ -233,12 +241,16 @@ public class BusinessController : ControllerBase
             .Where(item => item.BusinessId == businessId.Value && item.InactiveDate == null)
             .Include(item => item.Details)
                 .ThenInclude(details => details!.Country)
+            .Include(item => item.Addresses.Where(address => address.InactiveDate == null))
+                .ThenInclude(address => address.Country)
             .SingleOrDefaultAsync(cancellationToken);
 
         if (business is null)
         {
             return NotFound(new { errors = new[] { "Business not found." } });
         }
+
+        var primaryAddress = GetPrimaryBusinessAddress(business);
 
         var services = await _dbContext.BusinessServices
             .AsNoTracking()
@@ -475,12 +487,12 @@ public class BusinessController : ControllerBase
             business.Details?.Description,
             business.Details?.BusinessEmail,
             business.Details?.BusinessPhoneNumber,
-            business.Details?.Address1,
-            business.Details?.Address2,
-            business.Details?.City,
-            business.Details?.State,
-            business.Details?.ZipCode,
-            business.Details?.Country?.Name,
+            primaryAddress?.Address1 ?? business.Details?.Address1,
+            primaryAddress?.Address2 ?? business.Details?.Address2,
+            primaryAddress?.City ?? business.Details?.City,
+            primaryAddress?.State ?? business.Details?.State,
+            primaryAddress?.ZipCode ?? business.Details?.ZipCode,
+            primaryAddress?.Country?.Name ?? business.Details?.Country?.Name,
             business.Details?.BusinessIconBase64,
             business.Details?.BusinessJobPercentage ?? 0,
             business.IsProductBased,
@@ -2078,6 +2090,21 @@ public class BusinessController : ControllerBase
             return BadRequest(new { errors = new[] { "Business address is required." } });
         }
 
+        if ((request.Latitude.HasValue && !request.Longitude.HasValue) || (!request.Latitude.HasValue && request.Longitude.HasValue))
+        {
+            return BadRequest(new { errors = new[] { "Latitude and longitude must both be provided." } });
+        }
+
+        if (request.Latitude is < -90 or > 90)
+        {
+            return BadRequest(new { errors = new[] { "Latitude must be between -90 and 90." } });
+        }
+
+        if (request.Longitude is < -180 or > 180)
+        {
+            return BadRequest(new { errors = new[] { "Longitude must be between -180 and 180." } });
+        }
+
         if (request.BusinessJobPercentage < 0 || request.BusinessJobPercentage > 100)
         {
             return BadRequest(new { errors = new[] { "Business earnings percentage must be between 0 and 100." } });
@@ -2091,6 +2118,8 @@ public class BusinessController : ControllerBase
         var business = await _dbContext.Businesses
             .Include(item => item.Details)
             .ThenInclude(details => details!.Country)
+            .Include(item => item.Addresses.Where(address => address.InactiveDate == null))
+            .ThenInclude(address => address.Country)
             .SingleOrDefaultAsync(item => item.BusinessId == businessId.Value && item.InactiveDate == null, cancellationToken);
 
         if (business is null)
@@ -2104,14 +2133,71 @@ public class BusinessController : ControllerBase
         business.Details.BusinessIconBase64 = NormalizeBase64Image(request.BusinessIconBase64);
         business.Details.BusinessEmail = NormalizeOptional(request.BusinessEmail);
         business.Details.BusinessPhoneNumber = NormalizeOptional(request.BusinessPhoneNumber);
-        business.Details.Address1 = request.Address1.Trim();
-        business.Details.Address2 = NormalizeOptional(request.Address2);
-        business.Details.City = request.City.Trim();
-        business.Details.State = request.State.Trim();
-        business.Details.ZipCode = request.ZipCode.Trim();
+
+        var address1 = request.Address1.Trim();
+        var city = request.City.Trim();
+        var state = request.State.Trim();
+        var zipCode = request.ZipCode.Trim();
+        var address2 = NormalizeOptional(request.Address2);
+
+        var primaryBusinessAddress = business.Addresses.FirstOrDefault(address => address.InactiveDate == null && address.IsPrimary)
+            ?? business.Addresses.FirstOrDefault(address => address.InactiveDate == null);
+
+        if (primaryBusinessAddress is null)
+        {
+            primaryBusinessAddress = new BusinessAddress
+            {
+                BusinessId = business.BusinessId,
+                IsPrimary = true,
+            };
+            business.Addresses.Add(primaryBusinessAddress);
+        }
+
+        var addressChanged = !string.Equals(primaryBusinessAddress.Address1, address1, StringComparison.Ordinal)
+            || !string.Equals(primaryBusinessAddress.Address2, address2, StringComparison.Ordinal)
+            || !string.Equals(primaryBusinessAddress.City, city, StringComparison.Ordinal)
+            || !string.Equals(primaryBusinessAddress.State, state, StringComparison.Ordinal)
+            || !string.Equals(primaryBusinessAddress.ZipCode, zipCode, StringComparison.Ordinal)
+            || primaryBusinessAddress.CountryId != business.Details.CountryId;
+
+        primaryBusinessAddress.IsPrimary = true;
+        primaryBusinessAddress.Address1 = address1;
+        primaryBusinessAddress.Address2 = address2;
+        primaryBusinessAddress.City = city;
+        primaryBusinessAddress.State = state;
+        primaryBusinessAddress.ZipCode = zipCode;
+        primaryBusinessAddress.CountryId = business.Details.CountryId;
+
+        if (addressChanged)
+        {
+            primaryBusinessAddress.Latitude = null;
+            primaryBusinessAddress.Longitude = null;
+        }
+
+        if (request.Latitude.HasValue && request.Longitude.HasValue)
+        {
+            primaryBusinessAddress.Latitude = request.Latitude.Value;
+            primaryBusinessAddress.Longitude = request.Longitude.Value;
+        }
+
+        foreach (var otherAddress in business.Addresses.Where(address =>
+                     address.InactiveDate == null &&
+                     address.BusinessAddressId != primaryBusinessAddress.BusinessAddressId))
+        {
+            otherAddress.IsPrimary = false;
+        }
+
         business.Details.BusinessJobPercentage = request.BusinessJobPercentage;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        if (!request.Latitude.HasValue && !request.Longitude.HasValue
+            && (primaryBusinessAddress.Latitude is null || primaryBusinessAddress.Longitude is null))
+        {
+            await TryGeocodeBusinessAddressAsync(primaryBusinessAddress, cancellationToken);
+        }
+
+        var responseAddress = primaryBusinessAddress;
 
         return Ok(new UpdateBusinessProfileResponse(
             business.BusinessId,
@@ -2120,12 +2206,12 @@ public class BusinessController : ControllerBase
             business.Details.BusinessIconBase64,
             business.Details.BusinessEmail,
             business.Details.BusinessPhoneNumber,
-            business.Details.Address1,
-            business.Details.Address2,
-            business.Details.City,
-            business.Details.State,
-            business.Details.ZipCode,
-            business.Details.Country?.Name,
+            responseAddress.Address1,
+            responseAddress.Address2,
+            responseAddress.City,
+            responseAddress.State,
+            responseAddress.ZipCode,
+            responseAddress.Country?.Name ?? business.Details.Country?.Name,
             business.Details.BusinessJobPercentage));
     }
 
@@ -2757,14 +2843,24 @@ public class BusinessController : ControllerBase
                 Description = NormalizeOptional(request.Description),
                 BusinessEmail = NormalizeOptional(request.BusinessEmail),
                 BusinessPhoneNumber = NormalizeOptional(request.BusinessPhoneNumber),
-                Address1 = request.Address1.Trim(),
-                Address2 = NormalizeOptional(request.Address2),
-                City = request.City.Trim(),
-                State = request.State.Trim(),
                 CountryId = request.CountryId,
-                ZipCode = request.ZipCode.Trim(),
                 BusinessIconBase64 = NormalizeBase64Image(request.BusinessIconBase64),
                 BusinessJobPercentage = request.BusinessJobPercentage,
+            },
+            Addresses = new List<BusinessAddress>
+            {
+                new()
+                {
+                    IsPrimary = true,
+                    Address1 = request.Address1.Trim(),
+                    Address2 = NormalizeOptional(request.Address2),
+                    City = request.City.Trim(),
+                    State = request.State.Trim(),
+                    CountryId = request.CountryId,
+                    ZipCode = request.ZipCode.Trim(),
+                    Latitude = request.Latitude,
+                    Longitude = request.Longitude,
+                },
             },
         };
 
@@ -2801,6 +2897,16 @@ public class BusinessController : ControllerBase
         await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
+        var primaryAddress = business.Addresses.FirstOrDefault(address => address.InactiveDate == null && address.IsPrimary)
+            ?? business.Addresses.FirstOrDefault(address => address.InactiveDate == null);
+
+        if (!request.Latitude.HasValue && !request.Longitude.HasValue
+            && primaryAddress is not null
+            && (primaryAddress.Latitude is null || primaryAddress.Longitude is null))
+        {
+            await TryGeocodeBusinessAddressAsync(primaryAddress, cancellationToken);
+        }
+
         var displayName = $"{user.FirstName} {user.LastName}".Trim();
         var token = await _tokenService.CreateTokenAsync(user, cancellationToken);
 
@@ -2829,6 +2935,23 @@ public class BusinessController : ControllerBase
             string.IsNullOrWhiteSpace(request.ZipCode))
         {
             errors.Add("Business address is required.");
+        }
+
+        if ((request.Latitude.HasValue && !request.Longitude.HasValue) || (!request.Latitude.HasValue && request.Longitude.HasValue))
+        {
+            errors.Add("Latitude and longitude must both be provided.");
+        }
+        else
+        {
+            if (request.Latitude is < -90 or > 90)
+            {
+                errors.Add("Latitude must be between -90 and 90.");
+            }
+
+            if (request.Longitude is < -180 or > 180)
+            {
+                errors.Add("Longitude must be between -180 and 180.");
+            }
         }
 
         if (request.BusinessJobPercentage < 0 || request.BusinessJobPercentage > 100)
@@ -2878,6 +3001,50 @@ public class BusinessController : ControllerBase
     private static string? NormalizeOptional(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static BusinessAddress? GetPrimaryBusinessAddress(Business business)
+    {
+        return (business.Addresses ?? new List<BusinessAddress>())
+            .Where(address => address.InactiveDate == null)
+            .OrderByDescending(address => address.IsPrimary)
+            .ThenBy(address => address.BusinessAddressId)
+            .FirstOrDefault();
+    }
+
+    private async Task TryGeocodeBusinessAddressAsync(BusinessAddress address, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var countryCode = await _dbContext.Countries
+                .AsNoTracking()
+                .Where(country => address.CountryId.HasValue && country.CountryId == address.CountryId.Value)
+                .Select(country => country.TwoLetterIsoCode)
+                .SingleOrDefaultAsync(cancellationToken);
+
+            var result = await _geocodingService.GeocodeAsync(
+                new GeocodeAddressRequest(
+                    address.Address1,
+                    address.Address2,
+                    address.City,
+                    address.State,
+                    address.ZipCode,
+                    countryCode),
+                cancellationToken);
+
+            if (result is null)
+            {
+                return;
+            }
+
+            address.Latitude = result.Latitude;
+            address.Longitude = result.Longitude;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to geocode business address {BusinessId}:{BusinessAddressId}.", address.BusinessId, address.BusinessAddressId);
+        }
     }
 
     private static string? NormalizeBase64Image(string? value)

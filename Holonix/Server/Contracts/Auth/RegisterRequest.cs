@@ -7,4 +7,11 @@ public record RegisterRequest(
     string DateOfBirth,
     string Email,
     string Password,
-    string? ProfileImageBase64);
+    string? ProfileImageBase64,
+    string Address1,
+    string? Address2,
+    string City,
+    string State,
+    string ZipCode,
+    decimal? Latitude,
+    decimal? Longitude);

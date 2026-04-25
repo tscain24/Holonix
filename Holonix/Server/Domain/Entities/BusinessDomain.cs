@@ -18,6 +18,7 @@ public class Business
     public bool IsRecurring { get; set; }
 
     public BusinessDetails? Details { get; set; }
+    public List<BusinessAddress> Addresses { get; set; } = new();
 }
 
 public class BusinessDetails
@@ -36,6 +37,25 @@ public class BusinessDetails
     public decimal? Longitude { get; set; }
     public string? BusinessIconBase64 { get; set; }
     public decimal BusinessJobPercentage { get; set; }
+
+    public Business Business { get; set; } = null!;
+    public Country? Country { get; set; }
+}
+
+public class BusinessAddress
+{
+    public long BusinessAddressId { get; set; }
+    public int BusinessId { get; set; }
+    public bool IsPrimary { get; set; }
+    public DateTime? InactiveDate { get; set; }
+    public string Address1 { get; set; } = string.Empty;
+    public string? Address2 { get; set; }
+    public string City { get; set; } = string.Empty;
+    public string State { get; set; } = string.Empty;
+    public int? CountryId { get; set; }
+    public string ZipCode { get; set; } = string.Empty;
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
 
     public Business Business { get; set; } = null!;
     public Country? Country { get; set; }

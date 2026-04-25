@@ -3,6 +3,7 @@ using System;
 using Holonix.Server.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Holonix.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260425173205_AddUserAddress")]
+    partial class AddUserAddress
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -143,69 +146,6 @@ namespace Holonix.Server.Migrations
                         .IsUnique();
 
                     b.ToTable("Business", "business");
-                });
-
-            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessAddress", b =>
-                {
-                    b.Property<long>("BusinessAddressId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("BusinessAddressId"));
-
-                    b.Property<string>("Address1")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("Address2")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<int>("BusinessId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("City")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<int?>("CountryId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("InactiveDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsPrimary")
-                        .HasColumnType("boolean");
-
-                    b.Property<decimal?>("Latitude")
-                        .HasColumnType("decimal(9,6)");
-
-                    b.Property<decimal?>("Longitude")
-                        .HasColumnType("decimal(9,6)");
-
-                    b.Property<string>("State")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<string>("ZipCode")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.HasKey("BusinessAddressId");
-
-                    b.HasIndex("BusinessId")
-                        .IsUnique()
-                        .HasFilter("\"IsPrimary\" = TRUE AND \"InactiveDate\" IS NULL");
-
-                    b.HasIndex("CountryId");
-
-                    b.HasIndex("BusinessId", "InactiveDate");
-
-                    b.ToTable("BusinessAddress", "business");
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessDetails", b =>
@@ -1045,24 +985,6 @@ namespace Holonix.Server.Migrations
                     b.ToTable("UserTokens", "authentication");
                 });
 
-            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessAddress", b =>
-                {
-                    b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
-                        .WithMany("Addresses")
-                        .HasForeignKey("BusinessId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Holonix.Server.Domain.Entities.Country", "Country")
-                        .WithMany()
-                        .HasForeignKey("CountryId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Business");
-
-                    b.Navigation("Country");
-                });
-
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessDetails", b =>
                 {
                     b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
@@ -1414,8 +1336,6 @@ namespace Holonix.Server.Migrations
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.Business", b =>
                 {
-                    b.Navigation("Addresses");
-
                     b.Navigation("Details");
                 });
 #pragma warning restore 612, 618

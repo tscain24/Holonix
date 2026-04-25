@@ -23,6 +23,8 @@ export interface CreateBusinessRequest {
   city: string;
   state: string;
   zipCode: string;
+  latitude?: number | null;
+  longitude?: number | null;
   countryId: number;
   businessIconBase64?: string | null;
   businessJobPercentage: number;
@@ -51,6 +53,8 @@ export interface UpdateBusinessProfileRequest {
   city: string;
   state: string;
   zipCode: string;
+  latitude?: number | null;
+  longitude?: number | null;
   businessJobPercentage: number;
 }
 
