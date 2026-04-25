@@ -152,11 +152,13 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
 
     this.addressSearch$
       .pipe(
-        debounceTime(350),
+        debounceTime(600),
         distinctUntilChanged(),
         switchMap((value) => {
           const term = value.trim();
-          if (this.applyingAddressSuggestion || term.length < 3) {
+          const startsWithDigit = term.length > 0 && /^\d/.test(term);
+          const minimumLength = startsWithDigit ? 2 : 3;
+          if (this.applyingAddressSuggestion || term.length < minimumLength) {
             this.addressSuggestions = [];
             this.loadingAddressSuggestions = false;
             this.addressAutocompleteError = null;
@@ -477,9 +479,9 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
   selectAddressSuggestion(suggestion: AddressSuggestion): void {
     this.applyingAddressSuggestion = true;
     this.businessForm.controls.address1.setValue(suggestion.address1);
-    this.businessForm.controls.city.setValue(suggestion.city ?? '');
-    this.businessForm.controls.state.setValue(suggestion.state ?? '');
-    this.businessForm.controls.zipCode.setValue(suggestion.zipCode ?? '');
+    this.businessForm.controls.city.setValue(suggestion.city ?? this.businessForm.controls.city.value ?? '');
+    this.businessForm.controls.state.setValue(suggestion.state ?? this.businessForm.controls.state.value ?? '');
+    this.businessForm.controls.zipCode.setValue(suggestion.zipCode ?? this.businessForm.controls.zipCode.value ?? '');
     this.businessForm.controls.latitude.setValue(suggestion.latitude);
     this.businessForm.controls.longitude.setValue(suggestion.longitude);
     this.applyingAddressSuggestion = false;
@@ -749,6 +751,21 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     };
 
     if (shouldResolveCoordinates) {
+      const suggestionFallback = !this.loadingAddressSuggestions
+        && !this.addressAutocompleteError
+        && this.addressSuggestions.length > 0
+        ? this.addressSuggestions[0]
+        : null;
+
+      if (suggestionFallback) {
+        this.pendingCreatePayload = payload;
+        this.pendingLaunchAddress = suggestionFallback;
+        this.confirmLaunchAddressModalOpen = true;
+        this.addressDropdownOpen = false;
+        this.highlightedAddressIndex = -1;
+        return;
+      }
+
       this.resolvingLaunchAddress = true;
       this.geocodingService.resolveAddress({
         address1,

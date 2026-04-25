@@ -67,6 +67,7 @@ builder.Services
 builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<IGeocodingService, MapboxGeocodingService>((serviceProvider, client) =>
 {
     var mapboxOptions = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<MapboxOptions>>().Value;

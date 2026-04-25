@@ -5,6 +5,7 @@ using Holonix.Server.Application.Interfaces;
 using Holonix.Server.Application.Results;
 using Holonix.Server.Infrastructure.Configuration;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 namespace Holonix.Server.Infrastructure.Services;
@@ -15,11 +16,13 @@ public sealed class MapboxGeocodingService : IGeocodingService
 
     private readonly HttpClient _httpClient;
     private readonly MapboxOptions _options;
+    private readonly IMemoryCache _memoryCache;
 
-    public MapboxGeocodingService(HttpClient httpClient, IOptions<MapboxOptions> options)
+    public MapboxGeocodingService(HttpClient httpClient, IOptions<MapboxOptions> options, IMemoryCache memoryCache)
     {
         _httpClient = httpClient;
         _options = options.Value;
+        _memoryCache = memoryCache;
     }
 
     public async Task<GeocodeAddressResult?> GeocodeAsync(GeocodeAddressRequest request, CancellationToken cancellationToken = default)
@@ -66,15 +69,23 @@ public sealed class MapboxGeocodingService : IGeocodingService
         }
 
         limit = Math.Clamp(limit, 1, 10);
+        var normalizedQuery = query.Trim();
+        var normalizedCountry = NormalizeOptional(countryCode) ?? _options.CountryCode ?? string.Empty;
+        var cacheKey = $"mapbox:autocomplete:v1:{normalizedCountry}:{limit}:{normalizedQuery.ToLowerInvariant()}";
+
+        if (_memoryCache.TryGetValue(cacheKey, out IReadOnlyList<GeocodeSuggestionResult>? cached) && cached is not null)
+        {
+            return cached;
+        }
 
         var requestUri = QueryHelpers.AddQueryString("/search/geocode/v6/forward", new Dictionary<string, string?>
         {
-            ["q"] = query.Trim(),
+            ["q"] = normalizedQuery,
             ["autocomplete"] = "true",
-            ["types"] = "address",
+            ["types"] = "address,street",
             ["limit"] = limit.ToString(CultureInfo.InvariantCulture),
-            ["country"] = NormalizeOptional(countryCode) ?? _options.CountryCode,
-            ["permanent"] = _options.PermanentGeocoding ? "true" : "false",
+            ["country"] = normalizedCountry,
+            ["permanent"] = _options.AutocompletePermanentGeocoding ? "true" : "false",
             ["access_token"] = _options.AccessToken,
         }.Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
             .ToDictionary(pair => pair.Key, pair => pair.Value));
@@ -86,7 +97,7 @@ public sealed class MapboxGeocodingService : IGeocodingService
         var geocodeResponse = await JsonSerializer.DeserializeAsync<MapboxGeocodeResponse>(responseStream, JsonOptions, cancellationToken);
         var features = geocodeResponse?.Features ?? new List<MapboxFeature>();
 
-        return features
+        var results = features
             .Select(feature =>
             {
                 var coordinates = feature.Geometry?.Coordinates;
@@ -122,6 +133,16 @@ public sealed class MapboxGeocodingService : IGeocodingService
             .Where(item => item is not null)
             .Cast<GeocodeSuggestionResult>()
             .ToList();
+
+        _memoryCache.Set(
+            cacheKey,
+            results,
+            new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30),
+            });
+
+        return results;
     }
 
     private Dictionary<string, string?> BuildQuery(GeocodeAddressRequest request)

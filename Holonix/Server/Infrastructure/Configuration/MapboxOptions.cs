@@ -7,5 +7,6 @@ public sealed class MapboxOptions
     public string AccessToken { get; set; } = string.Empty;
     public string BaseUrl { get; set; } = "https://api.mapbox.com";
     public bool PermanentGeocoding { get; set; } = true;
+    public bool AutocompletePermanentGeocoding { get; set; } = false;
     public string CountryCode { get; set; } = "us";
 }

@@ -28,13 +28,20 @@ public sealed class GeocodingController : ControllerBase
         [FromQuery] int limit = 5,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(q) || q.Trim().Length < 3)
+        var trimmed = q?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var startsWithDigit = trimmed.Length > 0 && char.IsDigit(trimmed[0]);
+        if (trimmed.Length < (startsWithDigit ? 2 : 3))
         {
             return Ok(Array.Empty<object>());
         }
 
         limit = Math.Clamp(limit, 1, 10);
-        var suggestions = await _geocodingService.AutocompleteAsync(q.Trim(), countryCode, limit, cancellationToken);
+        var suggestions = await _geocodingService.AutocompleteAsync(trimmed, countryCode, limit, cancellationToken);
         return Ok(suggestions);
     }
 

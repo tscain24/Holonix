@@ -104,11 +104,13 @@ export class BusinessWorkspaceComponent implements OnInit {
 
     this.addressSearch$
       .pipe(
-        debounceTime(350),
+        debounceTime(600),
         distinctUntilChanged(),
         switchMap((value) => {
           const term = value.trim();
-          if (term.length < 3 || !this.editingGeneralInformation) {
+          const startsWithDigit = term.length > 0 && /^\d/.test(term);
+          const minimumLength = startsWithDigit ? 2 : 3;
+          if (term.length < minimumLength || !this.editingGeneralInformation) {
             this.addressSuggestions = [];
             this.loadingAddressSuggestions = false;
             this.addressAutocompleteError = null;
@@ -694,9 +696,9 @@ export class BusinessWorkspaceComponent implements OnInit {
 
   selectAddressSuggestion(suggestion: AddressSuggestion): void {
     this.editAddress1 = suggestion.address1;
-    this.editCity = suggestion.city ?? '';
-    this.editState = suggestion.state ?? '';
-    this.editZipCode = suggestion.zipCode ?? '';
+    this.editCity = suggestion.city ?? this.editCity;
+    this.editState = suggestion.state ?? this.editState;
+    this.editZipCode = suggestion.zipCode ?? this.editZipCode;
     this.editLatitude = suggestion.latitude;
     this.editLongitude = suggestion.longitude;
 
@@ -858,6 +860,20 @@ export class BusinessWorkspaceComponent implements OnInit {
       && this.editZipCode.trim().length > 0;
 
     if (shouldResolveCoordinates) {
+      const suggestionFallback = !this.loadingAddressSuggestions
+        && !this.addressAutocompleteError
+        && this.addressSuggestions.length > 0
+        ? this.addressSuggestions[0]
+        : null;
+
+      if (suggestionFallback) {
+        this.pendingGeneralInfoAddress = suggestionFallback;
+        this.confirmGeneralInfoAddressModalOpen = true;
+        this.addressDropdownOpen = false;
+        this.highlightedAddressIndex = -1;
+        return;
+      }
+
       this.resolvingGeneralInfoAddress = true;
       this.geocodingService.resolveAddress({
         address1: this.editAddress1.trim(),
