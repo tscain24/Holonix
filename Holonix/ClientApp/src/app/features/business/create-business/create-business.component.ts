@@ -165,9 +165,17 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
             return of([]);
           }
 
+          const city = (this.businessForm.controls.city.value ?? '').trim();
+          const state = (this.businessForm.controls.state.value ?? '').trim();
+          const zipCode = (this.businessForm.controls.zipCode.value ?? '').trim();
+          const contextualParts = [city, state, zipCode].filter((part) => part.length > 0);
+          const contextualQuery = contextualParts.length > 0
+            ? `${term}, ${contextualParts.join(' ')}`
+            : term;
+
           this.loadingAddressSuggestions = true;
           this.addressAutocompleteError = null;
-          return this.geocodingService.getAddressSuggestions(term, this.getSelectedCountryCode(), 5).pipe(
+          return this.geocodingService.getAddressSuggestions(contextualQuery, this.getSelectedCountryCode(), 5).pipe(
             catchError((err) => {
               // eslint-disable-next-line no-console
               console.error('Failed to load address suggestions.', err);

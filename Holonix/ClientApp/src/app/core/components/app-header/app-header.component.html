@@ -21,12 +21,46 @@
       <div class="header-location" role="group" aria-label="Location">
         <mat-icon aria-hidden="true">location_on</mat-icon>
         <input
+          #headerLocationInput
           type="text"
           name="headerLocation"
-          [(ngModel)]="locationDisplay"
-          placeholder="Location"
+          [ngModel]="locationDisplay"
+          (ngModelChange)="locationDisplay = $event"
+          placeholder="Near (address, city, or ZIP)"
           aria-label="Location"
+          (input)="onLocationInput(headerLocationInput)"
+          (keydown)="onLocationKeydown($event)"
+          (focus)="openLocationDropdown(headerLocationInput)"
+          (blur)="closeLocationDropdown()"
         />
+        <button
+          type="button"
+          class="header-location-device"
+          (click)="useCurrentLocation()"
+          [disabled]="resolvingDeviceLocation"
+          aria-label="Use current location"
+        >
+          <mat-icon aria-hidden="true">{{ resolvingDeviceLocation ? 'hourglass_top' : 'my_location' }}</mat-icon>
+        </button>
+
+        <div class="header-location-dropdown" *ngIf="locationDropdownOpen">
+          <div class="header-location-state" *ngIf="loadingLocationSuggestions">Searching locations...</div>
+          <div class="header-location-state header-location-error" *ngIf="!loadingLocationSuggestions && locationAutocompleteError">
+            {{ locationAutocompleteError }}
+          </div>
+          <button
+            type="button"
+            class="header-location-option"
+            *ngFor="let suggestion of locationSuggestions; let i = index"
+            [class.header-location-option-active]="highlightedLocationIndex === i"
+            (mousedown)="selectLocationSuggestion(suggestion)"
+          >
+            {{ suggestion.fullAddress || suggestion.address1 }}
+          </button>
+          <div class="header-location-state" *ngIf="!loadingLocationSuggestions && !locationAutocompleteError && locationSuggestions.length === 0">
+            Start typing to pick a location.
+          </div>
+        </div>
       </div>
 
       <div class="auth-actions" *ngIf="!isLoggedIn">

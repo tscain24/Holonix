@@ -11,6 +11,9 @@ namespace Holonix.Server.Controllers;
 [Route("api/geocode")]
 public sealed class GeocodingController : ControllerBase
 {
+    private const string AddressTypes = "address,street";
+    private const string LocationTypes = "address,street,place,postcode,locality,neighborhood,region";
+
     private readonly IGeocodingService _geocodingService;
     private readonly ILogger<GeocodingController> _logger;
 
@@ -41,8 +44,49 @@ public sealed class GeocodingController : ControllerBase
         }
 
         limit = Math.Clamp(limit, 1, 10);
-        var suggestions = await _geocodingService.AutocompleteAsync(trimmed, countryCode, limit, cancellationToken);
-        return Ok(suggestions);
+        try
+        {
+            var suggestions = await _geocodingService.AutocompleteAsync(trimmed, countryCode, AddressTypes, limit, cancellationToken);
+            return Ok(suggestions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load address suggestions for {Query}.", trimmed);
+            return Ok(Array.Empty<object>());
+        }
+    }
+
+    [Authorize]
+    [HttpGet("location-suggestions")]
+    public async Task<IActionResult> GetLocationSuggestions(
+        [FromQuery] string q,
+        [FromQuery] string? countryCode,
+        [FromQuery] int limit = 5,
+        CancellationToken cancellationToken = default)
+    {
+        var trimmed = q?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var startsWithDigit = trimmed.Length > 0 && char.IsDigit(trimmed[0]);
+        if (trimmed.Length < (startsWithDigit ? 2 : 3))
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        limit = Math.Clamp(limit, 1, 10);
+        try
+        {
+            var suggestions = await _geocodingService.AutocompleteAsync(trimmed, countryCode, LocationTypes, limit, cancellationToken);
+            return Ok(suggestions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load location suggestions for {Query}.", trimmed);
+            return Ok(Array.Empty<object>());
+        }
     }
 
     [Authorize]
@@ -65,6 +109,7 @@ public sealed class GeocodingController : ControllerBase
             var suggestions = await _geocodingService.AutocompleteAsync(
                 query,
                 string.IsNullOrWhiteSpace(request.CountryCode) ? null : request.CountryCode.Trim(),
+                types: "address",
                 limit: 1,
                 cancellationToken);
 

@@ -60,6 +60,7 @@ public sealed class MapboxGeocodingService : IGeocodingService
     public async Task<IReadOnlyList<GeocodeSuggestionResult>> AutocompleteAsync(
         string query,
         string? countryCode = null,
+        string? types = null,
         int limit = 5,
         CancellationToken cancellationToken = default)
     {
@@ -71,9 +72,11 @@ public sealed class MapboxGeocodingService : IGeocodingService
         limit = Math.Clamp(limit, 1, 10);
         var normalizedQuery = query.Trim();
         var normalizedCountry = NormalizeOptional(countryCode) ?? _options.CountryCode ?? string.Empty;
-        var cacheKey = $"mapbox:autocomplete:v1:{normalizedCountry}:{limit}:{normalizedQuery.ToLowerInvariant()}";
+        var normalizedTypes = NormalizeOptional(types) ?? "address,street";
+        var cacheKey = $"mapbox:autocomplete:v2:{normalizedCountry}:{normalizedTypes}:{limit}:{normalizedQuery.ToLowerInvariant()}";
 
-        if (_memoryCache.TryGetValue(cacheKey, out IReadOnlyList<GeocodeSuggestionResult>? cached) && cached is not null)
+        var usePermanentStorage = _options.AutocompletePermanentGeocoding;
+        if (usePermanentStorage && _memoryCache.TryGetValue(cacheKey, out IReadOnlyList<GeocodeSuggestionResult>? cached) && cached is not null)
         {
             return cached;
         }
@@ -82,10 +85,10 @@ public sealed class MapboxGeocodingService : IGeocodingService
         {
             ["q"] = normalizedQuery,
             ["autocomplete"] = "true",
-            ["types"] = "address,street",
+            ["types"] = normalizedTypes,
             ["limit"] = limit.ToString(CultureInfo.InvariantCulture),
             ["country"] = normalizedCountry,
-            ["permanent"] = _options.AutocompletePermanentGeocoding ? "true" : "false",
+            ["permanent"] = usePermanentStorage ? "true" : "false",
             ["access_token"] = _options.AccessToken,
         }.Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
             .ToDictionary(pair => pair.Key, pair => pair.Value));
@@ -134,13 +137,16 @@ public sealed class MapboxGeocodingService : IGeocodingService
             .Cast<GeocodeSuggestionResult>()
             .ToList();
 
-        _memoryCache.Set(
-            cacheKey,
-            results,
-            new MemoryCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30),
-            });
+        if (usePermanentStorage)
+        {
+            _memoryCache.Set(
+                cacheKey,
+                results,
+                new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30),
+                });
+        }
 
         return results;
     }

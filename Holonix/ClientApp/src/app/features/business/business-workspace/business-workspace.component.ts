@@ -117,9 +117,17 @@ export class BusinessWorkspaceComponent implements OnInit {
             return of([]);
           }
 
+          const city = this.editCity.trim();
+          const state = this.editState.trim();
+          const zipCode = this.editZipCode.trim();
+          const contextualParts = [city, state, zipCode].filter((part) => part.length > 0);
+          const contextualQuery = contextualParts.length > 0
+            ? `${term}, ${contextualParts.join(' ')}`
+            : term;
+
           this.loadingAddressSuggestions = true;
           this.addressAutocompleteError = null;
-          return this.geocodingService.getAddressSuggestions(term, null, 5).pipe(
+          return this.geocodingService.getAddressSuggestions(contextualQuery, null, 5).pipe(
             catchError((err) => {
               // eslint-disable-next-line no-console
               console.error('Failed to load address suggestions.', err);
