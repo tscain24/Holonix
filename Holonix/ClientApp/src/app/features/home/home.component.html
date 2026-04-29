@@ -31,13 +31,47 @@
           <mat-icon aria-hidden="true">location_on</mat-icon>
           <div class="guest-search-field-body">
             <label class="guest-search-label" for="guestLocationInput">Location</label>
-            <div class="guest-search-location-row">
+            <div class="guest-search-location-row guest-location-picker">
               <input
                 id="guestLocationInput"
                 type="text"
-                placeholder="Woodstock, GA 30188"
+                placeholder="Near (address, city, or ZIP)"
                 aria-label="Location"
+                [value]="locationDisplay"
+                (input)="onLocationInput(guestLocationInput)"
+                (keydown)="onLocationKeydown($event)"
+                (focus)="openLocationDropdown(guestLocationInput)"
+                (blur)="closeLocationDropdown()"
+                #guestLocationInput
               />
+              <button
+                type="button"
+                class="guest-location-device"
+                (click)="useCurrentLocation()"
+                [disabled]="resolvingDeviceLocation"
+                aria-label="Use current location"
+              >
+                <mat-icon aria-hidden="true">{{ resolvingDeviceLocation ? 'hourglass_top' : 'my_location' }}</mat-icon>
+              </button>
+
+              <div class="guest-location-dropdown" *ngIf="locationDropdownOpen">
+                <div class="guest-location-state" *ngIf="loadingLocationSuggestions">Searching locations...</div>
+                <div class="guest-location-state guest-location-error" *ngIf="!loadingLocationSuggestions && locationAutocompleteError">
+                  {{ locationAutocompleteError }}
+                </div>
+                <button
+                  type="button"
+                  class="guest-location-option"
+                  *ngFor="let suggestion of locationSuggestions; let i = index"
+                  [class.guest-location-option-active]="highlightedLocationIndex === i"
+                  (mousedown)="selectLocationSuggestion(suggestion)"
+                >
+                  {{ suggestion.fullAddress || suggestion.address1 }}
+                </button>
+                <div class="guest-location-state" *ngIf="!loadingLocationSuggestions && !locationAutocompleteError && locationSuggestions.length === 0">
+                  Start typing to pick a location.
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -79,7 +113,7 @@
       <div class="service-sections">
         <div class="service-header">
           <span class="service-eyebrow">Featured Local Services</span>
-          <h2>Services near Woodstock, Georgia</h2>
+          <h2>Services near {{ servicesNearDisplay }}</h2>
         </div>
 
         <article class="service-section">

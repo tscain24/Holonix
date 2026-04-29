@@ -103,6 +103,21 @@ export class GeocodingService {
     );
   }
 
+  getLocationSuggestions(query: string, countryCode?: string | null, limit = 5): Observable<AddressSuggestion[]> {
+    let params = new HttpParams()
+      .set('q', query)
+      .set('limit', limit);
+
+    if (countryCode && countryCode.trim()) {
+      params = params.set('countryCode', countryCode.trim());
+    }
+
+    return this.http.get<unknown[]>('/api/geocode/location-suggestions', { params }).pipe(
+      map((results) => (Array.isArray(results) ? results : [])),
+      map((results) => results.map((entry) => this.normalizeSuggestion(entry)).filter((entry): entry is AddressSuggestion => !!entry))
+    );
+  }
+
   resolveAddress(request: ResolveAddressRequest): Observable<AddressSuggestion | null> {
     return this.http.post<unknown>('/api/geocode/resolve-address', request).pipe(
       map((result) => this.normalizeSuggestion(result))

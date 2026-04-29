@@ -9,6 +9,7 @@ public interface IGeocodingService
     Task<IReadOnlyList<GeocodeSuggestionResult>> AutocompleteAsync(
         string query,
         string? countryCode = null,
+        string? types = null,
         int limit = 5,
         CancellationToken cancellationToken = default);
 }
