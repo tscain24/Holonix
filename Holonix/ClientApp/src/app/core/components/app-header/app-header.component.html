@@ -12,57 +12,96 @@
       </nav>
     </div>
 
-    <form class="header-search" role="search" (submit)="onSearchSubmit($event)">
-      <mat-icon aria-hidden="true">search</mat-icon>
-      <input type="search" placeholder="Search services, businesses, or categories..." aria-label="Search" />
-    </form>
+    <div class="header-center" *ngIf="!hideSearch || !hideLocation">
+      <form
+        class="header-omnibar"
+        role="search"
+        (submit)="onSearchSubmit($event)"
+        autocomplete="off"
+        *ngIf="!hideSearch || !hideLocation"
+      >
+        <div class="omnibar-segment omnibar-query" *ngIf="!hideSearch">
+          <mat-icon aria-hidden="true" class="omnibar-icon">search</mat-icon>
+          <input
+            #headerSearchInput
+            type="search"
+            [(ngModel)]="searchQuery"
+            name="headerSearchQuery"
+            placeholder="What do you need?"
+            aria-label="Search"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+          <button
+            *ngIf="searchQuery.trim()"
+            type="button"
+            class="omnibar-clear"
+            aria-label="Clear search"
+            (click)="clearSearchQuery()"
+          >
+            <mat-icon aria-hidden="true">close</mat-icon>
+          </button>
+        </div>
 
-    <div class="header-right">
-      <div class="header-location" role="group" aria-label="Location">
-        <mat-icon aria-hidden="true">location_on</mat-icon>
-        <input
-          #headerLocationInput
-          type="text"
-          name="headerLocation"
-          [ngModel]="locationDisplay"
-          (ngModelChange)="locationDisplay = $event"
-          placeholder="Near (address, city, or ZIP)"
-          aria-label="Location"
-          (input)="onLocationInput(headerLocationInput)"
-          (keydown)="onLocationKeydown($event)"
-          (focus)="openLocationDropdown(headerLocationInput)"
-          (blur)="closeLocationDropdown()"
-        />
-        <button
-          type="button"
-          class="header-location-device"
-          (click)="useCurrentLocation()"
-          [disabled]="resolvingDeviceLocation"
-          aria-label="Use current location"
-        >
-          <mat-icon aria-hidden="true">{{ resolvingDeviceLocation ? 'hourglass_top' : 'my_location' }}</mat-icon>
-        </button>
+        <div class="omnibar-divider" *ngIf="!hideSearch && !hideLocation" aria-hidden="true"></div>
 
-        <div class="header-location-dropdown" *ngIf="locationDropdownOpen">
-          <div class="header-location-state" *ngIf="loadingLocationSuggestions">Searching locations...</div>
-          <div class="header-location-state header-location-error" *ngIf="!loadingLocationSuggestions && locationAutocompleteError">
-            {{ locationAutocompleteError }}
-          </div>
+        <div class="omnibar-segment omnibar-location header-location" *ngIf="!hideLocation" role="group" aria-label="Location">
+          <mat-icon aria-hidden="true" class="omnibar-icon">location_on</mat-icon>
+          <input
+            #headerLocationInput
+            type="text"
+            name="headerLocation"
+            [ngModel]="locationDisplay"
+            (ngModelChange)="locationDisplay = $event"
+            placeholder="Near (city, ZIP)"
+            aria-label="Location"
+            title=""
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            (input)="onLocationInput(headerLocationInput)"
+            (keydown)="onLocationKeydown($event)"
+            (focus)="openLocationDropdown(headerLocationInput)"
+            (blur)="closeLocationDropdown()"
+          />
           <button
             type="button"
-            class="header-location-option"
-            *ngFor="let suggestion of locationSuggestions; let i = index"
-            [class.header-location-option-active]="highlightedLocationIndex === i"
-            (mousedown)="selectLocationSuggestion(suggestion)"
+            class="omnibar-device"
+            (click)="useCurrentLocation()"
+            [disabled]="resolvingDeviceLocation"
+            aria-label="Use current location"
           >
-            {{ suggestion.fullAddress || suggestion.address1 }}
+            <mat-icon aria-hidden="true">{{ resolvingDeviceLocation ? 'hourglass_top' : 'my_location' }}</mat-icon>
           </button>
-          <div class="header-location-state" *ngIf="!loadingLocationSuggestions && !locationAutocompleteError && locationSuggestions.length === 0">
-            Start typing to pick a location.
+
+          <div class="header-location-dropdown" *ngIf="locationDropdownOpen">
+            <div class="header-location-state" *ngIf="loadingLocationSuggestions">Searching locations...</div>
+            <div class="header-location-state header-location-error" *ngIf="!loadingLocationSuggestions && locationAutocompleteError">
+              {{ locationAutocompleteError }}
+            </div>
+            <button
+              type="button"
+              class="header-location-option"
+              *ngFor="let suggestion of locationSuggestions; let i = index"
+              [class.header-location-option-active]="highlightedLocationIndex === i"
+              (mousedown)="selectLocationSuggestion(suggestion)"
+            >
+              {{ suggestion.fullAddress || suggestion.address1 }}
+            </button>
+            <div class="header-location-state" *ngIf="!loadingLocationSuggestions && !locationAutocompleteError && locationSuggestions.length === 0">
+              Start typing to pick a location.
+            </div>
           </div>
         </div>
-      </div>
 
+        <button type="submit" class="omnibar-submit" aria-label="Search">
+          <mat-icon aria-hidden="true">search</mat-icon>
+        </button>
+      </form>
+    </div>
+
+    <div class="header-right">
       <div class="auth-actions" *ngIf="!isLoggedIn">
         <a class="auth-link secondary" routerLink="/register">Sign up</a>
         <a class="auth-link primary" routerLink="/login">Log in</a>

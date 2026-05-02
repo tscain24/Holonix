@@ -108,6 +108,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasKey(x => x.ServiceId);
             entity.Property(x => x.ServiceId).HasColumnName("CategoryId");
             entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            entity.Property(x => x.SearchText).HasColumnType("text");
         });
 
         builder.Entity<Business>(entity =>

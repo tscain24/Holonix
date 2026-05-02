@@ -20,6 +20,8 @@ if (OperatingSystem.IsWindows())
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<MapboxOptions>(builder.Configuration.GetSection(MapboxOptions.SectionName));
+builder.Services.Configure<OpenAiOptions>(builder.Configuration.GetSection(OpenAiOptions.SectionName));
+builder.Services.Configure<DevAdminOptions>(builder.Configuration.GetSection(DevAdminOptions.SectionName));
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -67,6 +69,10 @@ builder.Services
 builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddHttpClient<OpenAiEmbeddingService>(client =>
+{
+    client.BaseAddress = new Uri("https://api.openai.com/");
+});
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<IGeocodingService, MapboxGeocodingService>((serviceProvider, client) =>
 {

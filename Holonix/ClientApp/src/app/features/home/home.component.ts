@@ -22,6 +22,7 @@ export class HomeComponent implements OnInit, OnDestroy {
   isLoggedIn = false;
   hasBusiness = false;
   firstName = 'User';
+  serviceQuery = '';
   locationDisplay = '';
   locationSuggestions: AddressSuggestion[] = [];
   locationDropdownOpen = false;
@@ -131,6 +132,27 @@ export class HomeComponent implements OnInit, OnDestroy {
       return;
     }
     this.router.navigate([this.hasBusiness ? '/business' : '/business/create']);
+  }
+
+  submitGuestSearch(): void {
+    const query = this.serviceQuery.trim();
+    if (!query) {
+      this.snackBar.open('Enter what you need help with to search.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    if (!this.searchOrigin.currentOrigin) {
+      this.snackBar.open('Set a location to search nearby services.', 'Close', { duration: 3500 });
+      return;
+    }
+
+    this.router.navigate(['/search'], {
+      queryParams: { query, t: Date.now() },
+    });
+  }
+
+  clearServiceQuery(): void {
+    this.serviceQuery = '';
   }
 
   private decodeJwtPayload(token: string | null): JwtPayload | null {

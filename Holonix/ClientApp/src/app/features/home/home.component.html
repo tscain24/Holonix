@@ -1,6 +1,4 @@
 <div class="uber-home-shell">
-  <app-home-summary *ngIf="isLoggedIn" [firstName]="firstName"></app-home-summary>
-
   <section class="guest-search" aria-label="Service search">
     <div class="guest-search-inner">
       <div class="guest-search-pill" aria-label="Trusted pros">
@@ -16,12 +14,29 @@
           <mat-icon aria-hidden="true">search</mat-icon>
           <div class="guest-search-field-body">
             <label class="guest-search-label" for="guestServiceInput">What do you need?</label>
-            <input
-              id="guestServiceInput"
-              type="search"
-              placeholder="Ex: Plumbing repair, house cleaning, lawn mowing"
-              aria-label="What do you need?"
-            />
+            <div class="guest-search-input-wrap">
+              <input
+                id="guestServiceInput"
+                type="search"
+                [(ngModel)]="serviceQuery"
+                name="guestServiceQuery"
+                placeholder="Ex: Plumbing repair, house cleaning, lawn mowing"
+                aria-label="What do you need?"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
+                (keydown.enter)="submitGuestSearch()"
+              />
+              <button
+                *ngIf="serviceQuery.trim()"
+                type="button"
+                class="guest-search-clear"
+                aria-label="Clear search"
+                (click)="clearServiceQuery()"
+              >
+                <mat-icon aria-hidden="true">close</mat-icon>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -37,7 +52,11 @@
                 type="text"
                 placeholder="Near (address, city, or ZIP)"
                 aria-label="Location"
+                title=""
                 [value]="locationDisplay"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
                 (input)="onLocationInput(guestLocationInput)"
                 (keydown)="onLocationKeydown($event)"
                 (focus)="openLocationDropdown(guestLocationInput)"
@@ -76,7 +95,7 @@
           </div>
         </div>
 
-        <button type="button" class="guest-search-submit" aria-label="Search">Search</button>
+        <button type="button" class="guest-search-submit" aria-label="Search" (click)="submitGuestSearch()">Search</button>
       </div>
 
       <div class="guest-search-categories" aria-label="Popular categories">
@@ -107,6 +126,8 @@
       </div>
     </div>
   </section>
+
+  <app-home-summary *ngIf="isLoggedIn" [firstName]="firstName"></app-home-summary>
 
   <main class="hero-shell" aria-label="Home layout">
     <section class="right-stage" aria-label="Service sections">

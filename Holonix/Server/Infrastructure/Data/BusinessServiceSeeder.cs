@@ -244,6 +244,12 @@ public static class ServiceSeeder
                 service.Name = titleCaseName;
                 hasChanges = true;
             }
+
+            if (string.IsNullOrWhiteSpace(service.SearchText))
+            {
+                service.SearchText = service.Name;
+                hasChanges = true;
+            }
         }
 
         var deprecatedServices = existingServices
@@ -265,7 +271,7 @@ public static class ServiceSeeder
         var existingLookup = new HashSet<string>(existingNames, StringComparer.OrdinalIgnoreCase);
         var missingServices = canonicalServiceNames
             .Where(name => !existingLookup.Contains(name))
-            .Select(name => new Service { Name = name })
+            .Select(name => new Service { Name = name, SearchText = name })
             .ToList();
 
         if (missingServices.Count == 0)

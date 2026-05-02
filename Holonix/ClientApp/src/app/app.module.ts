@@ -27,6 +27,7 @@ import { BusinessServiceManagerComponent } from './features/business/business-se
 import { BusinessAvailabilityComponent } from './features/business/business-availability/business-availability.component';
 import { AuthInterceptor } from './core/services/auth.interceptor';
 import { AppHeaderComponent } from './core/components/app-header/app-header.component';
+import { ServiceSearchResultsComponent } from './features/search/service-search-results/service-search-results.component';
 
 @NgModule({
   declarations: [
@@ -43,7 +44,8 @@ import { AppHeaderComponent } from './core/components/app-header/app-header.comp
     BusinessWorkspaceComponent,
     BusinessEmployeesComponent,
     BusinessServiceManagerComponent,
-    BusinessAvailabilityComponent
+    BusinessAvailabilityComponent,
+    ServiceSearchResultsComponent
   ],
   imports: [
     BrowserModule,

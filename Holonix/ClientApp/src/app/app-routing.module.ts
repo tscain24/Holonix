@@ -10,6 +10,7 @@ import { BusinessWorkspaceComponent } from './features/business/business-workspa
 import { BusinessEmployeesComponent } from './features/business/business-employees/business-employees.component';
 import { BusinessServiceManagerComponent } from './features/business/business-service-manager/business-service-manager.component';
 import { BusinessAvailabilityComponent } from './features/business/business-availability/business-availability.component';
+import { ServiceSearchResultsComponent } from './features/search/service-search-results/service-search-results.component';
 
 const routes: Routes = [
   { path: '', redirectTo: 'home', pathMatch: 'full' },
@@ -23,6 +24,7 @@ const routes: Routes = [
   { path: 'business/:businessCode/services', component: BusinessServiceManagerComponent },
   { path: 'business/:businessCode/availability', component: BusinessAvailabilityComponent },
   { path: 'business/:businessCode', component: BusinessWorkspaceComponent },
+  { path: 'search', component: ServiceSearchResultsComponent },
   { path: '**', redirectTo: 'home' },
 ];
 

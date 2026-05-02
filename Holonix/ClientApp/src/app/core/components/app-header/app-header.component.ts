@@ -13,6 +13,8 @@ import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, of, 
 })
 export class AppHeaderComponent {
   hideHeader = false;
+  hideSearch = false;
+  hideLocation = false;
   isLoggedIn = false;
   displayName = '';
   userInitials = 'U';
@@ -25,6 +27,7 @@ export class AppHeaderComponent {
   loadingLocationSuggestions = false;
   locationAutocompleteError: string | null = null;
   resolvingDeviceLocation = false;
+  searchQuery = '';
   private readonly locationSearch$ = new Subject<string>();
   private readonly destroyed$ = new Subject<void>();
 
@@ -40,6 +43,7 @@ export class AppHeaderComponent {
         this.applyRouteVisibility(event.urlAfterRedirects);
         this.refreshSessionFromStorage();
         this.isUserMenuOpen = false;
+        this.searchQuery = this.tryParseQueryFromUrl(event.urlAfterRedirects) ?? '';
       });
   }
 
@@ -47,12 +51,14 @@ export class AppHeaderComponent {
     this.applyRouteVisibility(this.router.url);
     this.refreshSessionFromStorage();
 
-    this.locationDisplay = this.searchOrigin.currentOrigin?.label ?? '';
+    this.locationDisplay = this.formatHeaderLocation(this.searchOrigin.currentOrigin);
     this.searchOrigin.origin$
       .pipe(takeUntil(this.destroyed$))
       .subscribe((origin) => {
-        this.locationDisplay = origin?.label ?? '';
+        this.locationDisplay = this.formatHeaderLocation(origin);
       });
+
+    this.searchQuery = this.tryParseQueryFromUrl(this.router.url) ?? '';
 
     this.locationSearch$
       .pipe(
@@ -119,6 +125,32 @@ export class AppHeaderComponent {
 
   onSearchSubmit(event: Event): void {
     event.preventDefault();
+    const query = (this.searchQuery || '').trim();
+    if (!query) {
+      return;
+    }
+
+    this.router.navigate(['/search'], {
+      queryParams: { query, t: Date.now() },
+    });
+  }
+
+  clearSearchQuery(): void {
+    this.searchQuery = '';
+    this.router.navigate(['/search'], {
+      queryParams: { query: null, t: null },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  private tryParseQueryFromUrl(url: string): string | null {
+    const raw = url.split('?')[1];
+    if (!raw) {
+      return null;
+    }
+    const params = new URLSearchParams(raw);
+    const value = (params.get('query') ?? '').trim();
+    return value || null;
   }
 
   onLocationInput(input: HTMLInputElement): void {
@@ -189,9 +221,30 @@ export class AppHeaderComponent {
       source: 'typed',
     });
 
-    this.locationDisplay = label;
+    this.locationDisplay = this.formatHeaderLocation(this.searchOrigin.currentOrigin);
     this.locationDropdownOpen = false;
     this.highlightedLocationIndex = -1;
+  }
+
+  private formatHeaderLocation(origin: { city?: string | null; label?: string | null; source?: string | null } | null): string {
+    if (!origin) {
+      return '';
+    }
+
+    if (origin.source === 'device') {
+      return (origin.label ?? '').trim();
+    }
+
+    const city = (origin.city ?? '').trim();
+    if (city) {
+      return city.split(',')[0].trim().replace(/,+$/, '');
+    }
+
+    const label = (origin.label ?? '').trim();
+    if (!label) {
+      return '';
+    }
+    return label.split(',')[0].trim().replace(/,+$/, '');
   }
 
   useCurrentLocation(): void {
@@ -253,5 +306,7 @@ export class AppHeaderComponent {
   private applyRouteVisibility(url: string): void {
     const route = url.split('?')[0].split('#')[0];
     this.hideHeader = route === '/login' || route === '/register';
+    this.hideSearch = route === '/home';
+    this.hideLocation = route === '/home';
   }
 }

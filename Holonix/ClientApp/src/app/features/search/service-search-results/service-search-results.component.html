@@ -1,0 +1,95 @@
+<main class="search-shell" aria-label="Service search results">
+  <header class="search-header">
+    <div class="search-header-copy">
+      <h1>Search Results</h1>
+      <p class="search-subtitle" *ngIf="locationLabel && query">Showing pros near {{ locationLabel }}</p>
+    </div>
+  </header>
+
+  <section class="chip-row" *ngIf="topCategories.length > 0 && !error" aria-label="Top categories">
+    <button
+      type="button"
+      class="chip"
+      *ngFor="let cat of topCategories"
+      [attr.aria-label]="cat.categoryName"
+    >
+      <span class="chip-name">{{ cat.categoryName }}</span>
+      <span class="chip-match">{{ formatMatchLabel(cat.semanticScore ?? null) }}</span>
+    </button>
+  </section>
+
+  <div class="search-state search-error" *ngIf="error">{{ error }}</div>
+
+  <section class="results-grid" *ngIf="!error" aria-label="Search results layout">
+    <aside class="filters" aria-label="Filters">
+      <div class="filters-card">
+        <div class="filters-header">
+          <strong>Filters</strong>
+          <button type="button" class="filters-link" (click)="setRadiusMiles(25)">Reset</button>
+        </div>
+
+        <div class="filter-block">
+          <div class="filter-title-row">
+            <span class="filter-title">Distance</span>
+            <span class="filter-value">Within {{ radiusMiles }} miles</span>
+          </div>
+          <input
+            class="filter-range"
+            type="range"
+            min="1"
+            max="100"
+            step="1"
+            [value]="radiusMiles"
+            (input)="setRadiusMiles(($any($event.target).valueAsNumber ?? 25))"
+            aria-label="Distance miles"
+          />
+        </div>
+      </div>
+    </aside>
+
+    <section class="results" aria-label="Results">
+      <div class="search-state" *ngIf="loading">Searching...</div>
+      <div class="search-empty" *ngIf="!loading && results.length === 0">No results found.</div>
+
+      <article class="result-card" *ngFor="let item of results">
+        <div class="result-top">
+          <div class="result-main">
+            <div class="result-logo" aria-hidden="true">
+              <img
+                *ngIf="getBusinessLogoSrc(item) as logoSrc; else logoFallback"
+                [src]="logoSrc"
+                alt=""
+                class="result-logo-img"
+              />
+              <ng-template #logoFallback>
+                <div class="result-logo-fallback">
+                  {{ getBusinessInitials(item.businessName) }}
+                </div>
+              </ng-template>
+            </div>
+            <div class="result-text">
+              <div class="result-service">{{ item.businessName }}</div>
+              <div class="result-business">{{ item.categoryName }}</div>
+            </div>
+          </div>
+          <div class="result-meta">
+            <div class="result-distance" *ngIf="item.distanceMiles != null">{{ item.distanceMiles | number: '1.1-1' }} mi</div>
+          </div>
+        </div>
+
+        <div class="result-category">
+          <span class="pill pill-secondary" *ngIf="item.semanticScore != null">{{ formatMatchLabel(item.semanticScore) }}</span>
+        </div>
+      </article>
+    </section>
+
+    <aside class="map" aria-label="Map">
+      <div class="map-shell">
+        <div class="map-placeholder">
+          <div class="map-placeholder-title">Map</div>
+          <div class="map-placeholder-subtitle">Mapbox map goes here next.</div>
+        </div>
+      </div>
+    </aside>
+  </section>
+</main>
