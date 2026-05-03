@@ -33,7 +33,7 @@ public sealed class ServiceSearchController : ControllerBase
         [FromQuery] decimal? radiusMiles,
         CancellationToken cancellationToken)
     {
-        return await SearchServicesCoreAsync(query, lat, lng, radiusMiles, includeServices: true, includeTopCategories: false, cancellationToken);
+        return await SearchServicesCoreAsync(query, lat, lng, radiusMiles, includeServices: true, includeTopCategories: false, pageNumber: 1, pageSize: 10, cancellationToken);
     }
 
     [HttpGet("businesses")]
@@ -43,9 +43,11 @@ public sealed class ServiceSearchController : ControllerBase
         [FromQuery] decimal? lng,
         [FromQuery] decimal? radiusMiles,
         [FromQuery] bool includeTopCategories,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
     {
-        return await SearchServicesCoreAsync(query, lat, lng, radiusMiles, includeServices: false, includeTopCategories, cancellationToken);
+        return await SearchServicesCoreAsync(query, lat, lng, radiusMiles, includeServices: false, includeTopCategories, pageNumber, pageSize, cancellationToken);
     }
 
     private async Task<IActionResult> SearchServicesCoreAsync(
@@ -55,9 +57,23 @@ public sealed class ServiceSearchController : ControllerBase
         decimal? radiusMiles,
         bool includeServices,
         bool includeTopCategories,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken)
     {
         var errors = Validate(query, lat, lng, ref radiusMiles);
+        if (!includeServices)
+        {
+            if (pageNumber < 1)
+            {
+                errors.Add("Page number must be at least 1.");
+            }
+
+            if (pageSize is < 1 or > 50)
+            {
+                errors.Add("Page size must be between 1 and 50.");
+            }
+        }
         if (errors.Count > 0)
         {
             return BadRequest(new { errors });
@@ -77,7 +93,7 @@ public sealed class ServiceSearchController : ControllerBase
             if (embedding.Length != 1536)
             {
                 _logger.LogWarning("Unexpected embedding dimensions {Dimensions}. Falling back to keyword search.", embedding.Length);
-                return await TryKeywordFallbackAsync(normalizedQuery, latitude, longitude, radius, supportsGeography, geographyType, includeServices, cancellationToken);
+                return await TryKeywordFallbackAsync(normalizedQuery, latitude, longitude, radius, supportsGeography, geographyType, includeServices, pageNumber, pageSize, cancellationToken);
             }
 
             var embeddingLiteral = OpenAiEmbeddingService.ToVectorLiteral(embedding);
@@ -87,7 +103,7 @@ public sealed class ServiceSearchController : ControllerBase
                 return Ok(results);
             }
 
-            var businessResults = await VectorSearchBusinessesAsync(embeddingLiteral, latitude, longitude, radius, supportsGeography, geographyType, cancellationToken);
+            var businessResults = await VectorSearchBusinessesAsync(embeddingLiteral, latitude, longitude, radius, supportsGeography, geographyType, pageNumber, pageSize, cancellationToken);
             if (!includeTopCategories)
             {
                 return Ok(businessResults);
@@ -97,13 +113,16 @@ public sealed class ServiceSearchController : ControllerBase
             return Ok(new
             {
                 topCategories,
-                results = businessResults,
+                pageNumber = businessResults.PageNumber,
+                pageSize = businessResults.PageSize,
+                totalCount = businessResults.TotalCount,
+                results = businessResults.Results,
             });
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Semantic search failed. Falling back to keyword search.");
-            return await TryKeywordFallbackAsync(normalizedQuery, latitude, longitude, radius, supportsGeography, geographyType, includeServices, cancellationToken);
+            return await TryKeywordFallbackAsync(normalizedQuery, latitude, longitude, radius, supportsGeography, geographyType, includeServices, pageNumber, pageSize, cancellationToken);
         }
     }
 
@@ -298,13 +317,15 @@ public sealed class ServiceSearchController : ControllerBase
         return results;
     }
 
-    private async Task<List<BusinessSearchResult>> VectorSearchBusinessesAsync(
+    private async Task<BusinessSearchPage> VectorSearchBusinessesAsync(
         string embeddingLiteral,
         decimal latitude,
         decimal longitude,
         decimal radiusMiles,
         bool useGeography,
         string? geographyTypeName,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken)
     {
         var connection = _dbContext.Database.GetDbConnection();
@@ -313,8 +334,10 @@ public sealed class ServiceSearchController : ControllerBase
             await connection.OpenAsync(cancellationToken);
         }
 
-        await using var command = connection.CreateCommand();
-        command.CommandText = useGeography
+        var offset = (pageNumber - 1) * pageSize;
+
+        await using var countCommand = connection.CreateCommand();
+        countCommand.CommandText = useGeography
             ? $"""
             WITH top_categories AS (
                 SELECT
@@ -329,6 +352,7 @@ public sealed class ServiceSearchController : ControllerBase
             candidates AS (
                 SELECT
                     b."BusinessId",
+                    b."BusinessCode" AS "BusinessCode",
                     b."Name" AS "BusinessName",
                     bd."BusinessIconBase64" AS "BusinessIconBase64",
                     ba."Latitude"::double precision AS "Latitude",
@@ -367,20 +391,9 @@ public sealed class ServiceSearchController : ControllerBase
                     ROW_NUMBER() OVER (PARTITION BY c."BusinessId" ORDER BY c."SemanticScore" DESC, c."DistanceMiles" ASC) AS rn
                 FROM candidates c
             )
-            SELECT
-                r."BusinessId",
-                r."BusinessName",
-                r."BusinessIconBase64",
-                r."Latitude",
-                r."Longitude",
-                r."CategoryId",
-                r."CategoryName",
-                r."SemanticScore",
-                r."DistanceMiles"
+            SELECT COUNT(*)
             FROM ranked r
-            WHERE r.rn = 1
-            ORDER BY r."SemanticScore" DESC, r."DistanceMiles" ASC
-            LIMIT 100;
+            WHERE r.rn = 1;
             """
             : """
             WITH top_categories AS (
@@ -435,8 +448,83 @@ public sealed class ServiceSearchController : ControllerBase
                     ROW_NUMBER() OVER (PARTITION BY f."BusinessId" ORDER BY f."SemanticScore" DESC, f."DistanceMiles" ASC) AS rn
                 FROM filtered f
             )
+            SELECT COUNT(*)
+            FROM ranked r
+            WHERE r.rn = 1;
+            """;
+
+        AddParameter(countCommand, "@p0", embeddingLiteral);
+        AddParameter(countCommand, "@p1", longitude);
+        AddParameter(countCommand, "@p2", latitude);
+        if (useGeography)
+        {
+            const decimal metersPerMile = 1609.344m;
+            AddParameter(countCommand, "@p3", radiusMiles * metersPerMile);
+        }
+        else
+        {
+            AddParameter(countCommand, "@p3", radiusMiles);
+        }
+
+        var totalCount = Convert.ToInt32(await countCommand.ExecuteScalarAsync(cancellationToken));
+
+        await using var pageCommand = connection.CreateCommand();
+        pageCommand.CommandText = useGeography
+            ? $"""
+            WITH top_categories AS (
+                SELECT
+                    c."CategoryId",
+                    c."Name" AS "CategoryName",
+                    (1 - (c."Embedding" <=> CAST(@p0 AS vector(1536)))) AS "SemanticScore"
+                FROM service."Category" c
+                WHERE c."InactiveDate" IS NULL AND c."Embedding" IS NOT NULL
+                ORDER BY c."Embedding" <=> CAST(@p0 AS vector(1536))
+                LIMIT 5
+            ),
+            candidates AS (
+                SELECT
+                    b."BusinessId",
+                    b."Name" AS "BusinessName",
+                    bd."BusinessIconBase64" AS "BusinessIconBase64",
+                    ba."Latitude"::double precision AS "Latitude",
+                    ba."Longitude"::double precision AS "Longitude",
+                    tc."CategoryId",
+                    tc."CategoryName",
+                    tc."SemanticScore",
+                    (ST_Distance(
+                        ST_SetSRID(ST_MakePoint(ba."Longitude"::double precision, ba."Latitude"::double precision), 4326)::{geographyTypeName},
+                        ST_SetSRID(ST_MakePoint(@p1::double precision, @p2::double precision), 4326)::{geographyTypeName}
+                    ) / 1609.344) AS "DistanceMiles"
+                FROM top_categories tc
+                JOIN business."BusinessService" bs
+                    ON bs."CategoryId" = tc."CategoryId"
+                   AND bs."InactiveDate" IS NULL
+                JOIN business."Business" b
+                    ON b."BusinessId" = bs."BusinessId"
+                   AND b."InactiveDate" IS NULL
+                LEFT JOIN business."BusinessDetails" bd
+                    ON bd."BusinessId" = b."BusinessId"
+                JOIN business."BusinessAddress" ba
+                    ON ba."BusinessId" = b."BusinessId"
+                   AND ba."IsPrimary" = TRUE
+                   AND ba."InactiveDate" IS NULL
+                   AND ba."Latitude" IS NOT NULL
+                   AND ba."Longitude" IS NOT NULL
+                WHERE ST_DWithin(
+                    ST_SetSRID(ST_MakePoint(ba."Longitude"::double precision, ba."Latitude"::double precision), 4326)::{geographyTypeName},
+                    ST_SetSRID(ST_MakePoint(@p1::double precision, @p2::double precision), 4326)::{geographyTypeName},
+                    @p3
+                )
+            ),
+            ranked AS (
+                SELECT
+                    c.*,
+                    ROW_NUMBER() OVER (PARTITION BY c."BusinessId" ORDER BY c."SemanticScore" DESC, c."DistanceMiles" ASC) AS rn
+                FROM candidates c
+            )
             SELECT
                 r."BusinessId",
+                r."BusinessCode",
                 r."BusinessName",
                 r."BusinessIconBase64",
                 r."Latitude",
@@ -448,39 +536,113 @@ public sealed class ServiceSearchController : ControllerBase
             FROM ranked r
             WHERE r.rn = 1
             ORDER BY r."SemanticScore" DESC, r."DistanceMiles" ASC
-            LIMIT 100;
+            LIMIT @p4 OFFSET @p5;
+            """
+            : """
+            WITH top_categories AS (
+                SELECT
+                    c."CategoryId",
+                    c."Name" AS "CategoryName",
+                    (1 - (c."Embedding" <=> CAST(@p0 AS vector(1536)))) AS "SemanticScore"
+                FROM service."Category" c
+                WHERE c."InactiveDate" IS NULL AND c."Embedding" IS NOT NULL
+                ORDER BY c."Embedding" <=> CAST(@p0 AS vector(1536))
+                LIMIT 5
+            ),
+            candidates AS (
+                SELECT
+                    b."BusinessId",
+                    b."BusinessCode" AS "BusinessCode",
+                    b."Name" AS "BusinessName",
+                    bd."BusinessIconBase64" AS "BusinessIconBase64",
+                    ba."Latitude"::double precision AS "Latitude",
+                    ba."Longitude"::double precision AS "Longitude",
+                    tc."CategoryId",
+                    tc."CategoryName",
+                    tc."SemanticScore",
+                    (
+                        3958.7613 * 2 * ASIN(SQRT(
+                            POWER(SIN((RADIANS(@p2) - RADIANS(ba."Latitude")) / 2), 2) +
+                            COS(RADIANS(ba."Latitude")) * COS(RADIANS(@p2)) *
+                            POWER(SIN((RADIANS(@p1) - RADIANS(ba."Longitude")) / 2), 2)
+                        ))
+                    ) AS "DistanceMiles"
+                FROM top_categories tc
+                JOIN business."BusinessService" bs
+                    ON bs."CategoryId" = tc."CategoryId"
+                   AND bs."InactiveDate" IS NULL
+                JOIN business."Business" b
+                    ON b."BusinessId" = bs."BusinessId"
+                   AND b."InactiveDate" IS NULL
+                LEFT JOIN business."BusinessDetails" bd
+                    ON bd."BusinessId" = b."BusinessId"
+                JOIN business."BusinessAddress" ba
+                    ON ba."BusinessId" = b."BusinessId"
+                   AND ba."IsPrimary" = TRUE
+                   AND ba."InactiveDate" IS NULL
+                   AND ba."Latitude" IS NOT NULL
+                   AND ba."Longitude" IS NOT NULL
+            ),
+            filtered AS (
+                SELECT * FROM candidates WHERE "DistanceMiles" <= @p3
+            ),
+            ranked AS (
+                SELECT
+                    f.*,
+                    ROW_NUMBER() OVER (PARTITION BY f."BusinessId" ORDER BY f."SemanticScore" DESC, f."DistanceMiles" ASC) AS rn
+                FROM filtered f
+            )
+            SELECT
+                r."BusinessId",
+                r."BusinessCode",
+                r."BusinessName",
+                r."BusinessIconBase64",
+                r."Latitude",
+                r."Longitude",
+                r."CategoryId",
+                r."CategoryName",
+                r."SemanticScore",
+                r."DistanceMiles"
+            FROM ranked r
+            WHERE r.rn = 1
+            ORDER BY r."SemanticScore" DESC, r."DistanceMiles" ASC
+            LIMIT @p4 OFFSET @p5;
             """;
 
-        AddParameter(command, "@p0", embeddingLiteral);
-        AddParameter(command, "@p1", longitude);
-        AddParameter(command, "@p2", latitude);
+        AddParameter(pageCommand, "@p0", embeddingLiteral);
+        AddParameter(pageCommand, "@p1", longitude);
+        AddParameter(pageCommand, "@p2", latitude);
         if (useGeography)
         {
             const decimal metersPerMile = 1609.344m;
-            AddParameter(command, "@p3", radiusMiles * metersPerMile);
+            AddParameter(pageCommand, "@p3", radiusMiles * metersPerMile);
         }
         else
         {
-            AddParameter(command, "@p3", radiusMiles);
+            AddParameter(pageCommand, "@p3", radiusMiles);
         }
 
+        AddParameter(pageCommand, "@p4", pageSize);
+        AddParameter(pageCommand, "@p5", offset);
+
         var results = new List<BusinessSearchResult>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        await using var reader = await pageCommand.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
             results.Add(new BusinessSearchResult(
                 businessId: reader.GetInt32(0),
-                businessName: reader.GetString(1),
-                businessIconBase64: reader.IsDBNull(2) ? null : reader.GetString(2),
-                latitude: reader.IsDBNull(3) ? null : reader.GetDouble(3),
-                longitude: reader.IsDBNull(4) ? null : reader.GetDouble(4),
-                categoryId: reader.GetInt32(5),
-                categoryName: reader.GetString(6),
-                semanticScore: reader.IsDBNull(7) ? null : reader.GetDouble(7),
-                distanceMiles: reader.IsDBNull(8) ? null : reader.GetDouble(8)));
+                businessCode: reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                businessName: reader.GetString(2),
+                businessIconBase64: reader.IsDBNull(3) ? null : reader.GetString(3),
+                latitude: reader.IsDBNull(4) ? null : reader.GetDouble(4),
+                longitude: reader.IsDBNull(5) ? null : reader.GetDouble(5),
+                categoryId: reader.GetInt32(6),
+                categoryName: reader.GetString(7),
+                semanticScore: reader.IsDBNull(8) ? null : reader.GetDouble(8),
+                distanceMiles: reader.IsDBNull(9) ? null : reader.GetDouble(9)));
         }
 
-        return results;
+        return new BusinessSearchPage(pageNumber, pageSize, totalCount, results);
     }
 
     private async Task<List<TopCategoryResult>> VectorTopCategoriesAsync(
@@ -668,6 +830,8 @@ public sealed class ServiceSearchController : ControllerBase
         bool useGeography,
         string? geographyTypeName,
         bool includeServices,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken)
     {
         try
@@ -678,7 +842,7 @@ public sealed class ServiceSearchController : ControllerBase
                 return Ok(fallback);
             }
 
-            var businessFallback = await KeywordFallbackBusinessesAsync(query, latitude, longitude, radiusMiles, useGeography, geographyTypeName, cancellationToken);
+            var businessFallback = await KeywordFallbackBusinessesAsync(query, latitude, longitude, radiusMiles, useGeography, geographyTypeName, pageNumber, pageSize, cancellationToken);
             return Ok(businessFallback);
         }
         catch (Exception ex)
@@ -688,13 +852,15 @@ public sealed class ServiceSearchController : ControllerBase
         }
     }
 
-    private async Task<List<BusinessSearchResult>> KeywordFallbackBusinessesAsync(
+    private async Task<BusinessSearchPage> KeywordFallbackBusinessesAsync(
         string query,
         decimal latitude,
         decimal longitude,
         decimal radiusMiles,
         bool useGeography,
         string? geographyTypeName,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken)
     {
         var connection = _dbContext.Database.GetDbConnection();
@@ -703,12 +869,15 @@ public sealed class ServiceSearchController : ControllerBase
             await connection.OpenAsync(cancellationToken);
         }
 
-        await using var command = connection.CreateCommand();
-        command.CommandText = useGeography
+        var offset = (pageNumber - 1) * pageSize;
+
+        await using var countCommand = connection.CreateCommand();
+        countCommand.CommandText = useGeography
             ? $"""
             WITH candidates AS (
                 SELECT
                     b."BusinessId",
+                    b."BusinessCode" AS "BusinessCode",
                     b."Name" AS "BusinessName",
                     bd."BusinessIconBase64" AS "BusinessIconBase64",
                     ba."Latitude"::double precision AS "Latitude",
@@ -754,20 +923,9 @@ public sealed class ServiceSearchController : ControllerBase
                     ROW_NUMBER() OVER (PARTITION BY c."BusinessId" ORDER BY c."DistanceMiles" ASC) AS rn
                 FROM candidates c
             )
-            SELECT
-                r."BusinessId",
-                r."BusinessName",
-                r."BusinessIconBase64",
-                r."Latitude",
-                r."Longitude",
-                r."CategoryId",
-                r."CategoryName",
-                r."SemanticScore",
-                r."DistanceMiles"
+            SELECT COUNT(*)
             FROM ranked r
-            WHERE r.rn = 1
-            ORDER BY r."DistanceMiles" ASC
-            LIMIT 100;
+            WHERE r.rn = 1;
             """
             : """
             WITH candidates AS (
@@ -819,8 +977,80 @@ public sealed class ServiceSearchController : ControllerBase
                     ROW_NUMBER() OVER (PARTITION BY f."BusinessId" ORDER BY f."DistanceMiles" ASC) AS rn
                 FROM filtered f
             )
+            SELECT COUNT(*)
+            FROM ranked r
+            WHERE r.rn = 1;
+            """;
+
+        AddParameter(countCommand, "@p0", $"%{query}%");
+        AddParameter(countCommand, "@p1", longitude);
+        AddParameter(countCommand, "@p2", latitude);
+        if (useGeography)
+        {
+            const decimal metersPerMile = 1609.344m;
+            AddParameter(countCommand, "@p3", radiusMiles * metersPerMile);
+        }
+        else
+        {
+            AddParameter(countCommand, "@p3", radiusMiles);
+        }
+
+        var totalCount = Convert.ToInt32(await countCommand.ExecuteScalarAsync(cancellationToken));
+
+        await using var pageCommand = connection.CreateCommand();
+        pageCommand.CommandText = useGeography
+            ? $"""
+            WITH candidates AS (
+                SELECT
+                    b."BusinessId",
+                    b."Name" AS "BusinessName",
+                    bd."BusinessIconBase64" AS "BusinessIconBase64",
+                    ba."Latitude"::double precision AS "Latitude",
+                    ba."Longitude"::double precision AS "Longitude",
+                    c."CategoryId",
+                    c."Name" AS "CategoryName",
+                    0.0 AS "SemanticScore",
+                    (ST_Distance(
+                        ST_SetSRID(ST_MakePoint(ba."Longitude"::double precision, ba."Latitude"::double precision), 4326)::{geographyTypeName},
+                        ST_SetSRID(ST_MakePoint(@p1::double precision, @p2::double precision), 4326)::{geographyTypeName}
+                    ) / 1609.344) AS "DistanceMiles"
+                FROM business."BusinessService" bs
+                JOIN service."Category" c
+                    ON c."CategoryId" = bs."CategoryId"
+                   AND c."InactiveDate" IS NULL
+                JOIN business."Business" b
+                    ON b."BusinessId" = bs."BusinessId"
+                   AND b."InactiveDate" IS NULL
+                LEFT JOIN business."BusinessDetails" bd
+                    ON bd."BusinessId" = b."BusinessId"
+                JOIN business."BusinessAddress" ba
+                    ON ba."BusinessId" = b."BusinessId"
+                   AND ba."IsPrimary" = TRUE
+                   AND ba."InactiveDate" IS NULL
+                   AND ba."Latitude" IS NOT NULL
+                   AND ba."Longitude" IS NOT NULL
+                WHERE bs."InactiveDate" IS NULL
+                  AND ST_DWithin(
+                        ST_SetSRID(ST_MakePoint(ba."Longitude"::double precision, ba."Latitude"::double precision), 4326)::{geographyTypeName},
+                        ST_SetSRID(ST_MakePoint(@p1::double precision, @p2::double precision), 4326)::{geographyTypeName},
+                        @p3
+                    )
+                  AND (
+                        c."Name" ILIKE @p0 OR
+                        c."SearchText" ILIKE @p0 OR
+                        bs."Name" ILIKE @p0 OR
+                        bs."Description" ILIKE @p0
+                    )
+            ),
+            ranked AS (
+                SELECT
+                    c.*,
+                    ROW_NUMBER() OVER (PARTITION BY c."BusinessId" ORDER BY c."DistanceMiles" ASC) AS rn
+                FROM candidates c
+            )
             SELECT
                 r."BusinessId",
+                r."BusinessCode",
                 r."BusinessName",
                 r."BusinessIconBase64",
                 r."Latitude",
@@ -832,39 +1062,110 @@ public sealed class ServiceSearchController : ControllerBase
             FROM ranked r
             WHERE r.rn = 1
             ORDER BY r."DistanceMiles" ASC
-            LIMIT 100;
+            LIMIT @p4 OFFSET @p5;
+            """
+            : """
+            WITH candidates AS (
+                SELECT
+                    b."BusinessId",
+                    b."BusinessCode" AS "BusinessCode",
+                    b."Name" AS "BusinessName",
+                    bd."BusinessIconBase64" AS "BusinessIconBase64",
+                    ba."Latitude"::double precision AS "Latitude",
+                    ba."Longitude"::double precision AS "Longitude",
+                    c."CategoryId",
+                    c."Name" AS "CategoryName",
+                    0.0 AS "SemanticScore",
+                    (
+                        3958.7613 * 2 * ASIN(SQRT(
+                            POWER(SIN((RADIANS(@p2) - RADIANS(ba."Latitude")) / 2), 2) +
+                            COS(RADIANS(ba."Latitude")) * COS(RADIANS(@p2)) *
+                            POWER(SIN((RADIANS(@p1) - RADIANS(ba."Longitude")) / 2), 2)
+                        ))
+                    ) AS "DistanceMiles"
+                FROM business."BusinessService" bs
+                JOIN service."Category" c
+                    ON c."CategoryId" = bs."CategoryId"
+                   AND c."InactiveDate" IS NULL
+                JOIN business."Business" b
+                    ON b."BusinessId" = bs."BusinessId"
+                   AND b."InactiveDate" IS NULL
+                LEFT JOIN business."BusinessDetails" bd
+                    ON bd."BusinessId" = b."BusinessId"
+                JOIN business."BusinessAddress" ba
+                    ON ba."BusinessId" = b."BusinessId"
+                   AND ba."IsPrimary" = TRUE
+                   AND ba."InactiveDate" IS NULL
+                   AND ba."Latitude" IS NOT NULL
+                   AND ba."Longitude" IS NOT NULL
+                WHERE bs."InactiveDate" IS NULL
+                  AND (
+                        c."Name" ILIKE @p0 OR
+                        c."SearchText" ILIKE @p0 OR
+                        bs."Name" ILIKE @p0 OR
+                        bs."Description" ILIKE @p0
+                    )
+            ),
+            filtered AS (
+                SELECT * FROM candidates WHERE "DistanceMiles" <= @p3
+            ),
+            ranked AS (
+                SELECT
+                    f.*,
+                    ROW_NUMBER() OVER (PARTITION BY f."BusinessId" ORDER BY f."DistanceMiles" ASC) AS rn
+                FROM filtered f
+            )
+            SELECT
+                r."BusinessId",
+                r."BusinessCode",
+                r."BusinessName",
+                r."BusinessIconBase64",
+                r."Latitude",
+                r."Longitude",
+                r."CategoryId",
+                r."CategoryName",
+                r."SemanticScore",
+                r."DistanceMiles"
+            FROM ranked r
+            WHERE r.rn = 1
+            ORDER BY r."DistanceMiles" ASC
+            LIMIT @p4 OFFSET @p5;
             """;
 
-        AddParameter(command, "@p0", $"%{query}%");
-        AddParameter(command, "@p1", longitude);
-        AddParameter(command, "@p2", latitude);
+        AddParameter(pageCommand, "@p0", $"%{query}%");
+        AddParameter(pageCommand, "@p1", longitude);
+        AddParameter(pageCommand, "@p2", latitude);
         if (useGeography)
         {
             const decimal metersPerMile = 1609.344m;
-            AddParameter(command, "@p3", radiusMiles * metersPerMile);
+            AddParameter(pageCommand, "@p3", radiusMiles * metersPerMile);
         }
         else
         {
-            AddParameter(command, "@p3", radiusMiles);
+            AddParameter(pageCommand, "@p3", radiusMiles);
         }
 
+        AddParameter(pageCommand, "@p4", pageSize);
+        AddParameter(pageCommand, "@p5", offset);
+
         var results = new List<BusinessSearchResult>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        await using var reader = await pageCommand.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
             results.Add(new BusinessSearchResult(
                 businessId: reader.GetInt32(0),
-                businessName: reader.GetString(1),
-                businessIconBase64: reader.IsDBNull(2) ? null : reader.GetString(2),
-                latitude: reader.IsDBNull(3) ? null : reader.GetDouble(3),
-                longitude: reader.IsDBNull(4) ? null : reader.GetDouble(4),
-                categoryId: reader.GetInt32(5),
-                categoryName: reader.GetString(6),
-                semanticScore: reader.IsDBNull(7) ? null : reader.GetDouble(7),
-                distanceMiles: reader.IsDBNull(8) ? null : reader.GetDouble(8)));
+                businessCode: reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                businessName: reader.GetString(2),
+                businessIconBase64: reader.IsDBNull(3) ? null : reader.GetString(3),
+                latitude: reader.IsDBNull(4) ? null : reader.GetDouble(4),
+                longitude: reader.IsDBNull(5) ? null : reader.GetDouble(5),
+                categoryId: reader.GetInt32(6),
+                categoryName: reader.GetString(7),
+                semanticScore: reader.IsDBNull(8) ? null : reader.GetDouble(8),
+                distanceMiles: reader.IsDBNull(9) ? null : reader.GetDouble(9)));
         }
 
-        return results;
+        return new BusinessSearchPage(pageNumber, pageSize, totalCount, results);
     }
 
     private static void AddParameter(IDbCommand command, string name, object value)
@@ -941,6 +1242,7 @@ public sealed class ServiceSearchController : ControllerBase
 
     private sealed record BusinessSearchResult(
         int businessId,
+        string businessCode,
         string businessName,
         string? businessIconBase64,
         double? latitude,
@@ -949,6 +1251,12 @@ public sealed class ServiceSearchController : ControllerBase
         string categoryName,
         double? semanticScore,
         double? distanceMiles);
+
+    private sealed record BusinessSearchPage(
+        int PageNumber,
+        int PageSize,
+        int TotalCount,
+        List<BusinessSearchResult> Results);
 
     private sealed record TopCategoryResult(
         int categoryId,

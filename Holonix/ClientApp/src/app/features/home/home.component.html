@@ -54,6 +54,7 @@
                 aria-label="Location"
                 title=""
                 [value]="locationDisplay"
+                [class.guest-location-device-value]="(locationDisplay ?? '').trim().toLowerCase() === 'current location'"
                 autocomplete="off"
                 autocapitalize="off"
                 spellcheck="false"
@@ -104,6 +105,7 @@
           class="guest-search-category"
           *ngFor="let category of guestCategories"
           [attr.aria-label]="category.label"
+          (click)="searchCategory(category.label)"
         >
           <mat-icon aria-hidden="true">{{ category.icon }}</mat-icon>
           <span>{{ category.label }}</span>
@@ -143,7 +145,7 @@
               <h3>Lawn Mowing</h3>
               <p>Find local pros for one-time and recurring lawn care.</p>
             </div>
-            <button type="button" class="section-arrow-btn" aria-label="Lawn Mowing section">
+            <button type="button" class="section-arrow-btn" aria-label="Lawn Mowing section" (click)="searchCategory('Lawn Mowing')">
               <span aria-hidden="true">&rarr;</span>
             </button>
           </div>
@@ -178,7 +180,7 @@
               <h3>Personal Training</h3>
               <p>Connect with local trainers to help take your fitness to the next level.</p>
             </div>
-            <button type="button" class="section-arrow-btn" aria-label="Personal Training section">
+            <button type="button" class="section-arrow-btn" aria-label="Personal Training section" (click)="searchCategory('Personal Training')">
               <span aria-hidden="true">&rarr;</span>
             </button>
           </div>
@@ -213,7 +215,7 @@
               <h3>Interior Cleaning</h3>
               <p>Book trusted cleaners for routine or deep cleaning sessions.</p>
             </div>
-            <button type="button" class="section-arrow-btn" aria-label="Interior Cleaning section">
+            <button type="button" class="section-arrow-btn" aria-label="Interior Cleaning section" (click)="searchCategory('Interior Cleaning')">
               <span aria-hidden="true">&rarr;</span>
             </button>
           </div>

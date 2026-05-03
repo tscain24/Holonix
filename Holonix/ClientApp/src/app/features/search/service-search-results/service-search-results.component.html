@@ -6,16 +6,23 @@
     </div>
   </header>
 
-  <section class="chip-row" *ngIf="topCategories.length > 0 && !error" aria-label="Top categories">
-    <button
-      type="button"
-      class="chip"
-      *ngFor="let cat of topCategories"
-      [attr.aria-label]="cat.categoryName"
-    >
-      <span class="chip-name">{{ cat.categoryName }}</span>
-      <span class="chip-match">{{ formatMatchLabel(cat.semanticScore ?? null) }}</span>
-    </button>
+  <section class="chip-section" *ngIf="topCategories.length > 0 && !error" aria-label="Related categories">
+    <div class="chip-section-header">
+      <strong class="chip-section-title">Related Categories</strong>
+      <span class="chip-section-subtitle">Based on your search</span>
+    </div>
+    <div class="chip-row">
+      <button
+        type="button"
+        class="chip"
+        *ngFor="let cat of topCategories"
+        [attr.aria-label]="cat.categoryName"
+        (click)="applyRelatedCategory(cat.categoryName)"
+      >
+        <span class="chip-name">{{ cat.categoryName }}</span>
+        <span class="chip-match">{{ formatMatchLabel(cat.semanticScore ?? null) }}</span>
+      </button>
+    </div>
   </section>
 
   <div class="search-state search-error" *ngIf="error">{{ error }}</div>
@@ -51,43 +58,79 @@
       <div class="search-state" *ngIf="loading">Searching...</div>
       <div class="search-empty" *ngIf="!loading && results.length === 0">No results found.</div>
 
-      <article class="result-card" *ngFor="let item of results">
-        <div class="result-top">
-          <div class="result-main">
-            <div class="result-logo" aria-hidden="true">
-              <img
-                *ngIf="getBusinessLogoSrc(item) as logoSrc; else logoFallback"
-                [src]="logoSrc"
-                alt=""
-                class="result-logo-img"
-              />
-              <ng-template #logoFallback>
-                <div class="result-logo-fallback">
-                  {{ getBusinessInitials(item.businessName) }}
-                </div>
-              </ng-template>
-            </div>
-            <div class="result-text">
-              <div class="result-service">{{ item.businessName }}</div>
-              <div class="result-business">{{ item.categoryName }}</div>
-            </div>
-          </div>
-          <div class="result-meta">
-            <div class="result-distance" *ngIf="item.distanceMiles != null">{{ item.distanceMiles | number: '1.1-1' }} mi</div>
-          </div>
-        </div>
+      <div class="search-table-shell" *ngIf="!loading && results.length > 0">
+        <table class="search-table">
+          <thead>
+            <tr>
+              <th scope="col">Business</th>
+              <th scope="col">Category</th>
+              <th scope="col" class="search-table-distance">Distance</th>
+              <th scope="col" class="search-table-rating">Rating</th>
+              <th scope="col" class="search-table-actions"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of results">
+              <td class="search-table-name">
+                <span class="result-logo-inline" aria-hidden="true">
+                  <img
+                    *ngIf="getBusinessLogoSrc(item) as logoSrc; else logoFallback"
+                    [src]="logoSrc"
+                    alt=""
+                    class="result-logo-img"
+                  />
+                  <ng-template #logoFallback>
+                    <span class="result-logo-fallback">{{ getBusinessInitials(item.businessName) }}</span>
+                  </ng-template>
+                </span>
+                <span class="search-table-business">{{ item.businessName }}</span>
+              </td>
+              <td>{{ item.categoryName }}</td>
+              <td class="search-table-distance">
+                <span *ngIf="item.distanceMiles != null">{{ item.distanceMiles | number: '1.1-1' }} mi</span>
+              </td>
+              <td class="search-table-rating"></td>
+              <td class="search-table-actions">
+                <button
+                  type="button"
+                  class="table-action-btn table-action-icon"
+                  (click)="viewBusiness(item)"
+                  [disabled]="!(item.businessCode ?? '').trim()"
+                  aria-label="View business"
+                >
+                  <svg class="table-action-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-        <div class="result-category">
-          <span class="pill pill-secondary" *ngIf="item.semanticScore != null">{{ formatMatchLabel(item.semanticScore) }}</span>
+        <div class="table-pagination" aria-label="Search pagination" *ngIf="totalCount > 0">
+          <span class="table-pagination-count">Showing {{ pageStart }}-{{ pageEnd }} of {{ totalCount }}</span>
+          <div class="table-pagination-actions">
+            <button type="button" class="secondary-btn" (click)="goToPreviousPage()" [disabled]="!hasPreviousPage || loading">
+              Previous
+            </button>
+            <button type="button" class="secondary-btn" (click)="goToNextPage()" [disabled]="!hasNextPage || loading">
+              Next
+            </button>
+          </div>
         </div>
-      </article>
+      </div>
     </section>
 
     <aside class="map" aria-label="Map">
       <div class="map-shell">
-        <div class="map-placeholder">
-          <div class="map-placeholder-title">Map</div>
-          <div class="map-placeholder-subtitle">Mapbox map goes here next.</div>
+        <div class="map-canvas" #mapEl></div>
+        <div class="map-overlay" *ngIf="mapStatus !== 'ready'">
+          <div class="map-overlay-title">Map</div>
+          <div class="map-overlay-subtitle" *ngIf="mapStatus === 'loading'">Loading map…</div>
+          <div class="map-overlay-subtitle" *ngIf="mapStatus === 'idle'">Map will appear after you search.</div>
+          <div class="map-overlay-subtitle map-overlay-error" *ngIf="mapStatus === 'error'">
+            {{ mapError || 'Map failed to load.' }}
+          </div>
         </div>
       </div>
     </aside>

@@ -427,4 +427,28 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     return stateNames[key] ?? value.trim();
   }
+
+  searchCategory(label: string): void {
+    const query = (label ?? '').trim();
+    if (!query) {
+      return;
+    }
+
+    if (!this.searchOrigin.currentOrigin) {
+      this.snackBar.open('Set a location to search nearby services.', 'Close', {
+        duration: 3000,
+        panelClass: ['snack-error'],
+      });
+      return;
+    }
+
+    this.router.navigate(['/search'], {
+      queryParams: {
+        query,
+        radiusMiles: 25,
+        page: 1,
+        t: Date.now(),
+      },
+    });
+  }
 }

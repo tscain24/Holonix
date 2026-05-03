@@ -17,6 +17,7 @@ export interface ServiceSearchResult {
 
 export interface BusinessSearchResult {
   businessId: number;
+  businessCode?: string | null;
   businessName: string;
   businessIconBase64?: string | null;
   latitude?: number | null;
@@ -35,6 +36,9 @@ export interface TopCategoryResult {
 
 export interface BusinessSearchResponse {
   topCategories: TopCategoryResult[];
+  pageNumber?: number;
+  pageSize?: number;
+  totalCount?: number;
   results: BusinessSearchResult[];
 }
 
@@ -67,13 +71,22 @@ export class ServiceSearchService {
     return this.http.get<BusinessSearchResult[]>(this.businessEndpoint, { params });
   }
 
-  searchBusinessesWithTopCategories(query: string, lat: number, lng: number, radiusMiles = 25): Observable<BusinessSearchResponse> {
+  searchBusinessesWithTopCategories(
+    query: string,
+    lat: number,
+    lng: number,
+    radiusMiles = 25,
+    pageNumber = 1,
+    pageSize = 10
+  ): Observable<BusinessSearchResponse> {
     const params = new HttpParams()
       .set('query', query)
       .set('lat', lat.toString())
       .set('lng', lng.toString())
       .set('radiusMiles', radiusMiles.toString())
-      .set('includeTopCategories', 'true');
+      .set('includeTopCategories', 'true')
+      .set('pageNumber', pageNumber.toString())
+      .set('pageSize', pageSize.toString());
 
     return this.http.get<BusinessSearchResponse>(this.businessEndpoint, { params });
   }
