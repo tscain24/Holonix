@@ -1,0 +1,30 @@
+<nav class="bottom-nav" *ngIf="!hideNav" aria-label="Primary navigation">
+  <ng-container *ngIf="isLoggedIn; else loggedOutNav">
+    <a class="bottom-nav-item" routerLink="/home" routerLinkActive="bottom-nav-item-active" aria-label="Home">
+      <mat-icon aria-hidden="true">home</mat-icon>
+      <span>Home</span>
+    </a>
+
+    <a class="bottom-nav-item" routerLink="/business" routerLinkActive="bottom-nav-item-active" aria-label="Business">
+      <mat-icon aria-hidden="true">store</mat-icon>
+      <span>Business</span>
+    </a>
+
+    <a class="bottom-nav-item" routerLink="/profile" routerLinkActive="bottom-nav-item-active" aria-label="Profile">
+      <mat-icon aria-hidden="true">person</mat-icon>
+      <span>Profile</span>
+    </a>
+  </ng-container>
+
+  <ng-template #loggedOutNav>
+    <a class="bottom-nav-item" routerLink="/register" routerLinkActive="bottom-nav-item-active" aria-label="Sign up">
+      <mat-icon aria-hidden="true">person_add</mat-icon>
+      <span>Sign up</span>
+    </a>
+
+    <a class="bottom-nav-item" routerLink="/login" routerLinkActive="bottom-nav-item-active" aria-label="Log in">
+      <mat-icon aria-hidden="true">login</mat-icon>
+      <span>Log in</span>
+    </a>
+  </ng-template>
+</nav>

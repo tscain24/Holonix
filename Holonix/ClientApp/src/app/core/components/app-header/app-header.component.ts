@@ -81,7 +81,7 @@ export class AppHeaderComponent {
             catchError((err) => {
               // eslint-disable-next-line no-console
               console.error('Failed to load location suggestions.', err);
-              if (err?.status === 401) {
+              if (err?.status === 401 && this.authSession.hasToken()) {
                 this.locationAutocompleteError = 'Your session expired. Please sign in again.';
               } else {
                 this.locationAutocompleteError = 'Could not load location suggestions.';

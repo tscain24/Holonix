@@ -19,6 +19,7 @@ import {
   styleUrls: ['./business-employees.component.css'],
 })
 export class BusinessEmployeesComponent implements OnInit {
+  private static readonly MobileNavBreakpointPx = 900;
   private static readonly EmployeePageSize = 10;
   readonly employeeStatusOptions = ['Active', 'Inactive'];
   readonly filterMultiSelectFields: EmployeeFilter['field'][] = ['role', 'status'];
@@ -26,6 +27,8 @@ export class BusinessEmployeesComponent implements OnInit {
   initials = 'U';
   profileImageDataUrl = '';
   isUserMenuOpen = false;
+  isWorkspaceMenuOpen = false;
+  isMobileNav = false;
   loadingWorkspace = true;
   loadingInvites = true;
   loadingEmployees = true;
@@ -74,6 +77,7 @@ export class BusinessEmployeesComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.refreshMobileNav();
     const token = localStorage.getItem('holonix_token');
     if (!token) {
       this.router.navigate(['/login']);
@@ -136,6 +140,15 @@ export class BusinessEmployeesComponent implements OnInit {
 
   goHome(): void {
     this.router.navigate(['/home']);
+  }
+
+  toggleWorkspaceMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.isWorkspaceMenuOpen = !this.isWorkspaceMenuOpen;
+  }
+
+  closeWorkspaceMenu(): void {
+    this.isWorkspaceMenuOpen = false;
   }
 
   goToBusinesses(): void {
@@ -852,6 +865,10 @@ export class BusinessEmployeesComponent implements OnInit {
       this.isUserMenuOpen = false;
     }
 
+    if (!element?.closest('.workspace-mobile-menu')) {
+      this.isWorkspaceMenuOpen = false;
+    }
+
     if (!element?.closest('.row-action-menu') && !element?.closest('.row-action-popover')) {
       this.closeEmployeeMenu();
     }
@@ -889,6 +906,19 @@ export class BusinessEmployeesComponent implements OnInit {
   @HostListener('window:resize')
   onWindowResize(): void {
     this.closeEmployeeMenu();
+    this.refreshMobileNav();
+  }
+
+  private refreshMobileNav(): void {
+    if (typeof window === 'undefined') {
+      this.isMobileNav = false;
+      return;
+    }
+
+    this.isMobileNav = window.innerWidth <= BusinessEmployeesComponent.MobileNavBreakpointPx;
+    if (!this.isMobileNav) {
+      this.isWorkspaceMenuOpen = false;
+    }
   }
 
   private buildImageDataUrl(base64: string | null): string {

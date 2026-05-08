@@ -36,6 +36,10 @@
         <span aria-hidden="true">&larr;</span>
         Back
       </button>
+
+      <button type="button" class="signout-btn-mobile" (click)="signOut()" aria-label="Sign out">
+        Sign out
+      </button>
     </div>
 
     <header class="profile-header">
@@ -170,7 +174,7 @@
       <button type="button" class="btn btn-danger-secondary" [disabled]="deletingAccount" (click)="openDeleteAccountModal()">
         Delete Account
       </button>
-      <button type="button" class="btn btn-primary" (click)="signOut()">Sign Out</button>
+      <button type="button" class="btn btn-primary profile-signout-btn" (click)="signOut()">Sign Out</button>
     </div>
   </div>
 

@@ -175,17 +175,12 @@
 }
 
 .employees-back-row {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-start;
   min-height: 40px;
-  margin-bottom: -4px;
-}
-
-.employees-back-row .back-btn {
-  position: absolute;
-  left: calc(50% - 50vw + clamp(16px, 3vw, 42px));
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .back-btn {
@@ -227,6 +222,80 @@
   gap: 10px;
   flex-wrap: wrap;
   margin-left: 0;
+  max-width: 100%;
+}
+
+.workspace-mobile-menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.workspace-menu-trigger {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid #cad8ee;
+  background: rgba(255, 255, 255, 0.94);
+  color: #173057;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-menu-trigger mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  line-height: 18px;
+  display: block;
+  color: #1d4ed8;
+}
+
+.workspace-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  left: auto;
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px solid #d7e3f4;
+  background: #ffffff;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.14);
+  display: grid;
+  gap: 4px;
+  z-index: 60;
+}
+
+.workspace-menu-item {
+  border: 0;
+  background: transparent;
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 800;
+  color: #173057;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.workspace-menu-item mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  color: #1d4ed8;
+}
+
+.workspace-menu-item:hover {
+  background: #f4f8ff;
+  color: #1d4ed8;
 }
 
 .workspace-tab {
@@ -949,5 +1018,75 @@
 
   .table-pagination-actions {
     justify-content: stretch;
+  }
+
+  .table-toolbar-menu {
+    position: fixed;
+    top: auto;
+    right: 12px;
+    left: 12px;
+    bottom: calc(92px + env(safe-area-inset-bottom));
+    width: auto;
+    max-height: calc(100vh - 220px);
+    overflow: auto;
+    z-index: 200;
+  }
+
+  .filter-multi-dropdown {
+    position: static;
+    max-height: 200px;
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 900px) {
+  .employees-back-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+
+  .workspace-tabs {
+    display: none;
+  }
+
+  .employees-hero h1 {
+    font-size: 24px;
+    line-height: 1.12;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .employees-hero p:not(.employees-kicker) {
+    font-size: 14px;
+  }
+
+  .employee-table {
+    min-width: 0;
+  }
+
+  .employee-table th,
+  .employee-table td {
+    padding: 12px 12px;
+  }
+
+  /* Hide non-essential columns on small screens: keep Employee, Status, Assigned Jobs, Actions. */
+  .employee-table th:nth-child(2),
+  .employee-table td:nth-child(2),
+  .employee-table th:nth-child(3),
+  .employee-table td:nth-child(3),
+  .employee-table th:nth-child(4),
+  .employee-table td:nth-child(4),
+  .employee-table th:nth-child(5),
+  .employee-table td:nth-child(5),
+  .employee-table th:nth-child(6),
+  .employee-table td:nth-child(6) {
+    display: none;
+  }
+
+  .employee-table-name {
+    font-size: 15px;
   }
 }

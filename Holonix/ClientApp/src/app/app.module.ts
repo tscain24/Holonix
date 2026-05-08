@@ -28,11 +28,13 @@ import { BusinessAvailabilityComponent } from './features/business/business-avai
 import { AuthInterceptor } from './core/services/auth.interceptor';
 import { AppHeaderComponent } from './core/components/app-header/app-header.component';
 import { ServiceSearchResultsComponent } from './features/search/service-search-results/service-search-results.component';
+import { AppBottomNavComponent } from './core/components/app-bottom-nav/app-bottom-nav.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     AppHeaderComponent,
+    AppBottomNavComponent,
     LoginComponent,
     RegisterComponent,
     HomeComponent,

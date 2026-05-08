@@ -26,10 +26,13 @@ export class BusinessWorkspaceComponent implements OnInit {
   private static readonly MaxVisibleServiceChips = 4;
   private static readonly MaxVisibleSubServices = 5;
   private static readonly DeleteBusinessConfirmation = 'DELETE';
+  private static readonly MobileNavBreakpointPx = 900;
   displayName = 'User';
   initials = 'U';
   profileImageDataUrl = '';
   isUserMenuOpen = false;
+  isWorkspaceMenuOpen = false;
+  isMobileNav = false;
   loadingWorkspace = true;
   loadingAvailableServices = false;
   savingServices = false;
@@ -85,6 +88,7 @@ export class BusinessWorkspaceComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.refreshMobileNav();
     const token = localStorage.getItem('holonix_token');
     if (!token) {
       this.router.navigate(['/login']);
@@ -1011,6 +1015,15 @@ export class BusinessWorkspaceComponent implements OnInit {
     });
   }
 
+  toggleWorkspaceMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.isWorkspaceMenuOpen = !this.isWorkspaceMenuOpen;
+  }
+
+  closeWorkspaceMenu(): void {
+    this.isWorkspaceMenuOpen = false;
+  }
+
   openDeleteBusinessModal(): void {
     if (!this.businessWorkspace || this.deletingBusiness || !this.canDeleteBusiness) {
       return;
@@ -1218,6 +1231,27 @@ export class BusinessWorkspaceComponent implements OnInit {
     const element = target instanceof Element ? target : target?.parentElement;
     if (!element?.closest('.auth-actions-logged-in')) {
       this.isUserMenuOpen = false;
+    }
+
+    if (!element?.closest('.workspace-mobile-menu')) {
+      this.isWorkspaceMenuOpen = false;
+    }
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.refreshMobileNav();
+  }
+
+  private refreshMobileNav(): void {
+    if (typeof window === 'undefined') {
+      this.isMobileNav = false;
+      return;
+    }
+
+    this.isMobileNav = window.innerWidth <= BusinessWorkspaceComponent.MobileNavBreakpointPx;
+    if (!this.isMobileNav) {
+      this.isWorkspaceMenuOpen = false;
     }
   }
 

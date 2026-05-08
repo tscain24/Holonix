@@ -537,3 +537,71 @@
   }
 }
 
+@media (max-width: 640px) {
+  .right-stage {
+    padding: 14px;
+    min-height: 0;
+  }
+
+  .service-header {
+    padding: 12px 12px;
+  }
+
+  .service-eyebrow {
+    font-size: 10px;
+    margin-bottom: 2px;
+  }
+
+  .service-header h2 {
+    font-size: 20px;
+    line-height: 1.15;
+  }
+
+  .service-section {
+    padding: 12px;
+    gap: 6px;
+  }
+
+  .section-top {
+    gap: 10px;
+  }
+
+  .service-section h3 {
+    font-size: 22px;
+    line-height: 1.15;
+  }
+
+  .service-section p {
+    font-size: 13px;
+    margin-top: 4px;
+  }
+
+  .section-arrow-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 20px;
+  }
+
+  .company-row {
+    margin-top: 10px;
+    grid-auto-columns: minmax(74vw, 1fr);
+    gap: 10px;
+    padding-bottom: 6px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .company-card {
+    scroll-snap-align: start;
+    padding: 10px 12px;
+  }
+
+  .company-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .company-row {
+    scrollbar-width: none;
+  }
+}
+

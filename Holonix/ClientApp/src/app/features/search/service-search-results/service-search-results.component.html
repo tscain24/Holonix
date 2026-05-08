@@ -15,12 +15,22 @@
       <button
         type="button"
         class="chip"
-        *ngFor="let cat of topCategories"
+        *ngFor="let cat of visibleTopCategories"
         [attr.aria-label]="cat.categoryName"
         (click)="applyRelatedCategory(cat.categoryName)"
       >
         <span class="chip-name">{{ cat.categoryName }}</span>
         <span class="chip-match">{{ formatMatchLabel(cat.semanticScore ?? null) }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="chip chip-toggle chip-toggle-compact"
+        *ngIf="isMobileLayout && topCategories.length > 1"
+        [attr.aria-label]="relatedCategoriesExpanded ? 'Collapse related categories' : 'Show more related categories'"
+        (click)="toggleRelatedCategories()"
+      >
+        <span class="chip-name">{{ relatedCategoriesExpanded ? '−' : '+' }}{{ relatedCategoriesExpanded ? '' : (topCategories.length - 1) }}</span>
       </button>
     </div>
   </section>
@@ -58,7 +68,7 @@
       <div class="search-state" *ngIf="loading">Searching...</div>
       <div class="search-empty" *ngIf="!loading && results.length === 0">No results found.</div>
 
-      <div class="search-table-shell" *ngIf="!loading && results.length > 0">
+      <div class="search-table-shell" *ngIf="!isMobileLayout && !loading && results.length > 0">
         <table class="search-table">
           <thead>
             <tr>
@@ -70,7 +80,12 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let item of results">
+            <tr
+              *ngFor="let item of results"
+              class="search-table-row"
+              [class.search-table-row-clickable]="(item.businessCode ?? '').trim().length > 0"
+              (click)="viewBusiness(item)"
+            >
               <td class="search-table-name">
                 <span class="result-logo-inline" aria-hidden="true">
                   <img
@@ -83,7 +98,15 @@
                     <span class="result-logo-fallback">{{ getBusinessInitials(item.businessName) }}</span>
                   </ng-template>
                 </span>
-                <span class="search-table-business">{{ item.businessName }}</span>
+                <button
+                  type="button"
+                  class="search-table-business-link"
+                  (click)="viewBusiness(item); $event.stopPropagation()"
+                  [disabled]="!(item.businessCode ?? '').trim()"
+                  aria-label="View business"
+                >
+                  {{ item.businessName }}
+                </button>
               </td>
               <td>{{ item.categoryName }}</td>
               <td class="search-table-distance">
@@ -98,6 +121,7 @@
                   [disabled]="!(item.businessCode ?? '').trim()"
                   aria-label="View business"
                 >
+                  <span class="table-action-label">View</span>
                   <svg class="table-action-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M9 6l6 6-6 6" />
                   </svg>
@@ -118,6 +142,49 @@
             </button>
           </div>
         </div>
+      </div>
+
+      <div class="result-cards" *ngIf="isMobileLayout && !loading && results.length > 0" aria-label="Search results">
+        <button
+          type="button"
+          class="result-card result-card-clickable"
+          *ngFor="let item of results"
+          (click)="viewBusiness(item)"
+          [disabled]="!(item.businessCode ?? '').trim()"
+          aria-label="View business"
+        >
+          <div class="result-top">
+            <div class="result-main">
+              <span class="result-logo" aria-hidden="true">
+                <img
+                  *ngIf="getBusinessLogoSrc(item) as logoSrc; else logoFallbackCard"
+                  [src]="logoSrc"
+                  alt=""
+                  class="result-logo-img"
+                />
+                <ng-template #logoFallbackCard>
+                  <span class="result-logo-fallback">{{ getBusinessInitials(item.businessName) }}</span>
+                </ng-template>
+              </span>
+
+              <div class="result-text">
+                <div class="result-service">{{ item.businessName }}</div>
+                <div class="result-business">{{ item.categoryName }}</div>
+              </div>
+            </div>
+
+            <div class="result-meta" *ngIf="item.distanceMiles != null">
+              <div class="result-distance">{{ item.distanceMiles | number: '1.1-1' }} mi</div>
+            </div>
+          </div>
+
+          <div class="result-card-actions">
+            <span class="result-card-cta">View business</span>
+            <svg class="table-action-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </div>
+        </button>
       </div>
     </section>
 

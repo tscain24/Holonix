@@ -41,15 +41,48 @@
           <span aria-hidden="true">&larr;</span>
           Back
         </button>
-        <nav class="workspace-tabs" aria-label="Workspace sections">
-          <button type="button" class="workspace-tab" (click)="goToOverviewTab()">Overview</button>
-          <button type="button" class="workspace-tab" (click)="goToEmployeesTab()">Employees</button>
-          <button type="button" class="workspace-tab workspace-tab-active" aria-current="page" (click)="goToServiceManagerTab()">
-            Service Manager
+
+        <div class="workspace-mobile-menu" *ngIf="isMobileNav; else desktopWorkspaceTabs">
+          <button type="button" class="workspace-menu-trigger" (click)="toggleWorkspaceMenu($event)" aria-label="Open workspace menu">
+            <mat-icon aria-hidden="true">menu</mat-icon>
+            Menu
           </button>
-          <button type="button" class="workspace-tab" (click)="goToMyAvailabilityTab()">Availability</button>
-          <button type="button" class="workspace-tab" (click)="goToJobsTab()">Jobs</button>
-        </nav>
+
+          <div class="workspace-menu" *ngIf="isWorkspaceMenuOpen" role="menu" aria-label="Workspace sections">
+            <button type="button" class="workspace-menu-item" (click)="goToOverviewTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">dashboard</mat-icon>
+              Overview
+            </button>
+            <button type="button" class="workspace-menu-item" (click)="goToEmployeesTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">group</mat-icon>
+              Employees
+            </button>
+            <button type="button" class="workspace-menu-item" (click)="goToServiceManagerTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">tune</mat-icon>
+              Service Manager
+            </button>
+            <button type="button" class="workspace-menu-item" (click)="goToMyAvailabilityTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">event_available</mat-icon>
+              Availability
+            </button>
+            <button type="button" class="workspace-menu-item" (click)="goToJobsTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">work</mat-icon>
+              Jobs
+            </button>
+          </div>
+        </div>
+
+        <ng-template #desktopWorkspaceTabs>
+          <nav class="workspace-tabs" aria-label="Workspace sections">
+            <button type="button" class="workspace-tab" (click)="goToOverviewTab()">Overview</button>
+            <button type="button" class="workspace-tab" (click)="goToEmployeesTab()">Employees</button>
+            <button type="button" class="workspace-tab workspace-tab-active" aria-current="page" (click)="goToServiceManagerTab()">
+              Service Manager
+            </button>
+            <button type="button" class="workspace-tab" (click)="goToMyAvailabilityTab()">Availability</button>
+            <button type="button" class="workspace-tab" (click)="goToJobsTab()">Jobs</button>
+          </nav>
+        </ng-template>
       </div>
 
       <section class="service-manager-hero">
@@ -310,7 +343,7 @@
           No services have been configured for this business yet.
         </div>
 
-        <div class="service-table-shell" *ngIf="hasVisibleSubServices()" (scroll)="closeSubServiceMenu()">
+        <div class="service-table-shell" *ngIf="!isMobileNav && hasVisibleSubServices()" (scroll)="closeSubServiceMenu()">
           <table class="service-table">
             <thead>
               <tr>
@@ -348,6 +381,55 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="service-cards" *ngIf="isMobileNav && hasVisibleSubServices()" aria-label="Services">
+          <button
+            type="button"
+            class="service-card"
+            *ngFor="let subService of pagedSubServices"
+            [disabled]="!canManageSubServices"
+            (click)="startEditSubService(subService)"
+            aria-label="Edit service"
+          >
+            <div class="service-card-top">
+              <div class="service-card-name">
+                <div class="service-table-primary-name">{{ subService.name }}</div>
+                <div class="service-table-secondary">
+                  {{ subService.parentServiceName }} • Effective {{ formatSubServiceEffectiveDate(subService) }}
+                </div>
+              </div>
+              <div class="service-card-actions" *ngIf="canManageSubServices">
+                <button
+                  type="button"
+                  class="menu-trigger-btn"
+                  (click)="toggleSubServiceMenu($event, subService)"
+                  aria-label="Open service actions"
+                >
+                  ⋯
+                </button>
+              </div>
+            </div>
+
+            <div class="service-card-meta">
+              <div class="service-card-meta-row">
+                <span class="service-card-label">Price</span>
+                <span class="service-card-value">{{ formatSubServicePrice(subService) }}</span>
+              </div>
+              <div class="service-card-meta-row">
+                <span class="service-card-label">Duration</span>
+                <span class="service-card-value">{{ formatDuration(subService) }}</span>
+              </div>
+              <div class="service-card-meta-row">
+                <span class="service-card-label">Employees</span>
+                <span class="service-card-value">{{ formatEmployeeCount(subService) }}</span>
+              </div>
+              <div class="service-card-meta-row">
+                <span class="service-card-label">Assigned</span>
+                <span class="service-card-value service-card-assigned">{{ formatAssignedUsers(subService) }}</span>
+              </div>
+            </div>
+          </button>
         </div>
 
         <div

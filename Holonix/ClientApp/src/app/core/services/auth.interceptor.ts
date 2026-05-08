@@ -63,6 +63,7 @@ export class AuthInterceptor implements HttpInterceptor {
   private shouldAttemptRefresh(err: unknown, url: string): boolean {
     return err instanceof HttpErrorResponse
       && err.status === 401
+      && this.authSession.hasToken()
       && !this.isBypassedRequest(url);
   }
 }

@@ -188,6 +188,8 @@
 .profile-back-row {
   display: flex;
   justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
 }
 
 .back-btn {
@@ -207,6 +209,27 @@
 
 .back-btn:hover {
   background: #f8fbff;
+}
+
+.signout-btn-mobile {
+  display: none;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(185, 28, 28, 0.25);
+  background: rgba(255, 255, 255, 0.95);
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.signout-btn-mobile:hover {
+  background: #fff5f5;
+}
+
+.profile-signout-btn {
+  display: inline-block;
 }
 
 .profile-header {
@@ -614,6 +637,21 @@
 }
 
 @media (max-width: 600px) {
+  .profile-back-row {
+    justify-content: space-between;
+  }
+
+  .signout-btn-mobile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+
+  .profile-signout-btn {
+    display: none;
+  }
+
   .profile-header {
     grid-template-columns: 1fr;
     justify-items: start;

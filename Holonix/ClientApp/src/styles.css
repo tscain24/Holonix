@@ -66,7 +66,7 @@ body {
   height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
-  background: #061024;
+  background: #eef4ff;
 }
 
 *,
@@ -1127,10 +1127,19 @@ app-home .guest-search-trust-item mat-icon {
     display: none;
   }
 
-  app-home .guest-search-location-row {
+  app-home .guest-search-field-body {
     grid-template-columns: 1fr;
-    justify-items: start;
-    gap: 4px;
+    row-gap: 4px;
+    align-items: start;
+  }
+
+  app-home .guest-search-label {
+    white-space: normal;
+  }
+
+  app-home .guest-search-location-row {
+    grid-template-columns: 1fr auto;
+    gap: 8px;
   }
 
   app-home .guest-search-submit {

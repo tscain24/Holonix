@@ -14,6 +14,7 @@ export class BusinessOverviewComponent implements OnInit {
   initials = 'U';
   profileImageDataUrl = '';
   isUserMenuOpen = false;
+  isMobileMenuOpen = false;
   loadingBusinesses = true;
   businesses: UserBusinessSummary[] = [];
 
@@ -69,6 +70,10 @@ export class BusinessOverviewComponent implements OnInit {
     this.router.navigate(['/home']);
   }
 
+  goToBusinesses(): void {
+    this.router.navigate(['/business']);
+  }
+
   goToProfile(): void {
     this.router.navigate(['/profile']);
   }
@@ -88,6 +93,15 @@ export class BusinessOverviewComponent implements OnInit {
   toggleUserMenu(event: MouseEvent): void {
     event.stopPropagation();
     this.isUserMenuOpen = !this.isUserMenuOpen;
+  }
+
+  toggleMobileMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.isMobileMenuOpen = !this.isMobileMenuOpen;
+  }
+
+  closeMobileMenu(): void {
+    this.isMobileMenuOpen = false;
   }
 
   signOut(): void {
@@ -116,6 +130,10 @@ export class BusinessOverviewComponent implements OnInit {
     const element = target instanceof Element ? target : target?.parentElement;
     if (!element?.closest('.auth-actions-logged-in')) {
       this.isUserMenuOpen = false;
+    }
+
+    if (!element?.closest('.nav-left')) {
+      this.isMobileMenuOpen = false;
     }
   }
 

@@ -25,6 +25,7 @@ type SubServiceFilter = {
   styleUrls: ['./business-service-manager.component.css'],
 })
 export class BusinessServiceManagerComponent implements OnInit {
+  private static readonly MobileNavBreakpointPx = 900;
   private static readonly MaxVisibleAssignedUsers = 5;
   private static readonly SubServicePageSize = 10;
   readonly subServicePricingOptions = ['Consult', 'Priced'];
@@ -33,6 +34,8 @@ export class BusinessServiceManagerComponent implements OnInit {
   initials = 'U';
   profileImageDataUrl = '';
   isUserMenuOpen = false;
+  isWorkspaceMenuOpen = false;
+  isMobileNav = false;
   loadingWorkspace = true;
   creatingSubService = false;
   savingSubService = false;
@@ -79,6 +82,7 @@ export class BusinessServiceManagerComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.refreshMobileNav();
     const token = localStorage.getItem('holonix_token');
     if (!token) {
       this.router.navigate(['/login']);
@@ -136,6 +140,15 @@ export class BusinessServiceManagerComponent implements OnInit {
 
   goHome(): void {
     this.router.navigate(['/home']);
+  }
+
+  toggleWorkspaceMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.isWorkspaceMenuOpen = !this.isWorkspaceMenuOpen;
+  }
+
+  closeWorkspaceMenu(): void {
+    this.isWorkspaceMenuOpen = false;
   }
 
   goToBusinesses(): void {
@@ -945,6 +958,10 @@ export class BusinessServiceManagerComponent implements OnInit {
       this.isUserMenuOpen = false;
     }
 
+    if (!element?.closest('.workspace-mobile-menu')) {
+      this.isWorkspaceMenuOpen = false;
+    }
+
     if (!element?.closest('.sub-service-actions') && !element?.closest('.sub-service-menu-overlay')) {
       this.closeSubServiceMenu();
     }
@@ -977,6 +994,19 @@ export class BusinessServiceManagerComponent implements OnInit {
   @HostListener('window:resize')
   onWindowResize(): void {
     this.closeSubServiceMenu();
+    this.refreshMobileNav();
+  }
+
+  private refreshMobileNav(): void {
+    if (typeof window === 'undefined') {
+      this.isMobileNav = false;
+      return;
+    }
+
+    this.isMobileNav = window.innerWidth <= BusinessServiceManagerComponent.MobileNavBreakpointPx;
+    if (!this.isMobileNav) {
+      this.isWorkspaceMenuOpen = false;
+    }
   }
 
   private buildImageDataUrl(base64: string | null): string {

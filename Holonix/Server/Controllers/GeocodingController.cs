@@ -23,7 +23,7 @@ public sealed class GeocodingController : ControllerBase
         _logger = logger;
     }
 
-    [Authorize]
+    [AllowAnonymous]
     [HttpGet("address-suggestions")]
     public async Task<IActionResult> GetAddressSuggestions(
         [FromQuery] string q,
@@ -56,7 +56,7 @@ public sealed class GeocodingController : ControllerBase
         }
     }
 
-    [Authorize]
+    [AllowAnonymous]
     [HttpGet("location-suggestions")]
     public async Task<IActionResult> GetLocationSuggestions(
         [FromQuery] string q,

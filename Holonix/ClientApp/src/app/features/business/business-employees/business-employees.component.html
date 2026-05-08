@@ -41,13 +41,46 @@
           <span aria-hidden="true">&larr;</span>
           Back
         </button>
-        <nav class="workspace-tabs" aria-label="Workspace sections">
-          <button type="button" class="workspace-tab" (click)="goToOverviewTab()">Overview</button>
-          <button type="button" class="workspace-tab workspace-tab-active" aria-current="page" (click)="goToEmployeesTab()">Employees</button>
-          <button type="button" class="workspace-tab" (click)="goToServiceManagerTab()">Service Manager</button>
-          <button type="button" class="workspace-tab" (click)="goToMyAvailabilityTab()">Availability</button>
-          <button type="button" class="workspace-tab" (click)="goToJobsTab()">Jobs</button>
-        </nav>
+
+        <div class="workspace-mobile-menu" *ngIf="isMobileNav; else desktopWorkspaceTabs">
+          <button type="button" class="workspace-menu-trigger" (click)="toggleWorkspaceMenu($event)" aria-label="Open workspace menu">
+            <mat-icon aria-hidden="true">menu</mat-icon>
+            Menu
+          </button>
+
+          <div class="workspace-menu" *ngIf="isWorkspaceMenuOpen" role="menu" aria-label="Workspace sections">
+            <button type="button" class="workspace-menu-item" (click)="goToOverviewTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">dashboard</mat-icon>
+              Overview
+            </button>
+            <button type="button" class="workspace-menu-item" (click)="goToEmployeesTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">group</mat-icon>
+              Employees
+            </button>
+            <button type="button" class="workspace-menu-item" (click)="goToServiceManagerTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">tune</mat-icon>
+              Service Manager
+            </button>
+            <button type="button" class="workspace-menu-item" (click)="goToMyAvailabilityTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">event_available</mat-icon>
+              Availability
+            </button>
+            <button type="button" class="workspace-menu-item" (click)="goToJobsTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">work</mat-icon>
+              Jobs
+            </button>
+          </div>
+        </div>
+
+        <ng-template #desktopWorkspaceTabs>
+          <nav class="workspace-tabs" aria-label="Workspace sections">
+            <button type="button" class="workspace-tab" (click)="goToOverviewTab()">Overview</button>
+            <button type="button" class="workspace-tab workspace-tab-active" aria-current="page" (click)="goToEmployeesTab()">Employees</button>
+            <button type="button" class="workspace-tab" (click)="goToServiceManagerTab()">Service Manager</button>
+            <button type="button" class="workspace-tab" (click)="goToMyAvailabilityTab()">Availability</button>
+            <button type="button" class="workspace-tab" (click)="goToJobsTab()">Jobs</button>
+          </nav>
+        </ng-template>
       </div>
 
       <section class="employees-hero">

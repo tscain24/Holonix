@@ -77,6 +77,7 @@ type LegendInfoKey = 'available' | 'partialAvailable' | 'timeOff' | 'unavailable
   styleUrls: ['./business-availability.component.css'],
 })
 export class BusinessAvailabilityComponent implements OnInit {
+  private static readonly MobileNavBreakpointPx = 900;
   private static readonly TimeStepMinutes = 30;
   private static readonly TimePopoverMaxHeight = 280;
   private static readonly TimePopoverPadding = 8;
@@ -96,6 +97,8 @@ export class BusinessAvailabilityComponent implements OnInit {
   initials = 'U';
   profileImageDataUrl = '';
   isUserMenuOpen = false;
+  isWorkspaceMenuOpen = false;
+  isMobileNav = false;
   loadingWorkspace = true;
   loadingAvailability = true;
   savingAvailability = false;
@@ -177,6 +180,7 @@ export class BusinessAvailabilityComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.refreshMobileNav();
     const token = localStorage.getItem('holonix_token');
     if (!token) {
       this.router.navigate(['/login']);
@@ -236,6 +240,15 @@ export class BusinessAvailabilityComponent implements OnInit {
 
   goHome(): void {
     this.router.navigate(['/home']);
+  }
+
+  toggleWorkspaceMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.isWorkspaceMenuOpen = !this.isWorkspaceMenuOpen;
+  }
+
+  closeWorkspaceMenu(): void {
+    this.isWorkspaceMenuOpen = false;
   }
 
   goToProfile(): void {
@@ -1127,12 +1140,33 @@ export class BusinessAvailabilityComponent implements OnInit {
       this.isUserMenuOpen = false;
     }
 
+    if (!element?.closest('.workspace-mobile-menu')) {
+      this.isWorkspaceMenuOpen = false;
+    }
+
     if (!element?.closest('.time-picker-shell')) {
       this.closePicker();
     }
 
     if (!element?.closest('.legend-info-shell')) {
       this.legendInfoOpen = false;
+    }
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.refreshMobileNav();
+  }
+
+  private refreshMobileNav(): void {
+    if (typeof window === 'undefined') {
+      this.isMobileNav = false;
+      return;
+    }
+
+    this.isMobileNav = window.innerWidth <= BusinessAvailabilityComponent.MobileNavBreakpointPx;
+    if (!this.isMobileNav) {
+      this.isWorkspaceMenuOpen = false;
     }
   }
 
@@ -1169,6 +1203,9 @@ export class BusinessAvailabilityComponent implements OnInit {
 
     this.currentBusinessUserId = response.businessUserId ?? 0;
     this.effectiveStartDate = response.effectiveStartDate ?? '';
+    const hasSavedAvailability = (response.availability ?? []).some((entry) =>
+      !!this.normalizeTime(entry?.startTime) && !!this.normalizeTime(entry?.endTime));
+
     for (const day of this.availabilityDays) {
       const matches = byDay.get(day.dayOfWeek) ?? [];
       const frames = matches
@@ -1179,8 +1216,14 @@ export class BusinessAvailabilityComponent implements OnInit {
         .filter((frame) => !!frame.startTime && !!frame.endTime)
         .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-      day.enabled = frames.length > 0;
-      day.timeFrames = frames.length > 0 ? frames : [{ startTime: '09:00', endTime: '17:00' }];
+      if (!hasSavedAvailability) {
+        const isWeekday = day.dayOfWeek >= 1 && day.dayOfWeek <= 5;
+        day.enabled = isWeekday;
+        day.timeFrames = [{ startTime: '09:00', endTime: '17:00' }];
+      } else {
+        day.enabled = frames.length > 0;
+        day.timeFrames = frames.length > 0 ? frames : [{ startTime: '09:00', endTime: '17:00' }];
+      }
     }
 
     this.daysOff = this.mapTimeOff(response.daysOff ?? []);

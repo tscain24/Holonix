@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, catchError, distinctUntilChanged, finalize, firstValueFrom, map, of, switchMap, takeUntil } from 'rxjs';
 import { BusinessSearchResult, BusinessSearchResponse, TopCategoryResult, ServiceSearchService } from '../../../core/services/service-search.service';
@@ -18,6 +18,7 @@ declare global {
 })
 export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnDestroy {
   private static readonly PageSize = 10;
+  private static readonly MobileCategoryBreakpointPx = 640;
 
   query = '';
   radiusMiles = 25;
@@ -26,6 +27,8 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
   results: BusinessSearchResult[] = [];
   topCategories: TopCategoryResult[] = [];
   locationLabel = '';
+  relatedCategoriesExpanded = false;
+  isMobileLayout = false;
   mapStatus: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
   mapError: string | null = null;
   currentPage = 1;
@@ -50,6 +53,7 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
   ) {}
 
   ngOnInit(): void {
+    this.refreshMobileLayout();
     this.route.queryParamMap
       .pipe(
         map((params) => {
@@ -68,6 +72,7 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
           this.query = query;
           this.radiusMiles = clamp(radiusMiles, 1, 100);
           this.currentPage = Math.max(1, pageNumber);
+          this.relatedCategoriesExpanded = false;
           if (!this.query) {
             this.results = [];
             this.topCategories = [];
@@ -118,6 +123,37 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
         this.currentPage = response.pageNumber ?? this.currentPage;
         await this.updateMapAsync();
       });
+  }
+
+  toggleRelatedCategories(): void {
+    this.relatedCategoriesExpanded = !this.relatedCategoriesExpanded;
+  }
+
+  get visibleTopCategories(): TopCategoryResult[] {
+    const categories = this.topCategories ?? [];
+    if (!this.isMobileLayout) {
+      return categories;
+    }
+    if (this.relatedCategoriesExpanded) {
+      return categories;
+    }
+    return categories.slice(0, 1);
+  }
+
+  private refreshMobileLayout(): void {
+    if (typeof window === 'undefined') {
+      this.isMobileLayout = false;
+      return;
+    }
+    this.isMobileLayout = window.innerWidth <= ServiceSearchResultsComponent.MobileCategoryBreakpointPx;
+    if (!this.isMobileLayout) {
+      this.relatedCategoriesExpanded = false;
+    }
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.refreshMobileLayout();
   }
 
   ngAfterViewInit(): void {

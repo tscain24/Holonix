@@ -41,13 +41,46 @@
           <span aria-hidden="true">&larr;</span>
           Back
         </button>
-        <nav class="workspace-tabs" aria-label="Workspace sections">
-          <button type="button" class="workspace-tab" (click)="goToOverviewTab()">Overview</button>
-          <button type="button" class="workspace-tab" (click)="goToEmployeesTab()">Employees</button>
-          <button type="button" class="workspace-tab" (click)="goToServiceManagerTab()">Service Manager</button>
-          <button type="button" class="workspace-tab workspace-tab-active" aria-current="page" (click)="goToMyAvailabilityTab()">Availability</button>
-          <button type="button" class="workspace-tab" (click)="goToJobsTab()">Jobs</button>
-        </nav>
+
+        <div class="workspace-mobile-menu" *ngIf="isMobileNav; else desktopWorkspaceTabs">
+          <button type="button" class="workspace-menu-trigger" (click)="toggleWorkspaceMenu($event)" aria-label="Open workspace menu">
+            <mat-icon aria-hidden="true">menu</mat-icon>
+            Menu
+          </button>
+
+          <div class="workspace-menu" *ngIf="isWorkspaceMenuOpen" role="menu" aria-label="Workspace sections">
+            <button type="button" class="workspace-menu-item" (click)="goToOverviewTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">dashboard</mat-icon>
+              Overview
+            </button>
+            <button type="button" class="workspace-menu-item" (click)="goToEmployeesTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">group</mat-icon>
+              Employees
+            </button>
+            <button type="button" class="workspace-menu-item" (click)="goToServiceManagerTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">tune</mat-icon>
+              Service Manager
+            </button>
+            <button type="button" class="workspace-menu-item" (click)="goToMyAvailabilityTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">event_available</mat-icon>
+              Availability
+            </button>
+            <button type="button" class="workspace-menu-item" (click)="goToJobsTab(); closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">work</mat-icon>
+              Jobs
+            </button>
+          </div>
+        </div>
+
+        <ng-template #desktopWorkspaceTabs>
+          <nav class="workspace-tabs" aria-label="Workspace sections">
+            <button type="button" class="workspace-tab" (click)="goToOverviewTab()">Overview</button>
+            <button type="button" class="workspace-tab" (click)="goToEmployeesTab()">Employees</button>
+            <button type="button" class="workspace-tab" (click)="goToServiceManagerTab()">Service Manager</button>
+            <button type="button" class="workspace-tab workspace-tab-active" aria-current="page" (click)="goToMyAvailabilityTab()">Availability</button>
+            <button type="button" class="workspace-tab" (click)="goToJobsTab()">Jobs</button>
+          </nav>
+        </ng-template>
       </div>
 
       <section class="availability-hero">
@@ -131,6 +164,10 @@
             [class.calendar-cell-past]="day.isPast"
             [class.calendar-cell-today]="day.isToday"
             [class.calendar-cell-selected]="selectedCalendarDay?.isoDate === day.isoDate"
+            [class.calendar-cell-status-on]="day.status === 'available'"
+            [class.calendar-cell-status-partial]="day.status === 'partialAvailable'"
+            [class.calendar-cell-status-off]="day.status === 'timeOff'"
+            [class.calendar-cell-status-unavailable]="day.status === 'unavailable'"
             (click)="selectCalendarDay(day)"
             [attr.title]="day.detailLabel"
           >
@@ -428,7 +465,7 @@
             />
           </div>
 
-          <div class="timeoff-field">
+          <div class="timeoff-field timeoff-field-hours">
             <label class="timeoff-label">Hours</label>
             <div class="time-range">
               <div
@@ -518,7 +555,7 @@
           <button
             *ngIf="canAddDayOff"
             type="button"
-            class="primary-btn"
+            class="primary-btn timeoff-submit"
             (click)="submitTimeOff()"
             [disabled]="savingAvailability || loadingAvailability || !!daysOffValidationMessage"
           >
@@ -649,7 +686,7 @@
             <ng-template #removeTimeOff>
               <button
                 type="button"
-                class="ghost-btn danger"
+                class="ghost-btn danger timeoff-remove-btn"
                 (click)="removeDayOff(index)"
                 [disabled]="savingAvailability || loadingAvailability"
               >

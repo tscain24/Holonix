@@ -1,8 +1,33 @@
 <section class="business-page" aria-label="Business overview">
   <header class="top-nav">
-    <div class="brand-mark brand-button" (click)="goHome()" role="button" tabindex="0" aria-label="Go to home">
-      <img src="assets/holonix-logo-blue.svg" alt="Holonix logo" />
-      <span>Holonix</span>
+    <div class="nav-left">
+      <div class="brand-mark brand-button" (click)="goHome()" role="button" tabindex="0" aria-label="Go to home">
+        <img src="assets/holonix-logo-blue.svg" alt="Holonix logo" />
+        <span>Holonix</span>
+      </div>
+
+      <button type="button" class="mobile-menu-trigger" (click)="toggleMobileMenu($event)" aria-label="Open menu">
+        <mat-icon aria-hidden="true">menu</mat-icon>
+      </button>
+
+      <div class="mobile-menu" *ngIf="isMobileMenuOpen" role="menu" aria-label="Navigation menu">
+        <button type="button" class="mobile-menu-item" (click)="goHome(); closeMobileMenu()" role="menuitem">
+          <mat-icon aria-hidden="true">home</mat-icon>
+          Home
+        </button>
+        <button type="button" class="mobile-menu-item" (click)="goToBusinesses(); closeMobileMenu()" role="menuitem">
+          <mat-icon aria-hidden="true">store</mat-icon>
+          Businesses
+        </button>
+        <button type="button" class="mobile-menu-item" (click)="goToProfile(); closeMobileMenu()" role="menuitem">
+          <mat-icon aria-hidden="true">person</mat-icon>
+          Profile
+        </button>
+        <button type="button" class="mobile-menu-item danger" (click)="signOut(); closeMobileMenu()" role="menuitem">
+          <mat-icon aria-hidden="true">logout</mat-icon>
+          Sign out
+        </button>
+      </div>
     </div>
 
     <nav class="top-links" aria-label="Primary">
