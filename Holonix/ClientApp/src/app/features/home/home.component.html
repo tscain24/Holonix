@@ -54,7 +54,7 @@
                 aria-label="Location"
                 title=""
                 [value]="locationDisplay"
-                [class.guest-location-device-value]="(locationDisplay ?? '').trim().toLowerCase() === 'current location'"
+                [class.guest-location-device-value]="locationDisplay.trim().toLowerCase() === 'current location'"
                 autocomplete="off"
                 autocapitalize="off"
                 spellcheck="false"

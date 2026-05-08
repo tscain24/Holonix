@@ -157,7 +157,11 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
   }
 
   ngAfterViewInit(): void {
-    void this.updateMapAsync();
+    // Avoid ExpressionChangedAfterItHasBeenCheckedError by deferring map status updates
+    // until after the initial view check completes.
+    window.setTimeout(() => {
+      void this.updateMapAsync();
+    }, 0);
   }
 
   ngOnDestroy(): void {
