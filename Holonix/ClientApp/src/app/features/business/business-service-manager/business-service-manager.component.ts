@@ -10,6 +10,8 @@ import {
 import { AuthSessionService } from '../../../core/services/auth-session.service';
 
 interface VisibleBusinessSubService extends BusinessWorkspaceSubService {
+  bucketServiceId: number;
+  bucketServiceName: string;
   parentServiceName: string;
 }
 
@@ -261,13 +263,31 @@ export class BusinessServiceManagerComponent implements OnInit {
   }
 
   get allVisibleSubServices(): VisibleBusinessSubService[] {
-    return (this.businessWorkspace?.services ?? [])
+    const services = this.businessWorkspace?.services ?? [];
+    const serviceNameById = new Map<number, string>(services.map((s) => [s.serviceId, s.name]));
+    const validServiceIds = new Set<number>(services.map((s) => s.serviceId));
+
+    return services
       .flatMap((service) =>
         service.subServices.map((subService) => ({
           ...subService,
-          parentServiceName: service.name,
+          bucketServiceId: service.serviceId,
+          bucketServiceName: service.name,
+          parentServiceName: serviceNameById.get(subService.serviceId) ?? service.name,
         }))
       )
+      .map((subService) => {
+        const apiServiceId = subService.serviceId;
+        const resolvedServiceId = Number.isFinite(apiServiceId) && validServiceIds.has(apiServiceId)
+          ? apiServiceId
+          : subService.bucketServiceId;
+
+        return {
+          ...subService,
+          serviceId: resolvedServiceId,
+          parentServiceName: serviceNameById.get(resolvedServiceId) ?? subService.bucketServiceName,
+        };
+      })
       .sort((a, b) => {
         const effectiveDateCompare = a.effectiveDate.localeCompare(b.effectiveDate);
         if (effectiveDateCompare !== 0) {
@@ -629,7 +649,7 @@ export class BusinessServiceManagerComponent implements OnInit {
     this.closeSubServiceMenu();
     this.editingSubServiceId = subService.businessSubServiceId;
     this.editSubServiceName = subService.name;
-    this.editParentServiceId = this.findParentServiceId(subService.businessSubServiceId);
+    this.editParentServiceId = Number.isFinite(subService.serviceId) && subService.serviceId > 0 ? subService.serviceId : subService.bucketServiceId;
     this.editSubServicePrice = `${subService.price ?? 0}`;
     this.editConsultationNeeded = !!subService.consultationNeeded;
     this.editDurationHours = `${Math.floor((subService.durationMinutes ?? 0) / 60)}`;
@@ -1057,12 +1077,6 @@ export class BusinessServiceManagerComponent implements OnInit {
         });
       },
     });
-  }
-
-  private findParentServiceId(businessSubServiceId: number): number | null {
-    const service = (this.businessWorkspace?.services ?? []).find((item) =>
-      item.subServices.some((subService) => subService.businessSubServiceId === businessSubServiceId));
-    return service?.serviceId ?? null;
   }
 
   private buildTodayDateInputValue(): string {

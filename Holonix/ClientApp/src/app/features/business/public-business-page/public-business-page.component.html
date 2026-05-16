@@ -1,0 +1,170 @@
+<section class="public-business-page" aria-label="Business profile">
+  <button type="button" class="secondary-btn back-link" (click)="goBackToSearch()">
+    <span aria-hidden="true">←</span>
+    Back to search results
+  </button>
+
+  <div class="state-row" *ngIf="loading">Loading business...</div>
+  <div class="state-row error" *ngIf="!loading && error">{{ error }}</div>
+
+  <ng-container *ngIf="!loading && !error && business as b">
+    <div class="page-grid">
+      <div class="main-col">
+        <div class="hero">
+          <div class="hero-media" aria-label="Business banner">
+            <img *ngIf="businessIconSrc" [src]="businessIconSrc" alt="Business logo" class="hero-logo" />
+            <div *ngIf="!businessIconSrc" class="hero-initials" aria-hidden="true">{{ businessInitials }}</div>
+          </div>
+
+          <div class="hero-meta">
+            <div class="hero-title-row">
+              <h1 class="hero-title">{{ b.name }}</h1>
+              <span class="verified-badge" title="Verified business" aria-label="Verified business">
+                <mat-icon aria-hidden="true">verified</mat-icon>
+              </span>
+            </div>
+
+            <div class="hero-subtitle" *ngIf="b.categoryName">{{ b.categoryName }}</div>
+            <div class="hero-subtitle" *ngIf="!b.categoryName">Services available for booking</div>
+
+            <div class="hero-stats">
+              <div class="stat">
+                <span class="star" aria-hidden="true">★</span>
+                <span class="stat-strong">4.9</span>
+                <span class="stat-muted">(128 reviews)</span>
+              </div>
+              <div class="stat" *ngIf="locationLabel">
+                <mat-icon aria-hidden="true">place</mat-icon>
+                <span>{{ locationLabel }}</span>
+              </div>
+              <div class="stat open-now">
+                <span class="dot" aria-hidden="true"></span>
+                Open today
+              </div>
+            </div>
+
+            <p class="hero-description" *ngIf="b.description">{{ b.description }}</p>
+            <p class="hero-description" *ngIf="!b.description">Browse services and start a booking in just a few steps.</p>
+
+            <div class="hero-flags">
+              <div class="flag">
+                <mat-icon aria-hidden="true">verified_user</mat-icon>
+                Verified Business
+              </div>
+              <div class="flag">
+                <mat-icon aria-hidden="true">security</mat-icon>
+                Insured
+              </div>
+              <div class="flag">
+                <mat-icon aria-hidden="true">check_circle</mat-icon>
+                Background Checked
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <nav class="tabs" aria-label="Business sections">
+          <a class="tab tab-active" href="#services">Services</a>
+          <button type="button" class="tab" (click)="showComingSoon('About')">About</button>
+          <button type="button" class="tab" (click)="showComingSoon('Reviews')">Reviews</button>
+          <button type="button" class="tab" (click)="showComingSoon('FAQs')">FAQs</button>
+        </nav>
+
+        <section id="services" class="panel">
+          <div class="panel-title">Our Services</div>
+          <div class="panel-subtitle">Select a service to view details and book.</div>
+
+          <div class="service-group" *ngFor="let service of b.services">
+            <div class="service-group-title">{{ service.name }}</div>
+
+            <div class="service-row" *ngFor="let sub of service.subServices">
+              <div class="service-body">
+                <div class="service-name">{{ sub.name }}</div>
+                <div class="service-meta">
+                  <span *ngIf="sub.durationMinutes">{{ formatDuration(sub.durationMinutes) }}</span>
+                  <span *ngIf="sub.consultationNeeded" class="meta-pill">Consultation needed</span>
+                </div>
+                <div class="service-desc" *ngIf="sub.description">{{ sub.description }}</div>
+              </div>
+
+              <div class="service-actions">
+                <div class="service-price">{{ formatPrice(sub.price) }}+</div>
+                <button type="button" class="primary-btn" (click)="selectSubService(sub)">Select</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="empty-panel" *ngIf="b.services?.length === 0">
+            No services are listed for this business yet.
+          </div>
+        </section>
+
+      </div>
+
+      <aside class="side-col" aria-label="Booking and business info">
+        <div class="card booking-card">
+          <div class="card-title">Book a Service</div>
+          <div class="stepper" aria-label="Booking steps">
+            <div class="step step-active">
+              <div class="step-dot">1</div>
+              <div class="step-label">Service</div>
+            </div>
+            <div class="step">
+              <div class="step-dot">2</div>
+              <div class="step-label">Date &amp; Time</div>
+            </div>
+            <div class="step">
+              <div class="step-dot">3</div>
+              <div class="step-label">Details</div>
+            </div>
+          </div>
+
+          <div class="booking-empty" *ngIf="!selectedSubService">
+            <mat-icon aria-hidden="true">event</mat-icon>
+            <div class="booking-empty-title">Select a service</div>
+            <div class="booking-empty-subtitle">to see available times.</div>
+          </div>
+
+          <div class="booking-selected" *ngIf="selectedSubService as sub">
+            <div class="booking-selected-label">Selected service</div>
+            <div class="booking-selected-name">{{ sub.name }}</div>
+            <div class="booking-selected-meta">
+              <span *ngIf="sub.durationMinutes">{{ formatDuration(sub.durationMinutes) }}</span>
+              <span class="sep" aria-hidden="true">•</span>
+              <span>{{ formatPrice(sub.price) }}+</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card hours-card">
+          <div class="card-title">Business Hours</div>
+          <div class="hours-row"><span>Monday</span><span class="muted">Hours not set</span></div>
+          <div class="hours-row"><span>Tuesday</span><span class="muted">Hours not set</span></div>
+          <div class="hours-row"><span>Wednesday</span><span class="muted">Hours not set</span></div>
+          <div class="hours-row"><span>Thursday</span><span class="muted">Hours not set</span></div>
+          <div class="hours-row"><span>Friday</span><span class="muted">Hours not set</span></div>
+          <div class="hours-row"><span>Saturday</span><span class="muted">Hours not set</span></div>
+          <div class="hours-row"><span>Sunday</span><span class="muted">Hours not set</span></div>
+        </div>
+
+        <div class="card contact-card">
+          <div class="card-title">Contact</div>
+          <div class="contact-row" *ngIf="b.businessPhoneNumber">
+            <mat-icon aria-hidden="true">call</mat-icon>
+            <span>{{ b.businessPhoneNumber }}</span>
+          </div>
+          <div class="contact-row" *ngIf="b.businessEmail">
+            <mat-icon aria-hidden="true">mail</mat-icon>
+            <span>{{ b.businessEmail }}</span>
+          </div>
+          <div class="contact-row" *ngIf="fullAddress">
+            <mat-icon aria-hidden="true">place</mat-icon>
+            <span>{{ fullAddress }}</span>
+          </div>
+
+          <button type="button" class="outline-btn" disabled>Visit Website</button>
+        </div>
+      </aside>
+    </div>
+  </ng-container>
+</section>

@@ -34,6 +34,7 @@ public sealed record BusinessWorkspaceServiceResponse(
 
 public sealed record BusinessWorkspaceSubServiceResponse(
     long BusinessSubServiceId,
+    int ServiceId,
     string Name,
     string? Description,
     bool ConsultationNeeded,

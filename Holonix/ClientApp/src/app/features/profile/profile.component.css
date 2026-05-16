@@ -7,7 +7,7 @@
     linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
   padding: 0;
   box-sizing: border-box;
-  font-family: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
+  font-family: var(--holonix-font-sans);
 }
 
 .profile-page {

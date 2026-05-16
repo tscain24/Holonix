@@ -112,6 +112,7 @@ export interface BusinessWorkspaceService {
 
 export interface BusinessWorkspaceSubService {
   businessSubServiceId: number;
+  serviceId: number;
   name: string;
   description?: string | null;
   consultationNeeded: boolean;

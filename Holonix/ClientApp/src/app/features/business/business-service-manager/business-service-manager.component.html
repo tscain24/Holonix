@@ -174,9 +174,9 @@
 
             <label class="service-field">
               <span>Parent Service <span class="required-indicator" aria-hidden="true">*</span></span>
-              <select [value]="createParentServiceId ?? ''" (change)="onParentServiceChange($event)">
-                <option value="" disabled>Select a parent service</option>
-                <option *ngFor="let service of business.services" [value]="service.serviceId">{{ service.name }}</option>
+              <select [ngModel]="createParentServiceId" (ngModelChange)="createParentServiceId = $event">
+                <option [ngValue]="null" disabled>Select a parent service</option>
+                <option *ngFor="let service of business.services" [ngValue]="service.serviceId">{{ service.name }}</option>
               </select>
             </label>
 
@@ -265,9 +265,9 @@
 
             <label class="service-field">
               <span>Category <span class="required-indicator" aria-hidden="true">*</span></span>
-              <select [value]="editParentServiceId ?? ''" (change)="onEditParentServiceChange($event)">
-                <option value="" disabled>Select a category</option>
-                <option *ngFor="let service of business.services" [value]="service.serviceId">{{ service.name }}</option>
+              <select [ngModel]="editParentServiceId" (ngModelChange)="editParentServiceId = $event">
+                <option [ngValue]="null" disabled>Select a category</option>
+                <option *ngFor="let service of business.services" [ngValue]="service.serviceId">{{ service.name }}</option>
               </select>
             </label>
 

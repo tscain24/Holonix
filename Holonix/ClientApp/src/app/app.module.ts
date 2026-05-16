@@ -29,6 +29,7 @@ import { AuthInterceptor } from './core/services/auth.interceptor';
 import { AppHeaderComponent } from './core/components/app-header/app-header.component';
 import { ServiceSearchResultsComponent } from './features/search/service-search-results/service-search-results.component';
 import { AppBottomNavComponent } from './core/components/app-bottom-nav/app-bottom-nav.component';
+import { PublicBusinessPageComponent } from './features/business/public-business-page/public-business-page.component';
 
 @NgModule({
   declarations: [
@@ -47,7 +48,8 @@ import { AppBottomNavComponent } from './core/components/app-bottom-nav/app-bott
     BusinessEmployeesComponent,
     BusinessServiceManagerComponent,
     BusinessAvailabilityComponent,
-    ServiceSearchResultsComponent
+    ServiceSearchResultsComponent,
+    PublicBusinessPageComponent
   ],
   imports: [
     BrowserModule,

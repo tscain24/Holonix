@@ -11,6 +11,7 @@ import { BusinessEmployeesComponent } from './features/business/business-employe
 import { BusinessServiceManagerComponent } from './features/business/business-service-manager/business-service-manager.component';
 import { BusinessAvailabilityComponent } from './features/business/business-availability/business-availability.component';
 import { ServiceSearchResultsComponent } from './features/search/service-search-results/service-search-results.component';
+import { PublicBusinessPageComponent } from './features/business/public-business-page/public-business-page.component';
 
 const routes: Routes = [
   { path: '', redirectTo: 'home', pathMatch: 'full' },
@@ -18,6 +19,7 @@ const routes: Routes = [
   { path: 'home', component: HomeComponent },
   { path: 'register', component: RegisterComponent },
   { path: 'profile', component: ProfileComponent },
+  { path: 'businesses/:businessCode', component: PublicBusinessPageComponent },
   { path: 'business', component: BusinessOverviewComponent },
   { path: 'business/create', component: CreateBusinessComponent },
   { path: 'business/:businessCode/employees', component: BusinessEmployeesComponent },

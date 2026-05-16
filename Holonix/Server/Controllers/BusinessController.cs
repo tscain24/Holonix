@@ -510,6 +510,78 @@ public class BusinessController : ControllerBase
         return Ok(response);
     }
 
+    [HttpGet("public/{businessCode}")]
+    public async Task<IActionResult> GetPublicBusinessProfile(string businessCode, CancellationToken cancellationToken)
+    {
+        businessCode = (businessCode ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(businessCode))
+        {
+            return BadRequest(new { errors = new[] { "Business code is required." } });
+        }
+
+        var business = await _dbContext.Businesses
+            .AsNoTracking()
+            .Where(item => item.BusinessCode == businessCode && item.InactiveDate == null)
+            .Include(item => item.Details)
+                .ThenInclude(details => details!.Country)
+            .Include(item => item.Addresses.Where(address => address.InactiveDate == null))
+                .ThenInclude(address => address.Country)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (business is null)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var primaryAddress = GetPrimaryBusinessAddress(business);
+
+        var services = await _dbContext.BusinessServices
+            .AsNoTracking()
+            .Where(item => item.BusinessId == business.BusinessId)
+            .Join(
+                _dbContext.Services.AsNoTracking(),
+                businessService => businessService.ServiceId,
+                service => service.ServiceId,
+                (businessService, service) => new
+                {
+                    service.ServiceId,
+                    service.Name,
+                })
+            .ToListAsync(cancellationToken);
+
+        var subServicesByServiceId = await GetActivePublicSubServicesByServiceIdAsync(
+            business.BusinessId,
+            services.Select(item => item.ServiceId).ToArray(),
+            cancellationToken);
+
+        var serviceResponses = services
+            .OrderBy(item => item.Name)
+            .Select(item => new PublicBusinessServiceResponse(
+                item.ServiceId,
+                item.Name,
+                subServicesByServiceId.TryGetValue(item.ServiceId, out var subServices)
+                    ? subServices
+                    : Array.Empty<PublicBusinessSubServiceResponse>()))
+            .ToList();
+
+        return Ok(new PublicBusinessProfileResponse(
+            business.BusinessId,
+            business.BusinessCode,
+            business.Name,
+            business.Details?.Description,
+            null,
+            primaryAddress?.City ?? business.Details?.City,
+            primaryAddress?.State ?? business.Details?.State,
+            primaryAddress?.Country?.Name ?? business.Details?.Country?.Name,
+            business.Details?.BusinessEmail,
+            business.Details?.BusinessPhoneNumber,
+            primaryAddress?.Address1 ?? business.Details?.Address1,
+            primaryAddress?.Address2 ?? business.Details?.Address2,
+            primaryAddress?.ZipCode ?? business.Details?.ZipCode,
+            business.Details?.BusinessIconBase64,
+            serviceResponses));
+    }
+
     [Authorize]
     [HttpGet("{businessCode}/my-availability")]
     public async Task<IActionResult> GetMyBusinessAvailability(string businessCode, CancellationToken cancellationToken)
@@ -2490,6 +2562,7 @@ public class BusinessController : ControllerBase
 
         return Ok(createdSubService ?? new BusinessWorkspaceSubServiceResponse(
             subService.BusinessSubServiceId,
+            subService.ServiceId,
             subService.Name,
             subService.Description,
             subService.ConsultationNeeded,
@@ -2709,6 +2782,7 @@ public class BusinessController : ControllerBase
 
         return Ok(updatedSubService ?? new BusinessWorkspaceSubServiceResponse(
             subService.BusinessSubServiceId,
+            subService.ServiceId,
             subService.Name,
             subService.Description,
             subService.ConsultationNeeded,
@@ -3217,6 +3291,7 @@ public class BusinessController : ControllerBase
                 group => (IReadOnlyList<BusinessWorkspaceSubServiceResponse>)group
                     .Select(item => new BusinessWorkspaceSubServiceResponse(
                         item.BusinessSubServiceId,
+                        item.ServiceId,
                         item.Name,
                         item.Description,
                         item.ConsultationNeeded,
@@ -3259,6 +3334,50 @@ public class BusinessController : ControllerBase
             .OrderByDescending(businessRole => businessRole.HierarchyNumber)
             .Select(businessRole => businessRole.Name)
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<Dictionary<int, IReadOnlyList<PublicBusinessSubServiceResponse>>> GetActivePublicSubServicesByServiceIdAsync(
+        int businessId,
+        IReadOnlyCollection<int> serviceIds,
+        CancellationToken cancellationToken)
+    {
+        if (serviceIds.Count == 0)
+        {
+            return [];
+        }
+
+        var subServices = await _dbContext.BusinessSubServices
+            .AsNoTracking()
+            .Where(item =>
+                item.BusinessId == businessId &&
+                item.InactiveDate == null &&
+                serviceIds.Contains(item.ServiceId))
+            .OrderBy(item => item.Name)
+            .Select(item => new
+            {
+                item.ServiceId,
+                item.BusinessSubServiceId,
+                item.Name,
+                item.Description,
+                item.ConsultationNeeded,
+                item.DurationMinutes,
+                item.Price,
+            })
+            .ToListAsync(cancellationToken);
+
+        return subServices
+            .GroupBy(item => item.ServiceId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<PublicBusinessSubServiceResponse>)group
+                    .Select(item => new PublicBusinessSubServiceResponse(
+                        item.BusinessSubServiceId,
+                        item.Name,
+                        item.Description,
+                        item.ConsultationNeeded,
+                        item.DurationMinutes,
+                        item.Price))
+                    .ToList());
     }
 
     private async Task<long?> GetActiveBusinessRoleHierarchyNumberAsync(
