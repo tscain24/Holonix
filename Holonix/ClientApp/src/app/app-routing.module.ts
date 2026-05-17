@@ -1,5 +1,5 @@
 import { NgModule } from '@angular/core';
-import { RouterModule, Routes } from '@angular/router';
+import { RouterModule, Routes, UrlMatchResult, UrlSegment } from '@angular/router';
 import { LoginComponent } from './features/auth/login/login.component';
 import { RegisterComponent } from './features/auth/register/register.component';
 import { HomeComponent } from './features/home/home.component';
@@ -13,20 +13,61 @@ import { BusinessAvailabilityComponent } from './features/business/business-avai
 import { ServiceSearchResultsComponent } from './features/search/service-search-results/service-search-results.component';
 import { PublicBusinessPageComponent } from './features/business/public-business-page/public-business-page.component';
 
+function publicBusinessCodeMatcher(segments: UrlSegment[]): UrlMatchResult | null {
+  if (segments.length !== 1) {
+    return null;
+  }
+
+  const raw = (segments[0]?.path ?? '').trim();
+  if (!raw) {
+    return null;
+  }
+
+  const reserved = new Set(['home', 'login', 'register', 'profile', 'business', 'businesses', 'search', 'workspace']);
+  if (reserved.has(raw.toLowerCase())) {
+    return null;
+  }
+
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
+  const isBusinessCode = /^[A-Za-z0-9]{6,64}$/.test(raw);
+
+  if (!isUuid && !isBusinessCode) {
+    return null;
+  }
+
+  return {
+    consumed: segments,
+    posParams: { businessCode: segments[0] },
+  };
+}
+
 const routes: Routes = [
   { path: '', redirectTo: 'home', pathMatch: 'full' },
   { path: 'login', component: LoginComponent },
   { path: 'home', component: HomeComponent },
   { path: 'register', component: RegisterComponent },
   { path: 'profile', component: ProfileComponent },
-  { path: 'businesses/:businessCode', component: PublicBusinessPageComponent },
   { path: 'business', component: BusinessOverviewComponent },
   { path: 'business/create', component: CreateBusinessComponent },
-  { path: 'business/:businessCode/employees', component: BusinessEmployeesComponent },
-  { path: 'business/:businessCode/services', component: BusinessServiceManagerComponent },
-  { path: 'business/:businessCode/availability', component: BusinessAvailabilityComponent },
-  { path: 'business/:businessCode', component: BusinessWorkspaceComponent },
+
+  // New workspace URLs
+  { path: 'workspace/overview/:businessCode', component: BusinessWorkspaceComponent },
+  { path: 'workspace/employees/:businessCode', component: BusinessEmployeesComponent },
+  { path: 'workspace/services/:businessCode', component: BusinessServiceManagerComponent },
+  { path: 'workspace/availability/:businessCode', component: BusinessAvailabilityComponent },
+
+  // Backwards-compatible redirects
+  { path: 'businesses/:businessCode', redirectTo: '/:businessCode', pathMatch: 'full' },
+  { path: 'business/:businessCode/employees', redirectTo: 'workspace/employees/:businessCode', pathMatch: 'full' },
+  { path: 'business/:businessCode/services', redirectTo: 'workspace/services/:businessCode', pathMatch: 'full' },
+  { path: 'business/:businessCode/availability', redirectTo: 'workspace/availability/:businessCode', pathMatch: 'full' },
+  { path: 'business/:businessCode', redirectTo: 'workspace/overview/:businessCode', pathMatch: 'full' },
+
   { path: 'search', component: ServiceSearchResultsComponent },
+
+  // Public business profile at the root: /{businessCode}
+  { matcher: publicBusinessCodeMatcher, component: PublicBusinessPageComponent },
   { path: '**', redirectTo: 'home' },
 ];
 

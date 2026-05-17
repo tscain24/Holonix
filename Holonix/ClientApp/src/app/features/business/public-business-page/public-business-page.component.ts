@@ -14,6 +14,8 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   error: string | null = null;
   business: PublicBusinessProfile | null = null;
   selectedSubService: PublicBusinessSubService | null = null;
+  entrySource: 'search' | 'direct' = 'direct';
+  entrySearchedCategoryName: string | null = null;
 
   private readonly destroyed$ = new Subject<void>();
 
@@ -25,6 +27,8 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.applyNavigationContext();
+
     this.route.paramMap
       .pipe(
         map((params) => (params.get('businessCode') ?? '').trim()),
@@ -58,17 +62,6 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
         takeUntil(this.destroyed$)
       )
       .subscribe((profile) => {
-        if (profile && !((profile.categoryName ?? '').trim())) {
-          try {
-            const stored = sessionStorage.getItem(`holonix_business_category_v1_${profile.businessCode}`) ?? '';
-            const categoryName = stored.trim();
-            if (categoryName) {
-              profile = { ...profile, categoryName };
-            }
-          } catch {
-            // ignore storage failures
-          }
-        }
         this.business = profile;
         this.loading = false;
       });
@@ -86,6 +79,17 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
       return;
     }
     void this.router.navigate(['/search']);
+  }
+
+  private applyNavigationContext(): void {
+    const state = (history.state ?? {}) as Record<string, unknown>;
+    const entryValue = state['entry'];
+    const entry = typeof entryValue === 'string' ? entryValue : '';
+    this.entrySource = entry === 'search' ? 'search' : 'direct';
+
+    const searchedCategoryValue = state['searchedCategoryName'];
+    const searchedCategoryName = typeof searchedCategoryValue === 'string' ? searchedCategoryValue.trim() : '';
+    this.entrySearchedCategoryName = searchedCategoryName ? searchedCategoryName : null;
   }
 
   selectSubService(sub: PublicBusinessSubService): void {
@@ -109,15 +113,30 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     return `data:image/png;base64,${raw}`;
   }
 
-  get businessInitials(): string {
-    const name = (this.business?.name ?? '').trim();
-    if (!name) {
-      return 'B';
+  get categoryPipeLabel(): string {
+    const categories = this.business?.services ?? [];
+    if (!Array.isArray(categories) || categories.length === 0) {
+      return '';
     }
-    const parts = name.split(/\s+/).filter(Boolean);
-    const first = parts[0]?.[0] ?? 'B';
-    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : '';
-    return `${first}${last}`.toUpperCase();
+
+    const seen = new Set<string>();
+    const labels: string[] = [];
+    for (const entry of categories) {
+      const name = (entry?.name ?? '').trim();
+      if (!name) {
+        continue;
+      }
+
+      const key = name.toLowerCase();
+      if (seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      labels.push(name);
+    }
+
+    return labels.join(' | ');
   }
 
   formatDuration(minutes: number): string {
@@ -158,5 +177,74 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
       (this.business?.zipCode ?? '').trim(),
     ].filter(Boolean);
     return parts.join(', ');
+  }
+
+  get phoneHref(): string {
+    const raw = (this.business?.businessPhoneNumber ?? '').trim();
+    if (!raw) {
+      return '';
+    }
+
+    const digits = raw.replace(/[^\d+]/g, '');
+    const cleaned = digits.startsWith('+') ? `+${digits.slice(1).replace(/\D/g, '')}` : digits.replace(/\D/g, '');
+    if (!cleaned) {
+      return '';
+    }
+
+    const normalized = cleaned.length === 11 && cleaned.startsWith('1') ? `+${cleaned}` : cleaned;
+    return `tel:${normalized}`;
+  }
+
+  get emailHref(): string {
+    const email = (this.business?.businessEmail ?? '').trim();
+    if (!email) {
+      return '';
+    }
+
+    const subject = encodeURIComponent(`Inquiry for ${(this.business?.name ?? '').trim() || 'your business'}`);
+    return `mailto:${email}?subject=${subject}`;
+  }
+
+  get addressHref(): string {
+    const address = this.fullAddress.trim();
+    if (!address) {
+      return '';
+    }
+
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+  }
+
+  get websiteHref(): string {
+    const email = (this.business?.businessEmail ?? '').trim();
+    if (!email) {
+      return '';
+    }
+
+    const atIndex = email.lastIndexOf('@');
+    if (atIndex <= 0 || atIndex === email.length - 1) {
+      return '';
+    }
+
+    const domain = email.slice(atIndex + 1).trim().toLowerCase();
+    if (!domain || !domain.includes('.')) {
+      return '';
+    }
+
+    const blocked = new Set([
+      'gmail.com',
+      'yahoo.com',
+      'outlook.com',
+      'hotmail.com',
+      'aol.com',
+      'icloud.com',
+      'proton.me',
+      'protonmail.com',
+    ]);
+
+    if (blocked.has(domain)) {
+      return '';
+    }
+
+    return `https://${domain}`;
   }
 }

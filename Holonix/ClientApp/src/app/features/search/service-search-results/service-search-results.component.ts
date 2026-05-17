@@ -220,14 +220,18 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
     }
     try {
       sessionStorage.setItem('holonix_last_search_url_v1', this.router.url);
-      const categoryName = (item.categoryName ?? '').trim();
-      if (categoryName) {
-        sessionStorage.setItem(`holonix_business_category_v1_${businessCode}`, categoryName);
-      }
     } catch {
       // ignore storage failures (private mode, etc.)
     }
-    this.router.navigate(['/businesses', businessCode]);
+
+    const searchedCategoryName = (item.categoryName ?? '').trim() || null;
+    void this.router.navigateByUrl(`/${businessCode}`, {
+      state: {
+        entry: 'search',
+        lastSearchUrl: this.router.url,
+        searchedCategoryName,
+      },
+    });
   }
 
   applyRelatedCategory(categoryName: string): void {

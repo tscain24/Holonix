@@ -10,22 +10,19 @@
   <ng-container *ngIf="!loading && !error && business as b">
     <div class="page-grid">
       <div class="main-col">
-        <div class="hero">
-          <div class="hero-media" aria-label="Business banner">
-            <img *ngIf="businessIconSrc" [src]="businessIconSrc" alt="Business logo" class="hero-logo" />
-            <div *ngIf="!businessIconSrc" class="hero-initials" aria-hidden="true">{{ businessInitials }}</div>
+        <div class="hero" [class.hero--no-logo]="!businessIconSrc">
+          <div *ngIf="businessIconSrc" class="hero-media" aria-label="Business logo">
+            <img [src]="businessIconSrc" alt="Business logo" class="hero-logo" />
           </div>
 
           <div class="hero-meta">
             <div class="hero-title-row">
               <h1 class="hero-title">{{ b.name }}</h1>
-              <span class="verified-badge" title="Verified business" aria-label="Verified business">
-                <mat-icon aria-hidden="true">verified</mat-icon>
-              </span>
             </div>
 
-            <div class="hero-subtitle" *ngIf="b.categoryName">{{ b.categoryName }}</div>
-            <div class="hero-subtitle" *ngIf="!b.categoryName">Services available for booking</div>
+            <div class="hero-subtitle" *ngIf="categoryPipeLabel">{{ categoryPipeLabel }}</div>
+            <div class="hero-subtitle" *ngIf="!categoryPipeLabel && b.categoryName">{{ b.categoryName }}</div>
+            <div class="hero-subtitle" *ngIf="!categoryPipeLabel && !b.categoryName">Services available for booking</div>
 
             <div class="hero-stats">
               <div class="stat">
@@ -46,20 +43,6 @@
             <p class="hero-description" *ngIf="b.description">{{ b.description }}</p>
             <p class="hero-description" *ngIf="!b.description">Browse services and start a booking in just a few steps.</p>
 
-            <div class="hero-flags">
-              <div class="flag">
-                <mat-icon aria-hidden="true">verified_user</mat-icon>
-                Verified Business
-              </div>
-              <div class="flag">
-                <mat-icon aria-hidden="true">security</mat-icon>
-                Insured
-              </div>
-              <div class="flag">
-                <mat-icon aria-hidden="true">check_circle</mat-icon>
-                Background Checked
-              </div>
-            </div>
           </div>
         </div>
 
@@ -77,20 +60,22 @@
           <div class="service-group" *ngFor="let service of b.services">
             <div class="service-group-title">{{ service.name }}</div>
 
-            <div class="service-row" *ngFor="let sub of service.subServices">
-              <div class="service-body">
-                <div class="service-name">{{ sub.name }}</div>
-                <div class="service-meta">
-                  <span *ngIf="sub.durationMinutes">{{ formatDuration(sub.durationMinutes) }}</span>
-                  <span *ngIf="sub.consultationNeeded" class="meta-pill">Consultation needed</span>
+            <div class="subservice-grid">
+              <article class="service-card" *ngFor="let sub of service.subServices">
+                <div class="service-card-body">
+                  <div class="service-name">{{ sub.name }}</div>
+                  <div class="service-meta">
+                    <span *ngIf="sub.durationMinutes">{{ formatDuration(sub.durationMinutes) }}</span>
+                    <span *ngIf="sub.consultationNeeded" class="meta-pill">Consultation needed</span>
+                  </div>
+                  <div class="service-desc" *ngIf="sub.description">{{ sub.description }}</div>
                 </div>
-                <div class="service-desc" *ngIf="sub.description">{{ sub.description }}</div>
-              </div>
 
-              <div class="service-actions">
-                <div class="service-price">{{ formatPrice(sub.price) }}+</div>
-                <button type="button" class="primary-btn" (click)="selectSubService(sub)">Select</button>
-              </div>
+                <div class="service-card-footer">
+                  <div class="service-price">{{ formatPrice(sub.price) }}</div>
+                  <button type="button" class="primary-btn" (click)="selectSubService(sub)">Select</button>
+                </div>
+              </article>
             </div>
           </div>
 
@@ -131,7 +116,7 @@
             <div class="booking-selected-meta">
               <span *ngIf="sub.durationMinutes">{{ formatDuration(sub.durationMinutes) }}</span>
               <span class="sep" aria-hidden="true">•</span>
-              <span>{{ formatPrice(sub.price) }}+</span>
+              <span>{{ formatPrice(sub.price) }}</span>
             </div>
           </div>
         </div>
@@ -151,18 +136,46 @@
           <div class="card-title">Contact</div>
           <div class="contact-row" *ngIf="b.businessPhoneNumber">
             <mat-icon aria-hidden="true">call</mat-icon>
-            <span>{{ b.businessPhoneNumber }}</span>
+            <a
+              class="contact-link"
+              [href]="phoneHref"
+              [attr.aria-label]="'Call ' + b.businessPhoneNumber"
+            >
+              {{ b.businessPhoneNumber }}
+            </a>
           </div>
           <div class="contact-row" *ngIf="b.businessEmail">
             <mat-icon aria-hidden="true">mail</mat-icon>
-            <span>{{ b.businessEmail }}</span>
+            <a
+              class="contact-link"
+              [href]="emailHref"
+              [attr.aria-label]="'Email ' + b.businessEmail"
+            >
+              {{ b.businessEmail }}
+            </a>
           </div>
           <div class="contact-row" *ngIf="fullAddress">
             <mat-icon aria-hidden="true">place</mat-icon>
-            <span>{{ fullAddress }}</span>
+            <a
+              class="contact-link"
+              [href]="addressHref"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open address in maps"
+            >
+              {{ fullAddress }}
+            </a>
           </div>
 
-          <button type="button" class="outline-btn" disabled>Visit Website</button>
+          <a
+            *ngIf="websiteHref"
+            class="outline-btn"
+            [href]="websiteHref"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Visit Website
+          </a>
         </div>
       </aside>
     </div>

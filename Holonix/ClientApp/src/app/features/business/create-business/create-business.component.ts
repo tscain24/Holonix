@@ -6,6 +6,7 @@ import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, of, 
 import { BusinessService, BusinessServiceOption, CountryOption, CreateBusinessRequest } from '../../../core/services/business.service';
 import { AuthSessionService } from '../../../core/services/auth-session.service';
 import { AddressSuggestion, GeocodingService } from '../../../core/services/geocoding.service';
+import { normalizeImageToSquarePngBase64 } from '../../../core/utils/image-normalize';
 
 type CreateBusinessForm = {
   name: FormControl<string | null>;
@@ -21,7 +22,6 @@ type CreateBusinessForm = {
   longitude: FormControl<number | null>;
   countryId: FormControl<number | null>;
   businessIconBase64: FormControl<string | null>;
-  businessJobPercentage: FormControl<number | null>;
   isProductBased: FormControl<boolean | null>;
 };
 
@@ -89,7 +89,6 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     longitude: this.formBuilder.control<number | null>(null),
     countryId: this.formBuilder.control<number | null>(null, [Validators.required]),
     businessIconBase64: this.formBuilder.control(''),
-    businessJobPercentage: this.formBuilder.control(100, [Validators.required, Validators.min(0), Validators.max(100)]),
     isProductBased: this.formBuilder.control(true, [Validators.required]),
   });
   isProductBasedControl = this.businessForm.controls.isProductBased;
@@ -615,38 +614,23 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = typeof reader.result === 'string' ? reader.result : '';
-      const normalized = this.extractBase64(dataUrl);
-      const mimeType = this.extractImageMimeType(dataUrl) || file.type;
-      if (!normalized) {
+    normalizeImageToSquarePngBase64(file, 256)
+      .then(({ base64, mimeType }) => {
+        this.iconPreviewLoadFailed = false;
+        this.iconPreview = this.buildImageDataUrl(base64, mimeType);
+        this.businessIconPreviewFile = file;
+        this.pendingIconPreviewRender = file;
+        this.businessForm.controls.businessIconBase64.setValue(base64);
+        this.businessForm.controls.businessIconBase64.markAsDirty();
+      })
+      .catch(() => {
         this.businessForm.controls.businessIconBase64.setValue('');
         this.iconPreview = null;
         this.snackBar.open('Could not read that image file.', 'Close', {
           duration: 3000,
           panelClass: ['snack-error'],
         });
-        return;
-      }
-
-      this.iconPreviewLoadFailed = false;
-      this.iconPreview = this.buildImageDataUrl(normalized, mimeType);
-      this.businessIconPreviewFile = file;
-      this.pendingIconPreviewRender = file;
-      this.businessForm.controls.businessIconBase64.setValue(normalized);
-      this.businessForm.controls.businessIconBase64.markAsDirty();
-    };
-    reader.onerror = () => {
-      this.businessForm.controls.businessIconBase64.setValue('');
-      this.iconPreview = null;
-      this.snackBar.open('Could not read that image file.', 'Close', {
-        duration: 3000,
-        panelClass: ['snack-error'],
       });
-    };
-
-    reader.readAsDataURL(file);
   }
 
   removeBusinessIcon(): void {
@@ -684,11 +668,7 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
   goToStepThree(): void {
     this.submitAttempted = true;
 
-    if (
-      this.businessForm.controls.businessJobPercentage.invalid ||
-      this.isProductBasedControl.invalid
-    ) {
-      this.businessForm.controls.businessJobPercentage.markAsTouched();
+    if (this.isProductBasedControl.invalid) {
       return;
     }
 
@@ -708,12 +688,10 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     }
 
     const countryId = this.businessForm.controls.countryId.value;
-    const businessJobPercentage = this.businessForm.controls.businessJobPercentage.value;
     const isProductBased = this.isProductBasedControl.value;
 
     if (
       !countryId ||
-      businessJobPercentage === null ||
       typeof isProductBased !== 'boolean' ||
       this.selectedServices.length === 0
     ) {
@@ -753,7 +731,7 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
       longitude,
       countryId,
       businessIconBase64: this.businessForm.controls.businessIconBase64.value?.trim() || null,
-      businessJobPercentage,
+      businessJobPercentage: 100,
       isProductBased,
       serviceIds: this.selectedServices.map((service) => service.serviceId),
     };
@@ -961,21 +939,6 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     }
 
     return fallback.trim();
-  }
-
-  private extractBase64(dataUrl: string): string {
-    const marker = 'base64,';
-    const markerIndex = dataUrl.indexOf(marker);
-    if (markerIndex < 0) {
-      return '';
-    }
-
-    return dataUrl.slice(markerIndex + marker.length).trim();
-  }
-
-  private extractImageMimeType(dataUrl: string): string {
-    const match = /^data:([^;]+);base64,/i.exec(dataUrl);
-    return match?.[1]?.trim() ?? '';
   }
 
   private buildImageDataUrl(base64: string | null, mimeType = 'image/png'): string {

@@ -83,7 +83,7 @@ export class BusinessOverviewComponent implements OnInit {
   }
 
   goToBusinessWorkspace(businessCode: string): void {
-    this.router.navigate(['/business', businessCode]);
+    this.router.navigate(['/workspace', 'overview', businessCode]);
   }
 
   openBusinessWorkspace(business: UserBusinessSummary): void {

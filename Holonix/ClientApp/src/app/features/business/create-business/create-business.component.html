@@ -352,18 +352,6 @@
           </div>
         </div>
 
-        <label class="field">
-          <span>Business Earnings Percentage <strong aria-hidden="true">*</strong></span>
-          <div class="input-suffix-wrap">
-            <input type="number" min="0" max="100" formControlName="businessJobPercentage" placeholder="0" />
-            <span class="input-suffix" aria-hidden="true">%</span>
-          </div>
-          <small class="field-note">Use a percentage from 0 to 100 to distribute how much of each job's earnings go to the business, compared to the employee share.</small>
-          <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.businessJobPercentage.invalid">
-            Enter a value between 0 and 100.
-          </small>
-        </label>
-
         <div class="field">
           <span>Business Model <strong aria-hidden="true">*</strong></span>
           <div class="choice-grid">
@@ -433,10 +421,6 @@
             <button type="button" class="ghost-btn" (click)="editStep(2)">Edit</button>
           </div>
           <dl class="review-list">
-            <div>
-              <dt>Business Earnings Percentage</dt>
-              <dd>{{ businessForm.controls.businessJobPercentage.value }}%</dd>
-            </div>
             <div>
               <dt>Business Model</dt>
               <dd>{{ businessModelLabel }}</dd>

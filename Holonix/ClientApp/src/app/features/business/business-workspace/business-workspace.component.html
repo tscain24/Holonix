@@ -312,13 +312,6 @@
             </div>
 
           </article>
-          <article class="info-card info-card-earnings">
-            <span class="info-label">Business Earnings Percentage</span>
-            <ng-container *ngIf="!editingGeneralInformation; else earningsEditor">
-              <strong>{{ business.businessJobPercentage }}%</strong>
-              <p>Share retained by the business from each job before the employee portion and after taxes/fees.</p>
-            </ng-container>
-          </article>
           <article class="info-card info-card-revenue">
             <span class="info-label">Total Revenue</span>
             <strong>{{ formatMoney(business.totalRevenue) }}</strong>
@@ -403,22 +396,6 @@
           <input class="info-edit-input" type="text" [value]="editBusinessPhoneNumber" (input)="onBusinessPhoneNumberInput($event)" />
         </ng-template>
 
-        <ng-template #earningsEditor>
-          <label class="hero-field general-percentage-field">
-            <span>Business Earnings Percentage</span>
-            <div class="percentage-input-shell">
-              <input
-                type="number"
-                min="0"
-                max="100"
-                [value]="editBusinessJobPercentage"
-                (input)="onBusinessJobPercentageInput($event)"
-              />
-              <span class="percentage-input-symbol">%</span>
-            </div>
-            <p>Share retained by the business from each job before the employee portion.</p>
-          </label>
-        </ng-template>
       </section>
 
       <section class="workspace-section" *ngIf="business.services.length > 0" id="service-manager">

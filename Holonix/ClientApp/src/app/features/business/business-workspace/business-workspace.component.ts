@@ -12,6 +12,7 @@ import {
 } from '../../../core/services/business.service';
 import { AuthSessionService } from '../../../core/services/auth-session.service';
 import { AddressSuggestion, GeocodingService } from '../../../core/services/geocoding.service';
+import { normalizeImageToSquarePngBase64 } from '../../../core/utils/image-normalize';
 
 interface VisibleBusinessSubService extends BusinessWorkspaceSubService {
   parentServiceName: string;
@@ -61,7 +62,6 @@ export class BusinessWorkspaceComponent implements OnInit {
   editCity = '';
   editState = '';
   editZipCode = '';
-  editBusinessJobPercentage = 0;
   deleteBusinessConfirmation = '';
   businessWorkspace: BusinessWorkspace | null = null;
   allServices: BusinessServiceOption[] = [];
@@ -212,7 +212,7 @@ export class BusinessWorkspaceComponent implements OnInit {
       return;
     }
 
-    this.router.navigate(['/business', businessCode, 'employees']);
+    this.router.navigate(['/workspace', 'employees', businessCode]);
   }
 
   goToOverviewTab(): void {
@@ -221,7 +221,7 @@ export class BusinessWorkspaceComponent implements OnInit {
       return;
     }
 
-    this.router.navigate(['/business', businessCode]);
+    this.router.navigate(['/workspace', 'overview', businessCode]);
   }
 
   goToEmployeesTab(): void {
@@ -234,7 +234,7 @@ export class BusinessWorkspaceComponent implements OnInit {
       return;
     }
 
-    this.router.navigate(['/business', businessCode, 'services']);
+    this.router.navigate(['/workspace', 'services', businessCode]);
   }
 
   goToMyAvailabilityTab(): void {
@@ -243,7 +243,7 @@ export class BusinessWorkspaceComponent implements OnInit {
       return;
     }
 
-    this.router.navigate(['/business', businessCode, 'availability']);
+    this.router.navigate(['/workspace', 'availability', businessCode]);
   }
 
   goToJobsTab(): void {
@@ -252,7 +252,7 @@ export class BusinessWorkspaceComponent implements OnInit {
       return;
     }
 
-    this.router.navigate(['/business', businessCode], { fragment: 'jobs' });
+    this.router.navigate(['/workspace', 'overview', businessCode], { fragment: 'jobs' });
   }
 
   goToProfile(): void {
@@ -628,19 +628,16 @@ export class BusinessWorkspaceComponent implements OnInit {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : '';
-      this.editBusinessIconBase64 = result || null;
-    };
-    reader.onerror = () => {
-      this.snackBar.open('Could not read that image file.', 'Close', {
-        duration: 3000,
-        panelClass: ['snack-error'],
+    normalizeImageToSquarePngBase64(file, 256)
+      .then(({ base64 }) => {
+        this.editBusinessIconBase64 = base64;
+      })
+      .catch(() => {
+        this.snackBar.open('Could not read that image file.', 'Close', {
+          duration: 3000,
+          panelClass: ['snack-error'],
+        });
       });
-    };
-
-    reader.readAsDataURL(file);
     input.value = '';
   }
 
@@ -760,12 +757,6 @@ export class BusinessWorkspaceComponent implements OnInit {
     this.editLongitude = null;
   }
 
-  onBusinessJobPercentageInput(event: Event): void {
-    const rawValue = (event.target as HTMLInputElement).value;
-    const parsedValue = Number(rawValue);
-    this.editBusinessJobPercentage = Number.isFinite(parsedValue) ? parsedValue : 0;
-  }
-
   saveBusinessProfile(): void {
     const workspace = this.businessWorkspace;
     if (!workspace || this.savingProfile) {
@@ -795,7 +786,7 @@ export class BusinessWorkspaceComponent implements OnInit {
       zipCode: workspace.zipCode?.trim() || '',
       latitude: null,
       longitude: null,
-      businessJobPercentage: workspace.businessJobPercentage,
+      businessJobPercentage: 100,
     }).subscribe({
       next: (updatedProfile) => {
         if (!this.businessWorkspace) {
@@ -849,14 +840,6 @@ export class BusinessWorkspaceComponent implements OnInit {
 
     if (!this.editAddress1.trim() || !this.editCity.trim() || !this.editState.trim() || !this.editZipCode.trim()) {
       this.snackBar.open('Business address is required.', 'Close', {
-        duration: 3000,
-        panelClass: ['snack-error'],
-      });
-      return;
-    }
-
-    if (!Number.isFinite(this.editBusinessJobPercentage) || this.editBusinessJobPercentage < 0 || this.editBusinessJobPercentage > 100) {
-      this.snackBar.open('Business earnings percentage must be between 0 and 100.', 'Close', {
         duration: 3000,
         panelClass: ['snack-error'],
       });
@@ -967,7 +950,7 @@ export class BusinessWorkspaceComponent implements OnInit {
       zipCode: this.editZipCode.trim(),
       latitude: this.editLatitude,
       longitude: this.editLongitude,
-      businessJobPercentage: Math.round(this.editBusinessJobPercentage),
+      businessJobPercentage: 100,
     }).pipe(
       finalize(() => {
         this.savingGeneralInformation = false;
@@ -1276,7 +1259,7 @@ export class BusinessWorkspaceComponent implements OnInit {
       return trimmed;
     }
 
-    return `data:image/*;base64,${trimmed}`;
+    return `data:image/png;base64,${trimmed}`;
   }
 
   private getTodayDateInputValue(): string {
@@ -1342,7 +1325,6 @@ export class BusinessWorkspaceComponent implements OnInit {
     this.editCity = workspace.city ?? '';
     this.editState = workspace.state ?? '';
     this.editZipCode = workspace.zipCode ?? '';
-    this.editBusinessJobPercentage = workspace.businessJobPercentage ?? 0;
   }
 
   private saveServices(services: BusinessWorkspaceService[]): void {

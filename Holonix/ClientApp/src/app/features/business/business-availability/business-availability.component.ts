@@ -268,7 +268,7 @@ export class BusinessAvailabilityComponent implements OnInit {
   goToWorkspace(): void {
     const businessCode = this.businessWorkspace?.businessCode?.trim();
     if (businessCode) {
-      this.router.navigate(['/business', businessCode]);
+      this.router.navigate(['/workspace', 'overview', businessCode]);
     }
   }
 
@@ -279,28 +279,28 @@ export class BusinessAvailabilityComponent implements OnInit {
   goToEmployeesTab(): void {
     const businessCode = this.businessWorkspace?.businessCode?.trim();
     if (businessCode) {
-      this.router.navigate(['/business', businessCode, 'employees']);
+      this.router.navigate(['/workspace', 'employees', businessCode]);
     }
   }
 
   goToServiceManagerTab(): void {
     const businessCode = this.businessWorkspace?.businessCode?.trim();
     if (businessCode) {
-      this.router.navigate(['/business', businessCode, 'services']);
+      this.router.navigate(['/workspace', 'services', businessCode]);
     }
   }
 
   goToMyAvailabilityTab(): void {
     const businessCode = this.businessWorkspace?.businessCode?.trim();
     if (businessCode) {
-      this.router.navigate(['/business', businessCode, 'availability']);
+      this.router.navigate(['/workspace', 'availability', businessCode]);
     }
   }
 
   goToJobsTab(): void {
     const businessCode = this.businessWorkspace?.businessCode?.trim();
     if (businessCode) {
-      this.router.navigate(['/business', businessCode], { fragment: 'jobs' });
+      this.router.navigate(['/workspace', 'overview', businessCode], { fragment: 'jobs' });
     }
   }
 
