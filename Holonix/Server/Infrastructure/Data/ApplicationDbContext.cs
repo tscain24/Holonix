@@ -157,6 +157,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(x => x.Description);
             entity.Property(x => x.BusinessEmail).HasMaxLength(256);
             entity.Property(x => x.BusinessPhoneNumber).HasMaxLength(32);
+            entity.Property(x => x.BusinessHoursJson).HasColumnType("text");
             entity.Property(x => x.Address1).HasMaxLength(200);
             entity.Property(x => x.Address2).HasMaxLength(200);
             entity.Property(x => x.City).HasMaxLength(120);

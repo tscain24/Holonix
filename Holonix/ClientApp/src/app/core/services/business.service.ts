@@ -13,11 +13,19 @@ export interface CountryOption {
   twoLetterIsoCode: string;
 }
 
+export interface BusinessHoursDay {
+  dayOfWeek: number;
+  openTime?: string | null;
+  closeTime?: string | null;
+  isClosed: boolean;
+}
+
 export interface CreateBusinessRequest {
   name: string;
   description?: string | null;
   businessEmail?: string | null;
   businessPhoneNumber?: string | null;
+  businessHours?: BusinessHoursDay[] | null;
   address1: string;
   address2?: string | null;
   city: string;
@@ -48,6 +56,7 @@ export interface UpdateBusinessProfileRequest {
   businessIconBase64?: string | null;
   businessEmail?: string | null;
   businessPhoneNumber?: string | null;
+  businessHours?: BusinessHoursDay[] | null;
   address1: string;
   address2?: string | null;
   city: string;
@@ -65,6 +74,7 @@ export interface UpdateBusinessProfileResponse {
   businessIconBase64?: string | null;
   businessEmail?: string | null;
   businessPhoneNumber?: string | null;
+  businessHours?: BusinessHoursDay[] | null;
   address1?: string | null;
   address2?: string | null;
   city?: string | null;
@@ -228,6 +238,7 @@ export interface BusinessWorkspace {
   description?: string | null;
   businessEmail?: string | null;
   businessPhoneNumber?: string | null;
+  businessHours?: BusinessHoursDay[] | null;
   address1?: string | null;
   address2?: string | null;
   city?: string | null;

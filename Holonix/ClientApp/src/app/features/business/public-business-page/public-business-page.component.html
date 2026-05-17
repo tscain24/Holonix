@@ -123,13 +123,10 @@
 
         <div class="card hours-card">
           <div class="card-title">Business Hours</div>
-          <div class="hours-row"><span>Monday</span><span class="muted">Hours not set</span></div>
-          <div class="hours-row"><span>Tuesday</span><span class="muted">Hours not set</span></div>
-          <div class="hours-row"><span>Wednesday</span><span class="muted">Hours not set</span></div>
-          <div class="hours-row"><span>Thursday</span><span class="muted">Hours not set</span></div>
-          <div class="hours-row"><span>Friday</span><span class="muted">Hours not set</span></div>
-          <div class="hours-row"><span>Saturday</span><span class="muted">Hours not set</span></div>
-          <div class="hours-row"><span>Sunday</span><span class="muted">Hours not set</span></div>
+          <div class="hours-row" *ngFor="let entry of businessHoursDisplay">
+            <span>{{ entry.dayLabel }}</span>
+            <span class="muted">{{ entry.value }}</span>
+          </div>
         </div>
 
         <div class="card contact-card">

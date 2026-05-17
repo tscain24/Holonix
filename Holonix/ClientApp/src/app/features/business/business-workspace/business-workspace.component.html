@@ -324,6 +324,17 @@
             <span class="info-label">Total Scheduled Jobs</span>
             <strong>{{ business.totalJobs }}</strong>
           </article>
+          <article class="info-card info-card-hours">
+            <span class="info-label">Business Hours</span>
+            <ng-container *ngIf="!editingGeneralInformation; else hoursEditor">
+              <div class="hours-readonly">
+                <div class="hours-row readonly" *ngFor="let entry of businessHoursDisplay">
+                  <div class="hours-day">{{ entry.dayLabel }}</div>
+                  <div class="hours-value">{{ entry.value }}</div>
+                </div>
+              </div>
+            </ng-container>
+          </article>
         </div>
 
         <ng-template #generalAddressEditor>
@@ -394,6 +405,89 @@
 
         <ng-template #businessPhoneEditor>
           <input class="info-edit-input" type="text" [value]="editBusinessPhoneNumber" (input)="onBusinessPhoneNumberInput($event)" />
+        </ng-template>
+
+        <ng-template #hoursEditor>
+          <div class="hours-editor" role="group" aria-label="Business hours">
+            <div class="hours-row" *ngFor="let label of dayLabels; let dayIndex = index">
+              <div class="hours-day">{{ label }}</div>
+              <label class="hours-closed">
+                <input type="checkbox" [checked]="editBusinessHoursDraft[dayIndex].isClosed" (change)="toggleDayClosed(dayIndex)" />
+                <span>Closed</span>
+              </label>
+              <div class="hours-times" *ngIf="!editBusinessHoursDraft[dayIndex].isClosed">
+                <div class="time-picker-shell" [class.time-picker-disabled]="editBusinessHoursDraft[dayIndex].isClosed">
+                  <button
+                    type="button"
+                    class="time-button"
+                    [disabled]="editBusinessHoursDraft[dayIndex].isClosed"
+                    (click)="toggleHoursPicker(dayIndex, 'open', $event)"
+                    aria-haspopup="listbox"
+                    [attr.aria-expanded]="isHoursTimePickerOpen(dayIndex, 'open')"
+                  >
+                    <span class="time-button-label">{{ timeLabel(editBusinessHoursDraft[dayIndex].openTime) }}</span>
+                    <span class="time-button-caret" aria-hidden="true">&#9662;</span>
+                  </button>
+
+                  <div
+                    class="time-popover time-popover-inline"
+                    *ngIf="isHoursTimePickerOpen(dayIndex, 'open')"
+                    role="listbox"
+                    aria-label="Open time options"
+                  >
+                    <button
+                      type="button"
+                      class="time-option"
+                      *ngFor="let option of timeOptions"
+                      [class.time-option-active]="option === editBusinessHoursDraft[dayIndex].openTime"
+                      (click)="selectHoursTime(dayIndex, 'open', option)"
+                      role="option"
+                      [attr.aria-selected]="option === editBusinessHoursDraft[dayIndex].openTime"
+                    >
+                      <span class="time-dot" aria-hidden="true"></span>
+                      <span>{{ timeLabel(option) }}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <span class="hours-sep" aria-hidden="true">–</span>
+
+                <div class="time-picker-shell" [class.time-picker-disabled]="editBusinessHoursDraft[dayIndex].isClosed">
+                  <button
+                    type="button"
+                    class="time-button"
+                    [disabled]="editBusinessHoursDraft[dayIndex].isClosed"
+                    (click)="toggleHoursPicker(dayIndex, 'close', $event)"
+                    aria-haspopup="listbox"
+                    [attr.aria-expanded]="isHoursTimePickerOpen(dayIndex, 'close')"
+                  >
+                    <span class="time-button-label">{{ timeLabel(editBusinessHoursDraft[dayIndex].closeTime) }}</span>
+                    <span class="time-button-caret" aria-hidden="true">&#9662;</span>
+                  </button>
+
+                  <div
+                    class="time-popover time-popover-inline"
+                    *ngIf="isHoursTimePickerOpen(dayIndex, 'close')"
+                    role="listbox"
+                    aria-label="Close time options"
+                  >
+                    <button
+                      type="button"
+                      class="time-option"
+                      *ngFor="let option of timeOptions"
+                      [class.time-option-active]="option === editBusinessHoursDraft[dayIndex].closeTime"
+                      (click)="selectHoursTime(dayIndex, 'close', option)"
+                      role="option"
+                      [attr.aria-selected]="option === editBusinessHoursDraft[dayIndex].closeTime"
+                    >
+                      <span class="time-dot" aria-hidden="true"></span>
+                      <span>{{ timeLabel(option) }}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </ng-template>
 
       </section>

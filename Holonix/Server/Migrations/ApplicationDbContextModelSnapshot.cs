@@ -235,6 +235,9 @@ namespace Holonix.Server.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<string>("BusinessHoursJson")
+                        .HasColumnType("text");
+
                     b.Property<string>("City")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");

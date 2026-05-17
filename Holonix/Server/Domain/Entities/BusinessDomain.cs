@@ -28,6 +28,7 @@ public class BusinessDetails
     public string? Description { get; set; }
     public string? BusinessEmail { get; set; }
     public string? BusinessPhoneNumber { get; set; }
+    public string? BusinessHoursJson { get; set; }
     public string? Address1 { get; set; }
     public string? Address2 { get; set; }
     public string? City { get; set; }

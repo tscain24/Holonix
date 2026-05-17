@@ -11,6 +11,7 @@ public sealed record PublicBusinessProfileResponse(
     string? CountryName,
     string? BusinessEmail,
     string? BusinessPhoneNumber,
+    IReadOnlyList<BusinessHoursDayResponse>? BusinessHours,
     string? Address1,
     string? Address2,
     string? ZipCode,

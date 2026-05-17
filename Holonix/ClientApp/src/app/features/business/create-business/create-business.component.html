@@ -352,6 +352,91 @@
           </div>
         </div>
 
+        <div class="field field-span-2">
+          <span>Business Hours</span>
+          <div class="hours-editor" role="group" aria-label="Business hours">
+            <div class="hours-row" *ngFor="let label of dayLabels; let dayIndex = index">
+              <div class="hours-day">{{ label }}</div>
+              <label class="hours-closed">
+                <input type="checkbox" [checked]="businessHoursDraft[dayIndex].isClosed" (change)="toggleDayClosed(dayIndex)" />
+                <span>Closed</span>
+              </label>
+              <div class="hours-times" *ngIf="!businessHoursDraft[dayIndex].isClosed">
+                <div class="time-picker-shell" [class.time-picker-disabled]="businessHoursDraft[dayIndex].isClosed">
+                  <button
+                    type="button"
+                    class="time-button"
+                    [disabled]="businessHoursDraft[dayIndex].isClosed"
+                    (click)="toggleHoursPicker(dayIndex, 'open', $event)"
+                    aria-haspopup="listbox"
+                    [attr.aria-expanded]="isHoursTimePickerOpen(dayIndex, 'open')"
+                  >
+                    <span class="time-button-label">{{ timeLabel(businessHoursDraft[dayIndex].openTime) }}</span>
+                    <span class="time-button-caret" aria-hidden="true">&#9662;</span>
+                  </button>
+
+                  <div
+                    class="time-popover time-popover-inline"
+                    *ngIf="isHoursTimePickerOpen(dayIndex, 'open')"
+                    role="listbox"
+                    aria-label="Open time options"
+                  >
+                    <button
+                      type="button"
+                      class="time-option"
+                      *ngFor="let option of timeOptions"
+                      [class.time-option-active]="option === businessHoursDraft[dayIndex].openTime"
+                      (click)="selectHoursTime(dayIndex, 'open', option)"
+                      role="option"
+                      [attr.aria-selected]="option === businessHoursDraft[dayIndex].openTime"
+                    >
+                      <span class="time-dot" aria-hidden="true"></span>
+                      <span>{{ timeLabel(option) }}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <span class="hours-sep" aria-hidden="true">–</span>
+
+                <div class="time-picker-shell" [class.time-picker-disabled]="businessHoursDraft[dayIndex].isClosed">
+                  <button
+                    type="button"
+                    class="time-button"
+                    [disabled]="businessHoursDraft[dayIndex].isClosed"
+                    (click)="toggleHoursPicker(dayIndex, 'close', $event)"
+                    aria-haspopup="listbox"
+                    [attr.aria-expanded]="isHoursTimePickerOpen(dayIndex, 'close')"
+                  >
+                    <span class="time-button-label">{{ timeLabel(businessHoursDraft[dayIndex].closeTime) }}</span>
+                    <span class="time-button-caret" aria-hidden="true">&#9662;</span>
+                  </button>
+
+                  <div
+                    class="time-popover time-popover-inline"
+                    *ngIf="isHoursTimePickerOpen(dayIndex, 'close')"
+                    role="listbox"
+                    aria-label="Close time options"
+                  >
+                    <button
+                      type="button"
+                      class="time-option"
+                      *ngFor="let option of timeOptions"
+                      [class.time-option-active]="option === businessHoursDraft[dayIndex].closeTime"
+                      (click)="selectHoursTime(dayIndex, 'close', option)"
+                      role="option"
+                      [attr.aria-selected]="option === businessHoursDraft[dayIndex].closeTime"
+                    >
+                      <span class="time-dot" aria-hidden="true"></span>
+                      <span>{{ timeLabel(option) }}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <small class="field-note">Set your weekly business hours so customers know when you’re available.</small>
+        </div>
+
         <div class="field">
           <span>Business Model <strong aria-hidden="true">*</strong></span>
           <div class="choice-grid">
@@ -424,6 +509,10 @@
             <div>
               <dt>Business Model</dt>
               <dd>{{ businessModelLabel }}</dd>
+            </div>
+            <div>
+              <dt>Business Hours</dt>
+              <dd>{{ businessHoursSummary }}</dd>
             </div>
             <div>
               <dt>Business Icon</dt>

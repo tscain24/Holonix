@@ -28,6 +28,7 @@ export interface PublicBusinessProfile {
   countryName?: string | null;
   businessEmail?: string | null;
   businessPhoneNumber?: string | null;
+  businessHours?: { dayOfWeek: number; openTime?: string | null; closeTime?: string | null; isClosed: boolean }[] | null;
   address1?: string | null;
   address2?: string | null;
   zipCode?: string | null;
@@ -48,4 +49,3 @@ export class PublicBusinessService {
     return this.http.get<PublicBusinessProfile>(`${this.endpoint}/${encoded}`);
   }
 }
-

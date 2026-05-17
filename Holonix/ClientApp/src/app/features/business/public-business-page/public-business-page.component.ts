@@ -214,6 +214,78 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
   }
 
+  get dayLabels(): string[] {
+    return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  }
+
+  get businessHoursDisplay(): { dayLabel: string; value: string }[] {
+    const labels = this.dayLabels;
+    const incoming = this.business?.businessHours ?? null;
+
+    const byDay = new Map<number, { openTime: string | null; closeTime: string | null; isClosed: boolean }>();
+    for (const entry of incoming ?? []) {
+      const day = Number(entry?.dayOfWeek);
+      if (!Number.isFinite(day) || day < 0 || day > 6) {
+        continue;
+      }
+      byDay.set(Math.trunc(day), {
+        openTime: (entry.openTime ?? '').trim() || null,
+        closeTime: (entry.closeTime ?? '').trim() || null,
+        isClosed: !!entry.isClosed,
+      });
+    }
+
+    const result: { dayLabel: string; value: string }[] = [];
+    for (let day = 0; day < 7; day++) {
+      const label = labels[day] ?? 'Day';
+      const entry = byDay.get(day);
+      if (!entry) {
+        result.push({ dayLabel: label, value: 'Hours not set' });
+        continue;
+      }
+
+      if (entry.isClosed) {
+        result.push({ dayLabel: label, value: 'Closed' });
+        continue;
+      }
+
+      const open = this.formatTime(entry.openTime);
+      const close = this.formatTime(entry.closeTime);
+      if (!open || !close) {
+        result.push({ dayLabel: label, value: 'Hours not set' });
+      } else {
+        result.push({ dayLabel: label, value: `${open} – ${close}` });
+      }
+    }
+
+    return result;
+  }
+
+  private formatTime(value: string | null): string {
+    const trimmed = (value ?? '').trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    const match = /^(\d{2}):(\d{2})$/.exec(trimmed);
+    if (!match) {
+      return '';
+    }
+
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+      return '';
+    }
+
+    const date = new Date(2000, 0, 1, hours, minutes, 0);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date);
+  }
+
   get websiteHref(): string {
     const email = (this.business?.businessEmail ?? '').trim();
     if (!email) {

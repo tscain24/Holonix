@@ -7,6 +7,7 @@ public sealed record UpdateBusinessProfileResponse(
     string? BusinessIconBase64,
     string? BusinessEmail,
     string? BusinessPhoneNumber,
+    IReadOnlyList<BusinessHoursDayResponse>? BusinessHours,
     string? Address1,
     string? Address2,
     string? City,

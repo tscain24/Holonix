@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, of, switchMap } from 'rxjs';
 import {
+  BusinessHoursDay,
   BusinessService,
   BusinessServiceOption,
   BusinessWorkspace,
@@ -63,6 +64,9 @@ export class BusinessWorkspaceComponent implements OnInit {
   editState = '';
   editZipCode = '';
   deleteBusinessConfirmation = '';
+  editBusinessHoursDraft: BusinessHoursDay[] = BusinessWorkspaceComponent.createDefaultBusinessHours();
+  private openHoursTimePicker: { dayOfWeek: number; field: 'open' | 'close' } | null = null;
+  readonly timeOptions = BusinessWorkspaceComponent.buildTimeOptions(30);
   businessWorkspace: BusinessWorkspace | null = null;
   allServices: BusinessServiceOption[] = [];
   addressSuggestions: AddressSuggestion[] = [];
@@ -73,6 +77,13 @@ export class BusinessWorkspaceComponent implements OnInit {
   confirmGeneralInfoAddressModalOpen = false;
   pendingGeneralInfoAddress: AddressSuggestion | null = null;
   resolvingGeneralInfoAddress = false;
+  private originalGeneralInfoAddress: {
+    address1: string;
+    address2: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  } | null = null;
   private readonly addressSearch$ = new Subject<string>();
   subServiceDrafts: Record<number, string> = {};
   subServiceEffectiveDateDrafts: Record<number, string> = {};
@@ -800,6 +811,7 @@ export class BusinessWorkspaceComponent implements OnInit {
           businessIconBase64: updatedProfile.businessIconBase64,
           businessEmail: updatedProfile.businessEmail,
           businessPhoneNumber: updatedProfile.businessPhoneNumber,
+          businessHours: updatedProfile.businessHours ?? null,
           address1: updatedProfile.address1,
           address2: updatedProfile.address2,
           city: updatedProfile.city,
@@ -846,13 +858,35 @@ export class BusinessWorkspaceComponent implements OnInit {
       return;
     }
 
+    const trimmedAddress1 = this.editAddress1.trim();
+    const trimmedAddress2 = this.editAddress2.trim();
+    const trimmedCity = this.editCity.trim();
+    const trimmedState = this.editState.trim();
+    const trimmedZip = this.editZipCode.trim();
+
+    const original = this.originalGeneralInfoAddress ?? {
+      address1: '',
+      address2: '',
+      city: '',
+      state: '',
+      zipCode: '',
+    };
+
+    const addressChanged =
+      trimmedAddress1 !== original.address1
+      || trimmedAddress2 !== original.address2
+      || trimmedCity !== original.city
+      || trimmedState !== original.state
+      || trimmedZip !== original.zipCode;
+
     const shouldResolveCoordinates =
-      this.editLatitude === null
+      addressChanged
+      && this.editLatitude === null
       && this.editLongitude === null
-      && this.editAddress1.trim().length > 0
-      && this.editCity.trim().length > 0
-      && this.editState.trim().length > 0
-      && this.editZipCode.trim().length > 0;
+      && trimmedAddress1.length > 0
+      && trimmedCity.length > 0
+      && trimmedState.length > 0
+      && trimmedZip.length > 0;
 
     if (shouldResolveCoordinates) {
       const suggestionFallback = !this.loadingAddressSuggestions
@@ -871,11 +905,11 @@ export class BusinessWorkspaceComponent implements OnInit {
 
       this.resolvingGeneralInfoAddress = true;
       this.geocodingService.resolveAddress({
-        address1: this.editAddress1.trim(),
-        address2: this.editAddress2.trim() || null,
-        city: this.editCity.trim(),
-        state: this.editState.trim(),
-        zipCode: this.editZipCode.trim(),
+        address1: trimmedAddress1,
+        address2: trimmedAddress2 || null,
+        city: trimmedCity,
+        state: trimmedState,
+        zipCode: trimmedZip,
         countryCode: null,
       }).pipe(
         catchError((err) => {
@@ -943,6 +977,7 @@ export class BusinessWorkspaceComponent implements OnInit {
       businessIconBase64: workspace.businessIconBase64 ?? null,
       businessEmail: this.editBusinessEmail.trim() || null,
       businessPhoneNumber: this.editBusinessPhoneNumber.trim() || null,
+      businessHours: this.normalizeBusinessHoursDraft(),
       address1: this.editAddress1.trim(),
       address2: this.editAddress2.trim() || null,
       city: this.editCity.trim(),
@@ -968,6 +1003,7 @@ export class BusinessWorkspaceComponent implements OnInit {
           businessIconBase64: updatedProfile.businessIconBase64,
           businessEmail: updatedProfile.businessEmail,
           businessPhoneNumber: updatedProfile.businessPhoneNumber,
+          businessHours: updatedProfile.businessHours ?? null,
           address1: updatedProfile.address1,
           address2: updatedProfile.address2,
           city: updatedProfile.city,
@@ -1210,6 +1246,7 @@ export class BusinessWorkspaceComponent implements OnInit {
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
+    this.openHoursTimePicker = null;
     const target = event.target as Node | null;
     const element = target instanceof Element ? target : target?.parentElement;
     if (!element?.closest('.auth-actions-logged-in')) {
@@ -1325,6 +1362,210 @@ export class BusinessWorkspaceComponent implements OnInit {
     this.editCity = workspace.city ?? '';
     this.editState = workspace.state ?? '';
     this.editZipCode = workspace.zipCode ?? '';
+    this.editBusinessHoursDraft = this.normalizeIncomingBusinessHours(workspace.businessHours);
+    this.originalGeneralInfoAddress = {
+      address1: (this.editAddress1 ?? '').trim(),
+      address2: (this.editAddress2 ?? '').trim(),
+      city: (this.editCity ?? '').trim(),
+      state: (this.editState ?? '').trim(),
+      zipCode: (this.editZipCode ?? '').trim(),
+    };
+  }
+
+  get dayLabels(): string[] {
+    return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  }
+
+  get businessHoursSummary(): string {
+    const normalized = this.normalizeBusinessHoursDraft();
+    if (!normalized || normalized.length === 0) {
+      return 'Hours not set';
+    }
+
+    const labels = this.dayLabels;
+    const parts = normalized
+      .filter((x) => !x.isClosed && !!x.openTime && !!x.closeTime)
+      .map((x) => `${labels[x.dayOfWeek] ?? 'Day'} ${x.openTime}-${x.closeTime}`);
+
+    return parts.length > 0 ? parts.join(' | ') : 'Hours not set';
+  }
+
+  get businessHoursDisplay(): { dayLabel: string; value: string }[] {
+    const labels = this.dayLabels;
+    const incoming = this.businessWorkspace?.businessHours ?? null;
+
+    const byDay = new Map<number, { openTime: string | null; closeTime: string | null; isClosed: boolean }>();
+    for (const entry of incoming ?? []) {
+      const day = Number(entry?.dayOfWeek);
+      if (!Number.isFinite(day) || day < 0 || day > 6) {
+        continue;
+      }
+      byDay.set(Math.trunc(day), {
+        openTime: (entry.openTime ?? '').trim() || null,
+        closeTime: (entry.closeTime ?? '').trim() || null,
+        isClosed: !!entry.isClosed,
+      });
+    }
+
+    const result: { dayLabel: string; value: string }[] = [];
+    for (let day = 0; day < 7; day++) {
+      const label = labels[day] ?? 'Day';
+      const entry = byDay.get(day);
+      if (!entry) {
+        result.push({ dayLabel: label, value: 'Hours not set' });
+        continue;
+      }
+
+      if (entry.isClosed) {
+        result.push({ dayLabel: label, value: 'Closed' });
+        continue;
+      }
+
+      const open = this.formatTime(entry.openTime);
+      const close = this.formatTime(entry.closeTime);
+      if (!open || !close) {
+        result.push({ dayLabel: label, value: 'Hours not set' });
+      } else {
+        result.push({ dayLabel: label, value: `${open} – ${close}` });
+      }
+    }
+
+    return result;
+  }
+
+  toggleDayClosed(dayOfWeek: number): void {
+    const entry = this.editBusinessHoursDraft.find((x) => x.dayOfWeek === dayOfWeek);
+    if (!entry) {
+      return;
+    }
+    entry.isClosed = !entry.isClosed;
+  }
+
+  isHoursTimePickerOpen(dayOfWeek: number, field: 'open' | 'close'): boolean {
+    return !!this.openHoursTimePicker
+      && this.openHoursTimePicker.dayOfWeek === dayOfWeek
+      && this.openHoursTimePicker.field === field;
+  }
+
+  toggleHoursPicker(dayOfWeek: number, field: 'open' | 'close', event: MouseEvent): void {
+    event.stopPropagation();
+    if (this.isHoursTimePickerOpen(dayOfWeek, field)) {
+      this.openHoursTimePicker = null;
+      return;
+    }
+
+    this.openHoursTimePicker = { dayOfWeek, field };
+  }
+
+  selectHoursTime(dayOfWeek: number, field: 'open' | 'close', value: string): void {
+    const entry = this.editBusinessHoursDraft.find((x) => x.dayOfWeek === dayOfWeek);
+    if (!entry) {
+      return;
+    }
+
+    if (field === 'open') {
+      entry.openTime = value;
+    } else {
+      entry.closeTime = value;
+    }
+
+    this.openHoursTimePicker = null;
+  }
+
+  timeLabel(value: string | null | undefined): string {
+    const trimmed = (value ?? '').trim();
+    if (!trimmed) {
+      return 'Select';
+    }
+
+    const match = /^(\d{2}):(\d{2})$/.exec(trimmed);
+    if (!match) {
+      return trimmed;
+    }
+
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+      return trimmed;
+    }
+
+    const date = new Date(2000, 0, 1, hours, minutes, 0);
+    return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date);
+  }
+
+  private static createDefaultBusinessHours(): BusinessHoursDay[] {
+    const days: BusinessHoursDay[] = [];
+    for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+      days.push({ dayOfWeek, openTime: '09:00', closeTime: '17:00', isClosed: true });
+    }
+    return days;
+  }
+
+  private static buildTimeOptions(stepMinutes: number): string[] {
+    const step = Number.isFinite(stepMinutes) ? Math.max(5, Math.min(60, Math.trunc(stepMinutes))) : 30;
+    const options: string[] = [];
+    for (let minutes = 0; minutes < 24 * 60; minutes += step) {
+      const hh = `${Math.floor(minutes / 60)}`.padStart(2, '0');
+      const mm = `${minutes % 60}`.padStart(2, '0');
+      options.push(`${hh}:${mm}`);
+    }
+    return options;
+  }
+
+  private normalizeIncomingBusinessHours(value: BusinessHoursDay[] | null | undefined): BusinessHoursDay[] {
+    const byDay = new Map<number, BusinessHoursDay>();
+    for (const entry of value ?? []) {
+      const day = Number(entry?.dayOfWeek);
+      if (!Number.isFinite(day) || day < 0 || day > 6) {
+        continue;
+      }
+      byDay.set(Math.trunc(day), {
+        dayOfWeek: Math.trunc(day),
+        openTime: (entry.openTime ?? '').trim() || '09:00',
+        closeTime: (entry.closeTime ?? '').trim() || '17:00',
+        isClosed: !!entry.isClosed,
+      });
+    }
+
+    const result: BusinessHoursDay[] = [];
+    for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+      result.push(byDay.get(dayOfWeek) ?? { dayOfWeek, openTime: '09:00', closeTime: '17:00', isClosed: true });
+    }
+    return result;
+  }
+
+  private normalizeBusinessHoursDraft(): BusinessHoursDay[] | null {
+    const cleaned = (this.editBusinessHoursDraft ?? [])
+      .filter((x) => Number.isFinite(x.dayOfWeek) && x.dayOfWeek >= 0 && x.dayOfWeek <= 6)
+      .map((x) => ({
+        dayOfWeek: Math.trunc(x.dayOfWeek),
+        openTime: (x.openTime ?? '').trim() || null,
+        closeTime: (x.closeTime ?? '').trim() || null,
+        isClosed: !!x.isClosed,
+      }));
+
+    return cleaned.length > 0 ? cleaned : null;
+  }
+
+  private formatTime(value: string | null): string {
+    const trimmed = (value ?? '').trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    const match = /^(\d{2}):(\d{2})$/.exec(trimmed);
+    if (!match) {
+      return '';
+    }
+
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    const date = new Date(2000, 0, 1, hours, minutes, 0);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date);
   }
 
   private saveServices(services: BusinessWorkspaceService[]): void {

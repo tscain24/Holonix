@@ -6,6 +6,7 @@ public sealed record UpdateBusinessProfileRequest(
     string? BusinessIconBase64,
     string? BusinessEmail,
     string? BusinessPhoneNumber,
+    IReadOnlyList<BusinessHoursDayRequest>? BusinessHours,
     string Address1,
     string? Address2,
     string City,

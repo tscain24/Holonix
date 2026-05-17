@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace Holonix.Server.Controllers;
 
@@ -487,6 +488,7 @@ public class BusinessController : ControllerBase
             business.Details?.Description,
             business.Details?.BusinessEmail,
             business.Details?.BusinessPhoneNumber,
+            ParseBusinessHoursJson(business.Details?.BusinessHoursJson),
             primaryAddress?.Address1 ?? business.Details?.Address1,
             primaryAddress?.Address2 ?? business.Details?.Address2,
             primaryAddress?.City ?? business.Details?.City,
@@ -575,6 +577,7 @@ public class BusinessController : ControllerBase
             primaryAddress?.Country?.Name ?? business.Details?.Country?.Name,
             business.Details?.BusinessEmail,
             business.Details?.BusinessPhoneNumber,
+            ParseBusinessHoursJson(business.Details?.BusinessHoursJson),
             primaryAddress?.Address1 ?? business.Details?.Address1,
             primaryAddress?.Address2 ?? business.Details?.Address2,
             primaryAddress?.ZipCode ?? business.Details?.ZipCode,
@@ -2205,6 +2208,10 @@ public class BusinessController : ControllerBase
         business.Details.BusinessIconBase64 = NormalizeBase64Image(request.BusinessIconBase64);
         business.Details.BusinessEmail = NormalizeOptional(request.BusinessEmail);
         business.Details.BusinessPhoneNumber = NormalizeOptional(request.BusinessPhoneNumber);
+        if (request.BusinessHours is not null)
+        {
+            business.Details.BusinessHoursJson = NormalizeBusinessHoursJson(request.BusinessHours);
+        }
 
         var address1 = request.Address1.Trim();
         var city = request.City.Trim();
@@ -2278,6 +2285,7 @@ public class BusinessController : ControllerBase
             business.Details.BusinessIconBase64,
             business.Details.BusinessEmail,
             business.Details.BusinessPhoneNumber,
+            ParseBusinessHoursJson(business.Details.BusinessHoursJson),
             responseAddress.Address1,
             responseAddress.Address2,
             responseAddress.City,
@@ -2917,6 +2925,7 @@ public class BusinessController : ControllerBase
                 Description = NormalizeOptional(request.Description),
                 BusinessEmail = NormalizeOptional(request.BusinessEmail),
                 BusinessPhoneNumber = NormalizeOptional(request.BusinessPhoneNumber),
+                BusinessHoursJson = NormalizeBusinessHoursJson(request.BusinessHours),
                 CountryId = request.CountryId,
                 BusinessIconBase64 = NormalizeBase64Image(request.BusinessIconBase64),
                 BusinessJobPercentage = request.BusinessJobPercentage,
@@ -3037,6 +3046,8 @@ public class BusinessController : ControllerBase
         {
             errors.Add("Business email must be a valid email address.");
         }
+
+        errors.AddRange(ValidateBusinessHours(request.BusinessHours));
 
         var distinctServiceIds = request.ServiceIds
             .Where(serviceId => serviceId > 0)
@@ -3334,6 +3345,107 @@ public class BusinessController : ControllerBase
             .OrderByDescending(businessRole => businessRole.HierarchyNumber)
             .Select(businessRole => businessRole.Name)
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private static IReadOnlyList<string> ValidateBusinessHours(IReadOnlyList<BusinessHoursDayRequest>? hours)
+    {
+        if (hours is null || hours.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        var errors = new List<string>();
+        foreach (var entry in hours)
+        {
+            if (entry.DayOfWeek is < 0 or > 6)
+            {
+                errors.Add("Business hours day of week must be between 0 and 6.");
+                continue;
+            }
+
+            if (entry.IsClosed)
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(entry.OpenTime) || string.IsNullOrWhiteSpace(entry.CloseTime))
+            {
+                errors.Add("Business hours must include open and close times for days that are not closed.");
+                continue;
+            }
+
+            if (!TimeOnly.TryParseExact(entry.OpenTime.Trim(), "HH:mm", out var open) ||
+                !TimeOnly.TryParseExact(entry.CloseTime.Trim(), "HH:mm", out var close))
+            {
+                errors.Add("Business hours times must be in HH:mm format.");
+                continue;
+            }
+
+            if (open == close)
+            {
+                errors.Add("Business hours open and close times cannot be the same.");
+            }
+        }
+
+        return errors;
+    }
+
+    private static string? NormalizeBusinessHoursJson(IReadOnlyList<BusinessHoursDayRequest>? hours)
+    {
+        if (hours is null || hours.Count == 0)
+        {
+            return null;
+        }
+
+        var normalized = new List<BusinessHoursDayResponse>(7);
+        for (var day = 0; day < 7; day++)
+        {
+            normalized.Add(new BusinessHoursDayResponse(day, null, null, true));
+        }
+
+        foreach (var entry in hours)
+        {
+            if (entry.DayOfWeek is < 0 or > 6)
+            {
+                continue;
+            }
+
+            if (entry.IsClosed)
+            {
+                normalized[entry.DayOfWeek] = new BusinessHoursDayResponse(entry.DayOfWeek, null, null, true);
+                continue;
+            }
+
+            var openRaw = (entry.OpenTime ?? string.Empty).Trim();
+            var closeRaw = (entry.CloseTime ?? string.Empty).Trim();
+            if (!TimeOnly.TryParseExact(openRaw, "HH:mm", out var open) ||
+                !TimeOnly.TryParseExact(closeRaw, "HH:mm", out var close))
+            {
+                continue;
+            }
+
+            normalized[entry.DayOfWeek] = new BusinessHoursDayResponse(entry.DayOfWeek, open.ToString("HH:mm"), close.ToString("HH:mm"), false);
+        }
+
+        return JsonSerializer.Serialize(normalized);
+    }
+
+    private static IReadOnlyList<BusinessHoursDayResponse>? ParseBusinessHoursJson(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<List<BusinessHoursDayResponse>>(value);
+            return parsed is { Count: > 0 } ? parsed : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private async Task<Dictionary<int, IReadOnlyList<PublicBusinessSubServiceResponse>>> GetActivePublicSubServicesByServiceIdAsync(

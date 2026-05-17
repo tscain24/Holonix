@@ -5,6 +5,7 @@ public sealed record CreateBusinessRequest(
     string? Description,
     string? BusinessEmail,
     string? BusinessPhoneNumber,
+    IReadOnlyList<BusinessHoursDayRequest>? BusinessHours,
     string Address1,
     string? Address2,
     string City,
