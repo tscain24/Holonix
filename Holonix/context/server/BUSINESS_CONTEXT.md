@@ -10,6 +10,7 @@ Base route: `api/business`
 - `GET /countries`: country reference list.
 - `GET /`: signed-in user's active business summaries.
 - `GET /{businessCode}`: business workspace payload.
+- `GET /public/{businessCode}`: public business profile payload.
 - `POST /`: create business and owner membership.
 - `PUT /{businessCode}`: update business profile/general information.
 - `DELETE /{businessCode}`: owner-only soft delete business.
@@ -25,6 +26,7 @@ Base route: `api/business`
 - `POST /{businessCode}/employee-invites/{workloadId}/close`: close invite workload.
 - `POST /{businessCode}/leave`: current user leaves business.
 - `GET /{businessCode}/my-availability`: current user's availability for business.
+- `GET /{businessCode}/my-availability/daily`: current user's day-by-day availability projection for a date range.
 - `PUT /{businessCode}/my-availability`: replace current user's weekly availability.
 - `GET /{businessCode}/availability/team/daily`: role-filtered daily availability for visible team members.
 
@@ -34,8 +36,10 @@ Important mappings in `Infrastructure/Data/ApplicationDbContext.cs`:
 
 - `Business` -> `business.Business`; unique `BusinessCode`.
 - `BusinessDetails` -> `business.BusinessDetails`; one-to-one with `Business`, restricted country FK.
-- `Service` -> `service.Service`.
-- `BusinessService`, `BusinessSubService`, `BusinessSubServiceAssignment`, `BusinessRole`, `BusinessUser`, `BusinessUserRole`, `BusinessUserAvailability`, `BusinessUserTimeOff` -> `business` schema.
+- `Service` -> `service.Category`.
+- `BusinessService` -> `business.BusinessCategory`.
+- `BusinessSubService` -> `business.BusinessService`.
+- `BusinessSubServiceAssignment`, `BusinessRole`, `BusinessUser`, `BusinessUserRole`, `BusinessUserAvailability`, `BusinessUserTimeOff` -> `business` schema.
 - `Job`, `JobWorkload`, `JobRecurrence`, `JobRecurrenceException` -> `job` schema.
 - `Workload`, `WorkloadType`, `WorkloadStatus`, `EmployeeInviteWorkload` -> `work` schema.
 - `Country` -> `reference.Country`.
@@ -61,6 +65,7 @@ When changing an API shape, update the Angular interfaces in `ClientApp/src/app/
 - Strip data URL prefixes before storing base64 image fields.
 - Sub-service duration must be greater than zero and divisible by 15.
 - `$0` sub-service pricing is only valid when consultation is needed.
+- Public business responses intentionally omit member-only workspace data and return only active parent services plus active sub-services.
 
 ## Seeded Reference Data
 

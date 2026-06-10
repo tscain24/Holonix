@@ -1,5 +1,6 @@
 # Local build and tooling output
 .dev-runtime/
+.dotnet-cli/
 .dotnet-home/
 temp-build-out/
 client-dev.log

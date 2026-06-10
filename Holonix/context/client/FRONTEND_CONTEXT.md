@@ -17,6 +17,10 @@ Use this when a task touches Angular routing, shared services, auth session beha
 - `auth.interceptor.ts`: bearer token attachment and refresh-on-401 for protected API calls.
 - `business.service.ts`: business API methods and business DTO interfaces.
 - `home.service.ts`: home-page API methods and home DTO interfaces.
+- `service-search.service.ts`: semantic search API methods for services/businesses.
+- `public-business.service.ts`: public business profile API methods.
+- `mapbox-config.service.ts`: fetches the public Mapbox token for map/search UI.
+- `search-origin.service.ts`: stores the user's current search origin in local storage.
 
 ## Common Component Patterns
 
@@ -26,6 +30,7 @@ Use this when a task touches Angular routing, shared services, auth session beha
 - Most API errors are displayed with `err.error.errors[0]` fallback text.
 - Image base64 values are normalized with helper methods that prepend `data:image/*;base64,` when needed.
 - Business tab navigation should use `businessCode`.
+- Search flow persists `holonix_search_origin_v1` in local storage and the last search URL in session storage.
 
 ## Styling Guidance
 

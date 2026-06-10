@@ -21,7 +21,23 @@ Use this when a task changes request/response shapes, API routes, frontend servi
   - `PUT /profile-image`
   - `DELETE /profile`
 - `BusinessController`: `/api/business`; see `context/BUSINESS_CONTEXT.md` and `context/server/BUSINESS_CONTEXT.md`.
-- `HomeController`: home/pending-invite data for the signed-in user.
+  - Includes `GET /public/{businessCode}` for the public business profile.
+  - Includes `GET /{businessCode}/my-availability/daily` and `GET /{businessCode}/availability/team/daily`.
+- `HomeController`: `/api/home`
+  - `GET /pending-invites`
+  - `POST /pending-invites/{workloadId}/accept`
+  - `POST /pending-invites/{workloadId}/deny`
+- `ServiceSearchController`: `/api/search`
+  - `GET /services`
+  - `GET /businesses`
+- `GeocodingController`: `/api/geocode`
+  - `GET /address-suggestions`
+  - `GET /location-suggestions`
+  - `POST /resolve-address`
+- `MapboxController`: `/api/mapbox`
+  - `GET /public-token`
+- `DevCategoryEmbeddingsController`: `/api/dev/category-embeddings`
+  - `POST /generate`
 - `WeatherForecastController`: scaffold/sample endpoint; avoid using as a pattern for domain work.
 
 ## Contract Alignment

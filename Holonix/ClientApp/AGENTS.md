@@ -26,7 +26,8 @@ The app expects the backend at `/api` via `proxy.conf.json`, targeting `http://l
 - `src/app/features/auth/`: login and register screens.
 - `src/app/features/home/`: authenticated home and business summary surface.
 - `src/app/features/profile/`: user profile and recent activity.
-- `src/app/features/business/`: create business, overview, workspace, employees, service manager, and availability screens.
+- `src/app/features/business/`: create business, overview, workspace, employees, service manager, availability, and public business profile screens.
+- `src/app/features/search/`: semantic service/business search results.
 - Assets include Holonix logos and home-service imagery under `src/assets/`.
 - Business-specific feature context: `context/client/business/BUSINESS_CONTEXT.md`.
 - App-wide frontend context: `context/client/FRONTEND_CONTEXT.md`.
@@ -39,10 +40,14 @@ The app expects the backend at `/api` via `proxy.conf.json`, targeting `http://l
 - `/profile`
 - `/business`
 - `/business/create`
-- `/business/:businessCode`
-- `/business/:businessCode/employees`
-- `/business/:businessCode/services`
-- `/business/:businessCode/availability`
+- `/workspace/overview/:businessCode`
+- `/workspace/employees/:businessCode`
+- `/workspace/services/:businessCode`
+- `/workspace/availability/:businessCode`
+- `/search`
+- `/:businessCode` for the public business page
+
+Legacy `/business/:businessCode*` routes still redirect to the workspace URLs.
 
 ## API Service Notes
 

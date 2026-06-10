@@ -10,7 +10,6 @@ Use this when a task touches login, registration, profile, JWTs, token refresh, 
 - `Infrastructure/Services/TokenService.cs` creates JWTs.
 - `Domain/Entities/ApplicationUser.cs` extends `IdentityUser` with `FirstName`, `LastName`, `DateOfBirth`, `ProfileImageBase64`, and `InactiveDate`.
 - Identity uses EF Core stores in `ApplicationDbContext`.
-- Development SQL auth installs `AzureCliSqlAuthenticationProvider` for `ActiveDirectoryDefault` when running on Windows.
 
 ## Frontend
 

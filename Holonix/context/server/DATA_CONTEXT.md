@@ -9,6 +9,8 @@ Use this when a task changes EF entities, model configuration, migrations, seede
 - Default schema is `authentication`.
 - Identity tables are renamed to `Users`, `Roles`, `UserRoles`, `UserClaims`, `UserLogins`, `RoleClaims`, and `UserTokens`.
 - Domain schemas include `business`, `service`, `job`, `work`, and `reference`.
+- The provider is PostgreSQL via `UseNpgsql`.
+- `Service` maps to `service.Category`, `BusinessService` maps to `business.BusinessCategory`, and `BusinessSubService` maps to `business.BusinessService`.
 - Most domain relationships use `DeleteBehavior.Restrict`.
 - Startup runs `Database.MigrateAsync()` in `Program.cs`.
 

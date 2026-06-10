@@ -4,7 +4,7 @@ Use this when a task touches businesses, workspaces, employees, services, sub-se
 
 ## Product Model
 
-Holonix models service businesses. A signed-in user can create a business, become its owner, configure offered services/sub-services, manage employees/invites, track job summaries, and set their own availability.
+Holonix models service businesses. A signed-in user can create a business, become its owner, configure offered services/sub-services, manage employees/invites, track job summaries, and set their own availability. The app also exposes a public business profile and a search flow for discovering businesses by category/service near a chosen location.
 
 The business workspace is centered on `Business.BusinessCode`, a generated 10-character public identifier. Prefer `businessCode` in routes, links, API calls, and UI state.
 
@@ -41,6 +41,8 @@ Backend permission checks live mostly in `Server/Controllers/BusinessController.
 - Employees: paginated employee list with filters/sort; admins/owners can invite, close invites, deactivate employees, and update eligible roles.
 - Services: owners can update selected parent services. Owners/admins can create, edit, assign, and soft-delete business sub-services.
 - Availability: signed-in business member edits their own weekly availability for the business.
+- Public business profile: exposes business identity, contact/location details, hours, parent services, and active sub-services without requiring login.
+- Search: uses location-aware service/category search to find matching businesses and route into the public business page.
 - Delete business: owner-only soft delete that also ends active business memberships and roles.
 - Leave business: non-owner member exits the business.
 

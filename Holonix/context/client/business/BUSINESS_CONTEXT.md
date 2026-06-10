@@ -10,15 +10,19 @@ Business frontend work spans this folder and `src/app/core/services/business.ser
 - `business-employees/`: employees tab, invites, paged employees, filters, sorting, role update, deactivate.
 - `business-service-manager/`: services tab focused on sub-services, assignment, filtering, paging, create/edit/delete.
 - `business-availability/`: current user's weekly availability for the business.
+- `public-business-page/`: public-facing business profile reached from search results or direct business-code URLs.
 
 Routes are defined in `src/app/app-routing.module.ts` and use `businessCode`:
 
 - `/business`
 - `/business/create`
-- `/business/:businessCode`
-- `/business/:businessCode/employees`
-- `/business/:businessCode/services`
-- `/business/:businessCode/availability`
+- `/workspace/overview/:businessCode`
+- `/workspace/employees/:businessCode`
+- `/workspace/services/:businessCode`
+- `/workspace/availability/:businessCode`
+- `/:businessCode` for the public business page
+
+Legacy `/business/:businessCode*` routes still redirect to the workspace URLs.
 
 ## Business API Client
 
@@ -39,6 +43,7 @@ Keep frontend interfaces aligned with `Server/Contracts/Business/*` when changin
 - API errors usually come as `{ errors: string[] }`; components show the first error in a Material snack bar.
 - Image fields may be stored as raw base64 or data URLs; components normalize with `buildImageDataUrl`.
 - Navigation between business tabs should keep using `businessWorkspace.businessCode`.
+- Public business pages can be entered from search with navigation state, and they fall back to `sessionStorage['holonix_last_search_url_v1']` for the back-to-search action.
 
 ## Permission Rules In Components
 

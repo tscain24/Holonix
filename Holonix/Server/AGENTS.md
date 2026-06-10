@@ -6,10 +6,10 @@ This is the ASP.NET Core backend for Holonix.
 
 - Target framework: `net10.0`.
 - Main entry point: `Program.cs`.
-- Persistence: EF Core SQL Server with migrations in `Migrations/`.
+- Persistence: EF Core PostgreSQL (`UseNpgsql`) with migrations in `Migrations/`.
 - Auth: ASP.NET Core Identity plus JWT bearer tokens.
 - API docs: Swagger is enabled in development.
-- External services: Mapbox geocoding through `IGeocodingService` and `MapboxGeocodingService`.
+- External services: Mapbox geocoding through `IGeocodingService` and `MapboxGeocodingService`; OpenAI embeddings through `OpenAiEmbeddingService` for semantic search.
 
 ## Important Files
 
@@ -18,6 +18,7 @@ This is the ASP.NET Core backend for Holonix.
 - `Domain/Entities/BusinessDomain.cs`: most business, service, employee, job, workload, and reference entities.
 - `Controllers/AuthController.cs`: registration/login/profile/token endpoints.
 - `Controllers/BusinessController.cs`: business workspace, employee, invite, service, sub-service, availability, and business profile endpoints.
+- `Controllers/ServiceSearchController.cs`: semantic and keyword search endpoints for nearby services/businesses.
 - `Application/Handlers/Auth/*`: register and login handler implementations.
 - `Contracts/Auth/*` and `Contracts/Business/*`: request/response DTO records used by controllers and Angular.
 - `context/server/BUSINESS_CONTEXT.md`: compact backend business route/domain map.
@@ -29,6 +30,7 @@ This is the ASP.NET Core backend for Holonix.
 - Domain schemas include `business`, `service`, `job`, `work`, and `reference`.
 - `Business.BusinessCode` is required, unique, and the preferred route identifier.
 - `BusinessDetails` is a one-to-one row keyed by `BusinessId`.
+- The EF `Service` entity maps to `service.Category`; `BusinessService` maps to `business.BusinessCategory`; `BusinessSubService` maps to `business.BusinessService`.
 - Most business-related relationships use `DeleteBehavior.Restrict`; do not assume cascade deletes except where configured.
 - `ApplicationUser.NormalizedEmail` has a filtered unique index for active users: inactive users can free an email address.
 - Active records are commonly filtered with `InactiveDate == null`, `IsActive`, and/or `EndDate == null`.
