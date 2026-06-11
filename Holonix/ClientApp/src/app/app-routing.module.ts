@@ -65,6 +65,7 @@ const routes: Routes = [
   { path: 'business/:businessCode', redirectTo: 'workspace/overview/:businessCode', pathMatch: 'full' },
 
   { path: 'search', component: ServiceSearchResultsComponent },
+  { path: ':businessCode/cart', component: PublicBusinessPageComponent },
 
   // Public business profile at the root: /{businessCode}
   { matcher: publicBusinessCodeMatcher, component: PublicBusinessPageComponent },

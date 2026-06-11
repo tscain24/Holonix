@@ -46,6 +46,7 @@ The app expects the backend at `/api` via `proxy.conf.json`, targeting `http://l
 - `/workspace/availability/:businessCode`
 - `/search`
 - `/:businessCode` for the public business page
+- `/:businessCode/cart` for the public business cart screen
 
 Legacy `/business/:businessCode*` routes still redirect to the workspace URLs.
 
@@ -63,8 +64,10 @@ Legacy `/business/:businessCode*` routes still redirect to the workspace URLs.
 - Business pages use `businessCode` in navigation and API calls.
 - Keep text and form validation user-facing messages aligned with backend `{ errors: string[] }` responses.
 - Avoid broad visual rewrites when changing a specific workflow.
+- Treat mobile responsiveness as part of completion for UI work; verify affected screens at mobile and desktop widths.
 
 ## Verification
 
 - Run `npm run build` from `ClientApp/` for TypeScript/template checks.
 - When checking live behavior, use the repo root `.\start-dev.ps1` so backend and frontend ports are coordinated.
+- For UI changes, verify the affected page layout at mobile and desktop breakpoints before closing the task.

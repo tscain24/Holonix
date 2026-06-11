@@ -12,11 +12,26 @@ public sealed record PublicBusinessProfileResponse(
     string? BusinessEmail,
     string? BusinessPhoneNumber,
     IReadOnlyList<BusinessHoursDayResponse>? BusinessHours,
+    IReadOnlyList<PublicBusinessAvailabilityDayResponse>? Availability,
     string? Address1,
     string? Address2,
     string? ZipCode,
     string? BusinessIconBase64,
     IReadOnlyList<PublicBusinessServiceResponse> Services);
+
+public sealed record PublicBusinessAvailabilityDayResponse(
+    int DayOfWeek,
+    IReadOnlyList<PublicBusinessAvailabilityTimeFrameResponse> TimeFrames,
+    bool IsClosed);
+
+public sealed record PublicBusinessAvailabilityTimeFrameResponse(
+    string StartTime,
+    string EndTime);
+
+public sealed record PublicBusinessDailyAvailabilityResponse(
+    DateOnly Date,
+    bool IsAvailable,
+    IReadOnlyList<PublicBusinessAvailabilityTimeFrameResponse> TimeFrames);
 
 public sealed record PublicBusinessServiceResponse(
     int ServiceId,

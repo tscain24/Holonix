@@ -69,6 +69,7 @@ builder.Services
 builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IBusinessAvailabilityCalculator, BusinessAvailabilityCalculator>();
 builder.Services.AddHttpClient<OpenAiEmbeddingService>(client =>
 {
     client.BaseAddress = new Uri("https://api.openai.com/");

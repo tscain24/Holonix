@@ -10,7 +10,7 @@ Business frontend work spans this folder and `src/app/core/services/business.ser
 - `business-employees/`: employees tab, invites, paged employees, filters, sorting, role update, deactivate.
 - `business-service-manager/`: services tab focused on sub-services, assignment, filtering, paging, create/edit/delete.
 - `business-availability/`: current user's weekly availability for the business.
-- `public-business-page/`: public-facing business profile reached from search results or direct business-code URLs.
+- `public-business-page/`: public-facing business profile reached from search results or direct business-code URLs. The header status is computed from today's employee availability and shows `Open`, `Closing soon` in the last 45 minutes before the end of the current availability window, or `Closed`. The page still keeps the legacy `businessHours` profile, which uses a Monday-first `dayOfWeek` convention (`0 = Monday ... 6 = Sunday`), while employee availability follows the native Sunday-first convention (`0 = Sunday ... 6 = Saturday`). The public page uses employee availability as the source of bookable slots, and business hours act only as the outer time window that blocks/clips those slots when the business has at least one configured open-hours entry; an explicitly closed business-hours day blocks slots, but an unset/all-closed business-hours profile does not erase employee availability. Public booking surfaces should only consume public availability payloads and must not fall back to member/team endpoints that expose employee identities in browser-visible responses. Date-specific public slots now subtract both all-day and partial-day employee time off before the frontend clips them to business hours. On the cart scheduler, the date-specific availability call now sends the selected `businessSubServiceId` values so the backend can constrain slots to employees assigned to those services and apply each sub-service's required `employeeCount`; changing the cart refreshes the selected-date slot list. The left content area uses tabs for Services, Business Hours, and Contact, and the Business Hours tab reflects the configured business-hours profile rather than employee schedules. Service selection is additive: users can add multiple sub-services to the cart and remove individual items from the booking summary. `View Cart` navigates to a dedicated public cart screen at `/:businessCode/cart`, selected service ids are persisted in session storage per business code so the cart survives that route change, and the cart route swaps the top back action to `Back to business`. During the `Service` step, the cart summary only shows service-level details and does not render placeholder date/time rows; its primary CTA is `View Cart` from the business page and `Schedule` once the user is already on the cart screen. Choosing `Schedule` advances the stepper into `Date & Time`, where the user selects a calendar day and then an available time slot generated from employee availability for that specific date, clipped to the business-hours window when configured. Date selection is limited to today through 45 days in advance.
 
 Routes are defined in `src/app/app-routing.module.ts` and use `businessCode`:
 
@@ -21,6 +21,7 @@ Routes are defined in `src/app/app-routing.module.ts` and use `businessCode`:
 - `/workspace/services/:businessCode`
 - `/workspace/availability/:businessCode`
 - `/:businessCode` for the public business page
+- `/:businessCode/cart` for the public business cart screen
 
 Legacy `/business/:businessCode*` routes still redirect to the workspace URLs.
 
@@ -44,6 +45,7 @@ Keep frontend interfaces aligned with `Server/Contracts/Business/*` when changin
 - Image fields may be stored as raw base64 or data URLs; components normalize with `buildImageDataUrl`.
 - Navigation between business tabs should keep using `businessWorkspace.businessCode`.
 - Public business pages can be entered from search with navigation state, and they fall back to `sessionStorage['holonix_last_search_url_v1']` for the back-to-search action.
+- Public business and search-related UI changes should be validated at mobile and desktop widths because these surfaces are customer-facing.
 
 ## Permission Rules In Components
 

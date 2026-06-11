@@ -18,7 +18,7 @@ Use this when a task touches Angular routing, shared services, auth session beha
 - `business.service.ts`: business API methods and business DTO interfaces.
 - `home.service.ts`: home-page API methods and home DTO interfaces.
 - `service-search.service.ts`: semantic search API methods for services/businesses.
-- `public-business.service.ts`: public business profile API methods.
+- `public-business.service.ts`: public business profile API methods, including public daily availability lookups used by the booking flow.
 - `mapbox-config.service.ts`: fetches the public Mapbox token for map/search UI.
 - `search-origin.service.ts`: stores the user's current search origin in local storage.
 
@@ -31,12 +31,15 @@ Use this when a task touches Angular routing, shared services, auth session beha
 - Image base64 values are normalized with helper methods that prepend `data:image/*;base64,` when needed.
 - Business tab navigation should use `businessCode`.
 - Search flow persists `holonix_search_origin_v1` in local storage and the last search URL in session storage.
+- Public business browsing uses `/:businessCode`, and the public cart screen uses `/:businessCode/cart`.
+- The public booking flow now loads employee-derived availability from the public business API instead of relying only on the static business-hours profile field.
 
 ## Styling Guidance
 
 - Keep dense operational layouts; this app is not using marketing-page composition for authenticated workflows.
 - Prefer feature-local CSS for page-specific layout.
 - Avoid broad visual rewrites when fixing behavior.
+- Responsive behavior is part of frontend correctness; check affected views at mobile and desktop widths, not just full-size desktop.
 - Angular Material snack bars use `snack-success` and `snack-error` panel classes.
 - Existing business pages use table toolbars, row action popovers, modal state flags, and explicit loading/saving booleans.
 

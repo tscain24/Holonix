@@ -41,6 +41,7 @@ git -c safe.directory=C:/Users/tscai/source/repos status --short
 - Any change to routes, DTOs, auth/session behavior, startup/runtime scripts, data model, search/public-profile behavior, or business workflows must update the relevant `context/*.md` file in the same turn.
 - Use `context/README.md` as the code-to-context ownership map when deciding which context files must change.
 - Before wrapping up substantive code changes, run `.\check-context.ps1` or otherwise verify that the relevant context docs were updated.
+- Frontend UI changes should be checked for both desktop and mobile layouts, especially search and public business profile surfaces.
 
 ## More Specific Context
 

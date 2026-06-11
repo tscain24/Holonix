@@ -17,6 +17,23 @@ export interface PublicBusinessService {
   subServices: PublicBusinessSubService[];
 }
 
+export interface PublicBusinessAvailabilityTimeFrame {
+  startTime: string;
+  endTime: string;
+}
+
+export interface PublicBusinessAvailabilityDay {
+  dayOfWeek: number;
+  timeFrames: PublicBusinessAvailabilityTimeFrame[];
+  isClosed: boolean;
+}
+
+export interface PublicBusinessDailyAvailability {
+  date: string;
+  isAvailable: boolean;
+  timeFrames: PublicBusinessAvailabilityTimeFrame[];
+}
+
 export interface PublicBusinessProfile {
   businessId: number;
   businessCode: string;
@@ -29,6 +46,7 @@ export interface PublicBusinessProfile {
   businessEmail?: string | null;
   businessPhoneNumber?: string | null;
   businessHours?: { dayOfWeek: number; openTime?: string | null; closeTime?: string | null; isClosed: boolean }[] | null;
+  availability?: PublicBusinessAvailabilityDay[] | null;
   address1?: string | null;
   address2?: string | null;
   zipCode?: string | null;
@@ -47,5 +65,20 @@ export class PublicBusinessService {
   getProfile(businessCode: string): Observable<PublicBusinessProfile> {
     const encoded = encodeURIComponent((businessCode ?? '').trim());
     return this.http.get<PublicBusinessProfile>(`${this.endpoint}/${encoded}`);
+  }
+
+  getDailyAvailability(
+    businessCode: string,
+    dateIso: string,
+    businessSubServiceIds?: number[]
+  ): Observable<PublicBusinessDailyAvailability> {
+    const encodedBusinessCode = encodeURIComponent((businessCode ?? '').trim());
+    const encodedDate = encodeURIComponent((dateIso ?? '').trim());
+    const normalizedIds = (businessSubServiceIds ?? [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+    const serviceQuery = normalizedIds.map((id) => `businessSubServiceIds=${encodeURIComponent(`${id}`)}`).join('&');
+    const query = serviceQuery ? `date=${encodedDate}&${serviceQuery}` : `date=${encodedDate}`;
+    return this.http.get<PublicBusinessDailyAvailability>(`${this.endpoint}/${encodedBusinessCode}/availability/daily?${query}`);
   }
 }

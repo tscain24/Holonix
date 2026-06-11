@@ -26,6 +26,7 @@ public class BusinessController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ITokenService _tokenService;
     private readonly IGeocodingService _geocodingService;
+    private readonly IBusinessAvailabilityCalculator _businessAvailabilityCalculator;
     private readonly ILogger<BusinessController> _logger;
 
     public BusinessController(
@@ -33,12 +34,14 @@ public class BusinessController : ControllerBase
         UserManager<ApplicationUser> userManager,
         ITokenService tokenService,
         IGeocodingService geocodingService,
+        IBusinessAvailabilityCalculator businessAvailabilityCalculator,
         ILogger<BusinessController> logger)
     {
         _dbContext = dbContext;
         _userManager = userManager;
         _tokenService = tokenService;
         _geocodingService = geocodingService;
+        _businessAvailabilityCalculator = businessAvailabilityCalculator;
         _logger = logger;
     }
 
@@ -578,11 +581,47 @@ public class BusinessController : ControllerBase
             business.Details?.BusinessEmail,
             business.Details?.BusinessPhoneNumber,
             ParseBusinessHoursJson(business.Details?.BusinessHoursJson),
+            await BuildPublicWeeklyAvailabilityAsync(business.BusinessId, cancellationToken),
             primaryAddress?.Address1 ?? business.Details?.Address1,
             primaryAddress?.Address2 ?? business.Details?.Address2,
             primaryAddress?.ZipCode ?? business.Details?.ZipCode,
             business.Details?.BusinessIconBase64,
             serviceResponses));
+    }
+
+    [HttpGet("public/{businessCode}/availability/daily")]
+    public async Task<IActionResult> GetPublicBusinessDailyAvailability(
+        string businessCode,
+        [FromQuery] DateOnly date,
+        [FromQuery] long[]? businessSubServiceIds,
+        CancellationToken cancellationToken)
+    {
+        businessCode = (businessCode ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(businessCode))
+        {
+            return BadRequest(new { errors = new[] { "Business code is required." } });
+        }
+
+        var businessId = await _dbContext.Businesses
+            .AsNoTracking()
+            .Where(item => item.BusinessCode == businessCode && item.InactiveDate == null)
+            .Select(item => (int?)item.BusinessId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var timeFrames = await GetPublicAvailabilityTimeFramesAsync(
+            businessId.Value,
+            date,
+            businessSubServiceIds,
+            cancellationToken);
+        return Ok(new PublicBusinessDailyAvailabilityResponse(
+            date,
+            timeFrames.Count > 0,
+            timeFrames));
     }
 
     [Authorize]
@@ -713,12 +752,30 @@ public class BusinessController : ControllerBase
                 item.EffectiveEndDate.Value >= startDate)
             .ToListAsync(cancellationToken);
 
+        var partialTimeOffRows = await _dbContext.BusinessUserTimeOffs
+            .AsNoTracking()
+            .Where(item =>
+                item.BusinessUserId == businessUserId.Value &&
+                item.EffectiveStartDate.HasValue &&
+                item.EffectiveEndDate.HasValue &&
+                item.IsAllDay != true &&
+                item.EffectiveStartTime.HasValue &&
+                item.EffectiveEndTime.HasValue &&
+                item.EffectiveStartDate.Value <= endDate &&
+                item.EffectiveEndDate.Value >= startDate)
+            .ToListAsync(cancellationToken);
+
         var response = new List<MyBusinessDailyAvailabilityResponse>(totalDays);
+        var allDayOffMemberIds = dayOffRows
+            .Select(item => item.BusinessUserId)
+            .ToHashSet();
+
         for (var date = startDate; date <= endDate; date = date.AddDays(1))
         {
-            var isDayOff = dayOffRows.Any(item =>
-                item.EffectiveStartDate!.Value <= date &&
-                item.EffectiveEndDate!.Value >= date);
+            var isDayOff = allDayOffMemberIds.Contains(businessUserId.Value)
+                && dayOffRows.Any(item =>
+                    item.EffectiveStartDate!.Value <= date &&
+                    item.EffectiveEndDate!.Value >= date);
 
             if (isDayOff)
             {
@@ -730,15 +787,14 @@ public class BusinessController : ControllerBase
                 continue;
             }
 
-            var dayOfWeek = (byte)date.DayOfWeek;
-            var matches = availabilityRows
-                .Where(item =>
-                    item.DayOfWeek == dayOfWeek &&
-                    item.EffectiveStartDate <= date &&
-                    (!item.EffectiveEndDate.HasValue || item.EffectiveEndDate.Value >= date))
-                .ToList();
+            var timeFrames = _businessAvailabilityCalculator.GetLatestTimeFramesForMemberOnDate(
+                businessUserId.Value,
+                date,
+                availabilityRows,
+                partialTimeOffRows,
+                allDayOffMemberIds);
 
-            if (matches.Count == 0)
+            if (timeFrames.Count == 0)
             {
                 response.Add(new MyBusinessDailyAvailabilityResponse(
                     date,
@@ -748,19 +804,14 @@ public class BusinessController : ControllerBase
                 continue;
             }
 
-            var effectiveStartDate = matches.Max(item => item.EffectiveStartDate);
-            var timeFrames = matches
-                .Where(item => item.EffectiveStartDate == effectiveStartDate)
-                .OrderBy(item => item.StartTime)
+            response.Add(new MyBusinessDailyAvailabilityResponse(
+                date,
+                true,
+                timeFrames
                 .Select(item => new MyBusinessDailyAvailabilityTimeFrameResponse(
                     item.StartTime,
                     item.EndTime))
-                .ToList();
-
-            response.Add(new MyBusinessDailyAvailabilityResponse(
-                date,
-                timeFrames.Count > 0,
-                timeFrames,
+                .ToList(),
                 false));
         }
 
@@ -880,6 +931,19 @@ public class BusinessController : ControllerBase
             .Distinct()
             .ToListAsync(cancellationToken);
 
+        var partialTimeOffRows = await _dbContext.BusinessUserTimeOffs
+            .AsNoTracking()
+            .Where(item =>
+                visibleMemberIds.Contains(item.BusinessUserId) &&
+                item.EffectiveStartDate.HasValue &&
+                item.EffectiveEndDate.HasValue &&
+                item.IsAllDay != true &&
+                item.EffectiveStartTime.HasValue &&
+                item.EffectiveEndTime.HasValue &&
+                item.EffectiveStartDate.Value <= date &&
+                item.EffectiveEndDate.Value >= date)
+            .ToListAsync(cancellationToken);
+
         var dayOffSet = dayOffMemberIds.ToHashSet();
         var members = new List<BusinessDailyTeamAvailabilityMemberResponse>(visibleMembers.Count);
 
@@ -897,11 +961,14 @@ public class BusinessController : ControllerBase
                 continue;
             }
 
-            var matches = availabilityRows
-                .Where(item => item.BusinessUserId == member.BusinessUserId)
-                .ToList();
+            var frames = _businessAvailabilityCalculator.GetLatestTimeFramesForMemberOnDate(
+                member.BusinessUserId,
+                date,
+                availabilityRows,
+                partialTimeOffRows,
+                dayOffSet);
 
-            if (matches.Count == 0)
+            if (frames.Count == 0)
             {
                 members.Add(new BusinessDailyTeamAvailabilityMemberResponse(
                     member.BusinessUserId,
@@ -913,19 +980,14 @@ public class BusinessController : ControllerBase
                 continue;
             }
 
-            var effectiveStartDate = matches.Max(item => item.EffectiveStartDate);
-            var frames = matches
-                .Where(item => item.EffectiveStartDate == effectiveStartDate)
-                .OrderBy(item => item.StartTime)
-                .Select(item => new BusinessDailyTeamAvailabilityTimeFrameResponse(item.StartTime, item.EndTime))
-                .ToList();
-
             members.Add(new BusinessDailyTeamAvailabilityMemberResponse(
                 member.BusinessUserId,
                 member.FirstName,
                 member.LastName,
-                frames.Count > 0,
-                frames,
+                true,
+                frames
+                .Select(item => new BusinessDailyTeamAvailabilityTimeFrameResponse(item.StartTime, item.EndTime))
+                .ToList(),
                 false));
         }
 
@@ -3638,6 +3700,262 @@ public class BusinessController : ControllerBase
         }
 
         return false;
+    }
+
+    private async Task<IReadOnlyList<PublicBusinessAvailabilityDayResponse>> BuildPublicWeeklyAvailabilityAsync(
+        int businessId,
+        CancellationToken cancellationToken)
+    {
+        var businessUserIds = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(item =>
+                item.BusinessId == businessId &&
+                item.IsActive &&
+                item.EndDate == null)
+            .Select(item => item.BusinessUserId)
+            .ToListAsync(cancellationToken);
+
+        if (businessUserIds.Count == 0)
+        {
+            return Enumerable.Range(0, 7)
+                .Select(day => new PublicBusinessAvailabilityDayResponse(
+                    day,
+                    Array.Empty<PublicBusinessAvailabilityTimeFrameResponse>(),
+                    true))
+                .ToList();
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var availabilityRows = await _dbContext.BusinessUserAvailabilities
+            .AsNoTracking()
+            .Where(item =>
+                businessUserIds.Contains(item.BusinessUserId) &&
+                item.EffectiveStartDate <= today &&
+                (!item.EffectiveEndDate.HasValue || item.EffectiveEndDate.Value >= today))
+            .ToListAsync(cancellationToken);
+
+        return Enumerable.Range(0, 7)
+            .Select(day =>
+            {
+                var mergedFrames = _businessAvailabilityCalculator.GetMergedWeeklyTimeFramesForDay(
+                        businessUserIds,
+                        day,
+                        today,
+                        availabilityRows)
+                    .Select(frame => new PublicBusinessAvailabilityTimeFrameResponse(
+                        frame.StartTime.ToString("HH:mm"),
+                        frame.EndTime.ToString("HH:mm")))
+                    .ToList();
+
+                return new PublicBusinessAvailabilityDayResponse(
+                    day,
+                    mergedFrames,
+                    mergedFrames.Count == 0);
+            })
+            .ToList();
+    }
+
+    private async Task<List<PublicBusinessAvailabilityTimeFrameResponse>> GetPublicAvailabilityTimeFramesAsync(
+        int businessId,
+        DateOnly date,
+        IReadOnlyCollection<long>? requestedBusinessSubServiceIds,
+        CancellationToken cancellationToken)
+    {
+        var businessUserIds = await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(item =>
+                item.BusinessId == businessId &&
+                item.IsActive &&
+                item.EndDate == null)
+            .Select(item => item.BusinessUserId)
+            .ToListAsync(cancellationToken);
+
+        if (businessUserIds.Count == 0)
+        {
+            return new List<PublicBusinessAvailabilityTimeFrameResponse>();
+        }
+
+        var dayOfWeek = (byte)date.DayOfWeek;
+        var availabilityRows = await _dbContext.BusinessUserAvailabilities
+            .AsNoTracking()
+            .Where(item =>
+                businessUserIds.Contains(item.BusinessUserId) &&
+                item.DayOfWeek == dayOfWeek &&
+                item.EffectiveStartDate <= date &&
+                (!item.EffectiveEndDate.HasValue || item.EffectiveEndDate.Value >= date))
+            .ToListAsync(cancellationToken);
+
+        var dayOffMemberIds = await _dbContext.BusinessUserTimeOffs
+            .AsNoTracking()
+            .Where(item =>
+                businessUserIds.Contains(item.BusinessUserId) &&
+                item.EffectiveStartDate.HasValue &&
+                item.EffectiveEndDate.HasValue &&
+                item.IsAllDay == true &&
+                item.EffectiveStartDate.Value <= date &&
+                item.EffectiveEndDate.Value >= date)
+            .Select(item => item.BusinessUserId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var partialTimeOffRows = await _dbContext.BusinessUserTimeOffs
+            .AsNoTracking()
+            .Where(item =>
+                businessUserIds.Contains(item.BusinessUserId) &&
+                item.EffectiveStartDate.HasValue &&
+                item.EffectiveEndDate.HasValue &&
+                item.IsAllDay != true &&
+                item.EffectiveStartTime.HasValue &&
+                item.EffectiveEndTime.HasValue &&
+                item.EffectiveStartDate.Value <= date &&
+                item.EffectiveEndDate.Value >= date)
+            .ToListAsync(cancellationToken);
+
+        var dayOffSet = dayOffMemberIds.ToHashSet();
+        var normalizedSubServiceIds = (requestedBusinessSubServiceIds ?? Array.Empty<long>())
+            .Where(id => id > 0)
+            .Distinct()
+            .ToArray();
+
+        IReadOnlyList<AvailabilityTimeFrameResult> timeFrames;
+        if (normalizedSubServiceIds.Length == 0)
+        {
+            timeFrames = _businessAvailabilityCalculator.GetMergedTimeFramesForMembersOnDate(
+                businessUserIds,
+                date,
+                availabilityRows,
+                partialTimeOffRows,
+                dayOffSet);
+        }
+        else
+        {
+            var activeSubServices = await _dbContext.BusinessSubServices
+                .AsNoTracking()
+                .Where(item =>
+                    item.BusinessId == businessId &&
+                    item.InactiveDate == null &&
+                    normalizedSubServiceIds.Contains(item.BusinessSubServiceId))
+                .Select(item => new
+                {
+                    item.BusinessSubServiceId,
+                    item.EmployeeCount,
+                })
+                .ToListAsync(cancellationToken);
+
+            if (activeSubServices.Count != normalizedSubServiceIds.Length)
+            {
+                return new List<PublicBusinessAvailabilityTimeFrameResponse>();
+            }
+
+            var assignmentRows = await _dbContext.BusinessSubServiceAssignments
+                .AsNoTracking()
+                .Where(item => normalizedSubServiceIds.Contains(item.BusinessSubServiceId))
+                .Join(
+                    _dbContext.BusinessUsers.AsNoTracking().Where(item => item.IsActive && item.EndDate == null),
+                    assignment => assignment.BusinessUserId,
+                    businessUser => businessUser.BusinessUserId,
+                    (assignment, businessUser) => new
+                    {
+                        assignment.BusinessSubServiceId,
+                        businessUser.BusinessUserId,
+                        businessUser.BusinessId,
+                    })
+                .Where(item => item.BusinessId == businessId)
+                .Select(item => new
+                {
+                    item.BusinessSubServiceId,
+                    item.BusinessUserId,
+                })
+                .ToListAsync(cancellationToken);
+
+            var assignedUsersBySubServiceId = assignmentRows
+                .GroupBy(item => item.BusinessSubServiceId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Select(item => item.BusinessUserId).Distinct().ToList());
+
+            IReadOnlyList<AvailabilityTimeFrameResult>? sharedFrames = null;
+            foreach (var subService in activeSubServices)
+            {
+                var eligibleBusinessUserIds = assignedUsersBySubServiceId.TryGetValue(subService.BusinessSubServiceId, out var assignedUserIds)
+                    && assignedUserIds.Count > 0
+                    ? assignedUserIds
+                    : businessUserIds;
+
+                if (eligibleBusinessUserIds.Count < subService.EmployeeCount)
+                {
+                    return new List<PublicBusinessAvailabilityTimeFrameResponse>();
+                }
+
+                var subServiceFrames = _businessAvailabilityCalculator.GetQualifiedTimeFramesForMembersOnDate(
+                    eligibleBusinessUserIds,
+                    date,
+                    availabilityRows,
+                    partialTimeOffRows,
+                    dayOffSet,
+                    subService.EmployeeCount);
+
+                if (subServiceFrames.Count == 0)
+                {
+                    return new List<PublicBusinessAvailabilityTimeFrameResponse>();
+                }
+
+                sharedFrames = sharedFrames == null
+                    ? subServiceFrames
+                    : IntersectAvailabilityFrames(sharedFrames, subServiceFrames);
+
+                if (sharedFrames.Count == 0)
+                {
+                    return new List<PublicBusinessAvailabilityTimeFrameResponse>();
+                }
+            }
+
+            timeFrames = sharedFrames ?? Array.Empty<AvailabilityTimeFrameResult>();
+        }
+
+        return timeFrames
+            .Select(frame => new PublicBusinessAvailabilityTimeFrameResponse(
+                frame.StartTime.ToString("HH:mm"),
+                frame.EndTime.ToString("HH:mm")))
+            .ToList();
+    }
+
+    private static IReadOnlyList<AvailabilityTimeFrameResult> IntersectAvailabilityFrames(
+        IReadOnlyList<AvailabilityTimeFrameResult> left,
+        IReadOnlyList<AvailabilityTimeFrameResult> right)
+    {
+        if (left.Count == 0 || right.Count == 0)
+        {
+            return Array.Empty<AvailabilityTimeFrameResult>();
+        }
+
+        var intersections = new List<AvailabilityTimeFrameResult>();
+        var leftIndex = 0;
+        var rightIndex = 0;
+
+        while (leftIndex < left.Count && rightIndex < right.Count)
+        {
+            var leftFrame = left[leftIndex];
+            var rightFrame = right[rightIndex];
+
+            var start = leftFrame.StartTime > rightFrame.StartTime ? leftFrame.StartTime : rightFrame.StartTime;
+            var end = leftFrame.EndTime < rightFrame.EndTime ? leftFrame.EndTime : rightFrame.EndTime;
+            if (start < end)
+            {
+                intersections.Add(new AvailabilityTimeFrameResult(start, end));
+            }
+
+            if (leftFrame.EndTime <= rightFrame.EndTime)
+            {
+                leftIndex++;
+            }
+            else
+            {
+                rightIndex++;
+            }
+        }
+
+        return intersections;
     }
 
     private static List<EmployeeFilterQuery> ParseEmployeeFilters(string? filters)

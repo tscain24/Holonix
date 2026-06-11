@@ -10,7 +10,8 @@ Base route: `api/business`
 - `GET /countries`: country reference list.
 - `GET /`: signed-in user's active business summaries.
 - `GET /{businessCode}`: business workspace payload.
-- `GET /public/{businessCode}`: public business profile payload.
+- `GET /public/{businessCode}`: public business profile payload, including aggregated weekly public availability derived from active employee schedules.
+- `GET /public/{businessCode}/availability/daily`: public date-specific availability payload for booking surfaces. It accepts optional repeated `businessSubServiceIds` query values so booking availability can be constrained to the selected cart services.
 - `POST /`: create business and owner membership.
 - `PUT /{businessCode}`: update business profile/general information.
 - `DELETE /{businessCode}`: owner-only soft delete business.
@@ -66,6 +67,8 @@ When changing an API shape, update the Angular interfaces in `ClientApp/src/app/
 - Sub-service duration must be greater than zero and divisible by 15.
 - `$0` sub-service pricing is only valid when consultation is needed.
 - Public business responses intentionally omit member-only workspace data and return only active parent services plus active sub-services.
+- Shared availability calculation now lives in `Application/Interfaces/IBusinessAvailabilityCalculator.cs` and `Infrastructure/Services/BusinessAvailabilityCalculator.cs`. Use that service instead of duplicating "latest effective availability for date/day" logic inside controller actions.
+- Public availability for customer-facing booking is aggregated from active `BusinessUserAvailability` rows for active business members. Employee availability keeps the backend/native Sunday-first `DayOfWeek` convention (`0 = Sunday ... 6 = Saturday`). Weekly public availability is merged per weekday in that native convention. The public daily availability endpoint, the team-daily availability endpoint, and the member daily-availability projection now all use the shared availability calculator so "latest effective rows for date/day" behavior stays aligned. That shared calculator excludes members on all-day time off and subtracts partial-day `BusinessUserTimeOff` windows from the returned time frames before merging. When the public daily endpoint receives selected `businessSubServiceIds`, it narrows the employee pool to the employees assigned to each requested sub-service, applies each sub-service's `EmployeeCount` as the required simultaneous headcount, and intersects those service-specific windows across the cart.
 
 ## Seeded Reference Data
 
