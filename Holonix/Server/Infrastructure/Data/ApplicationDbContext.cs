@@ -8,6 +8,7 @@ namespace Holonix.Server.Infrastructure.Data;
 public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 {
     public DbSet<UserAddress> UserAddresses => Set<UserAddress>();
+    public DbSet<UserSavedLocation> UserSavedLocations => Set<UserSavedLocation>();
     public DbSet<Service> Services => Set<Service>();
     public DbSet<BusinessService> BusinessServices => Set<BusinessService>();
     public DbSet<BusinessSubService> BusinessSubServices => Set<BusinessSubService>();
@@ -68,6 +69,29 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasOne(x => x.User)
                 .WithOne()
                 .HasForeignKey<UserAddress>(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<UserSavedLocation>(entity =>
+        {
+            entity.ToTable("UserSavedLocation");
+            entity.HasKey(x => x.UserSavedLocationId);
+            entity.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+            entity.Property(x => x.Label).IsRequired().HasMaxLength(120);
+            entity.Property(x => x.Address1).IsRequired().HasMaxLength(200);
+            entity.Property(x => x.Address2).HasMaxLength(200);
+            entity.Property(x => x.City).IsRequired().HasMaxLength(120);
+            entity.Property(x => x.State).IsRequired().HasMaxLength(120);
+            entity.Property(x => x.ZipCode).IsRequired().HasMaxLength(32);
+            entity.Property(x => x.Latitude).HasColumnType("decimal(9,6)");
+            entity.Property(x => x.Longitude).HasColumnType("decimal(9,6)");
+            entity.HasIndex(x => new { x.UserId, x.InactiveDate });
+            entity.HasIndex(x => x.UserId)
+                .HasFilter("\"IsPrimary\" = TRUE AND \"InactiveDate\" IS NULL")
+                .IsUnique();
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

@@ -149,7 +149,23 @@ public sealed class RegisterUserHandler : IRegisterUserHandler
                 Longitude = request.Longitude,
             };
 
+            var savedLocation = new UserSavedLocation
+            {
+                UserId = user.Id,
+                Label = "Home",
+                Address1 = request.Address1.Trim(),
+                Address2 = string.IsNullOrWhiteSpace(request.Address2) ? null : request.Address2.Trim(),
+                City = request.City.Trim(),
+                State = request.State.Trim(),
+                ZipCode = request.ZipCode.Trim(),
+                Latitude = request.Latitude,
+                Longitude = request.Longitude,
+                IsPrimary = true,
+                CreatedDate = DateTime.UtcNow,
+            };
+
             _dbContext.UserAddresses.Add(address);
+            _dbContext.UserSavedLocations.Add(savedLocation);
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
         catch (DbException ex)

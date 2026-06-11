@@ -18,6 +18,10 @@ Use this when a task changes request/response shapes, API routes, frontend servi
   - `POST /refresh`
   - `GET /profile`
   - `PUT /profile`
+  - `POST /profile/locations`
+  - `PUT /profile/locations/{userSavedLocationId}`
+  - `DELETE /profile/locations/{userSavedLocationId}`
+  - Profile location create/update requests must include a valid geocoded latitude/longitude pair; the Angular profile form resolves typed addresses through `/api/geocode/resolve-address` or Mapbox suggestions before saving.
   - `PUT /profile-image`
   - `DELETE /profile`
 - `BusinessController`: `/api/business`; see `context/BUSINESS_CONTEXT.md` and `context/server/BUSINESS_CONTEXT.md`.
@@ -25,6 +29,7 @@ Use this when a task changes request/response shapes, API routes, frontend servi
   - Includes `GET /public/{businessCode}/availability/daily` for public date-specific booking availability. That route accepts optional repeated `businessSubServiceIds` query values to make public slots service-aware.
   - Includes `GET /{businessCode}/my-availability/daily` and `GET /{businessCode}/availability/team/daily`.
   - The daily availability routes now share a backend availability calculator so public and workspace surfaces stay aligned, including all-day time off exclusion and partial-day time off subtraction.
+  - Business sub-service create/update and workspace/public profile payloads now include `requiresServiceLocation` so customer booking flows can tell when a selected service needs a user location on a later step.
 - `HomeController`: `/api/home`
   - `GET /pending-invites`
   - `POST /pending-invites/{workloadId}/accept`

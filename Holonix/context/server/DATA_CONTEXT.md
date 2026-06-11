@@ -8,15 +8,18 @@ Use this when a task changes EF entities, model configuration, migrations, seede
 
 - Default schema is `authentication`.
 - Identity tables are renamed to `Users`, `Roles`, `UserRoles`, `UserClaims`, `UserLogins`, `RoleClaims`, and `UserTokens`.
+- User-profile address tables in the `authentication` schema include legacy `UserAddress` plus multi-row `UserSavedLocation`.
 - Domain schemas include `business`, `service`, `job`, `work`, and `reference`.
 - The provider is PostgreSQL via `UseNpgsql`.
-- `Service` maps to `service.Category`, `BusinessService` maps to `business.BusinessCategory`, and `BusinessSubService` maps to `business.BusinessService`.
+- `Service` maps to `service.Category`, `BusinessService` maps to `business.BusinessCategory`, and `BusinessSubService` maps to `business.BusinessService`, including the `RequiresServiceLocation` boolean flag on business-specific service offerings.
+- `UserSavedLocation` has one filtered active-primary row per user and soft-deletes via `InactiveDate`.
 - Most domain relationships use `DeleteBehavior.Restrict`.
 - Startup runs `Database.MigrateAsync()` in `Program.cs`.
 
 ## Active/Soft Delete Patterns
 
 - Users: `ApplicationUser.InactiveDate == null`.
+- Saved profile locations: `UserSavedLocation.InactiveDate == null`.
 - Businesses: `Business.InactiveDate == null`.
 - Business users: `IsActive == true` and `EndDate == null`.
 - Business user roles: `EndDate == null`.

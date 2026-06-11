@@ -38,6 +38,7 @@ public sealed record BusinessWorkspaceSubServiceResponse(
     int ServiceId,
     string Name,
     string? Description,
+    bool RequiresServiceLocation,
     bool ConsultationNeeded,
     int DurationMinutes,
     decimal Price,

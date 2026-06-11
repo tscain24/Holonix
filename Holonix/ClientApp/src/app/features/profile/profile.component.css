@@ -313,6 +313,12 @@
   gap: 12px;
 }
 
+.saved-location-modal {
+  width: min(720px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: visible;
+}
+
 .profile-image-modal h2 {
   margin: 0;
   font-size: 20px;
@@ -482,6 +488,183 @@
   gap: 10px;
 }
 
+.saved-locations-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.saved-locations-header h2,
+.saved-location-form-heading h3,
+.saved-location-card h3 {
+  margin: 0;
+}
+
+.saved-locations-header p,
+.saved-location-form-heading p,
+.saved-location-card p {
+  margin: 4px 0 0;
+  color: #556b8d;
+  font-size: 14px;
+}
+
+.saved-locations-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.saved-location-card {
+  border: 1px solid #dbe5f2;
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 14px;
+}
+
+.saved-location-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.saved-location-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.saved-location-primary-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.saved-location-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.saved-locations-empty {
+  border: 1px dashed #c8d8f1;
+  border-radius: 12px;
+  background: #f8fbff;
+  color: #5d7499;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.saved-location-form-shell {
+  border-top: 1px solid #e1e8f3;
+  padding-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.saved-location-form-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.saved-location-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.saved-location-field {
+  display: grid;
+  gap: 6px;
+}
+
+.saved-location-field span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #5d7499;
+}
+
+.saved-location-field-wide {
+  grid-column: span 3;
+}
+
+.saved-location-address-shell {
+  position: relative;
+}
+
+.saved-location-suggestions {
+  position: absolute;
+  top: calc(100% - 2px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid #c8d8f1;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.16);
+  padding: 6px;
+}
+
+.saved-location-suggestion {
+  width: 100%;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #0f172a;
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  text-align: left;
+}
+
+.saved-location-suggestion:hover,
+.saved-location-suggestion-active {
+  background: #eef4ff;
+}
+
+.saved-location-suggestion-primary {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.saved-location-suggestion-secondary {
+  font-size: 12px;
+  color: #5d7499;
+}
+
+.saved-location-autocomplete-state {
+  margin: 0;
+  font-size: 12px;
+  color: #5d7499;
+}
+
+.saved-location-autocomplete-state.error {
+  color: #b91c1c;
+}
+
+.saved-location-primary-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #1f365d;
+  font-size: 14px;
+}
+
 .profile-actions {
   display: flex;
   justify-content: flex-end;
@@ -634,6 +817,14 @@
   .profile-grid {
     grid-template-columns: 1fr;
   }
+
+  .saved-location-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .saved-location-field-wide {
+    grid-column: span 2;
+  }
 }
 
 @media (max-width: 600px) {
@@ -655,6 +846,24 @@
   .profile-header {
     grid-template-columns: 1fr;
     justify-items: start;
+  }
+
+  .saved-location-top,
+  .saved-location-form-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .saved-location-actions {
+    justify-content: stretch;
+  }
+
+  .saved-location-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .saved-location-field-wide {
+    grid-column: span 1;
   }
 
   .business-profile-cta {

@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, catchError, combineLatest, map, of, switchMap, takeUntil } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { AuthService, UserSavedLocation } from '../../../core/services/auth.service';
 import {
   PublicBusinessAvailabilityTimeFrame,
   PublicBusinessDailyAvailability,
@@ -30,6 +31,10 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   currentCheckoutStep: 1 | 2 | 3 = 1;
   selectedScheduleDateIso: string | null = null;
   selectedScheduleTime: string | null = null;
+  savedLocations: UserSavedLocation[] = [];
+  selectedSavedLocationId: number | null = null;
+  loadingSavedLocations = false;
+  savedLocationsError: string | null = null;
   visibleCalendarMonth = PublicBusinessPageComponent.startOfMonth(new Date());
   entrySource: 'search' | 'direct' = 'direct';
   entrySearchedCategoryName: string | null = null;
@@ -45,6 +50,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private api: PublicBusinessApiService,
+    private auth: AuthService,
     private snackBar: MatSnackBar
   ) {}
 
@@ -63,6 +69,10 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
           this.currentCheckoutStep = 1;
           this.selectedScheduleDateIso = null;
           this.selectedScheduleTime = null;
+          this.savedLocations = [];
+          this.selectedSavedLocationId = null;
+          this.loadingSavedLocations = false;
+          this.savedLocationsError = null;
           this.todayAvailabilityTimeFrames = [];
           this.selectedDateAvailabilityTimeFrames = [];
           this.hasLoadedTodayAvailability = false;
@@ -194,7 +204,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
 
     if (this.currentCheckoutStep === 2) {
       this.currentCheckoutStep = 3;
-      this.showComingSoon('Details');
+      this.loadSavedLocationsForDetailsIfNeeded();
     }
   }
 
@@ -208,6 +218,15 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     }
 
     this.currentCheckoutStep = 2;
+  }
+
+  showDetailsStep(): void {
+    if (!this.canContinueFromDateTime) {
+      return;
+    }
+
+    this.currentCheckoutStep = 3;
+    this.loadSavedLocationsForDetailsIfNeeded();
   }
 
   previousCalendarMonth(): void {
@@ -237,6 +256,10 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
 
   selectScheduleTime(time: string): void {
     this.selectedScheduleTime = time;
+  }
+
+  selectSavedLocation(location: UserSavedLocation): void {
+    this.selectedSavedLocationId = location.userSavedLocationId;
   }
 
   showComingSoon(section: string): void {
@@ -302,6 +325,11 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     return `$${safe.toFixed(0)}`;
   }
 
+  formatPriceWithCents(value: number): string {
+    const safe = Number.isFinite(value) ? value : 0;
+    return `$${safe.toFixed(2)}`;
+  }
+
   get cartDurationMinutes(): number {
     return this.selectedSubServices.reduce(
       (total, sub) => total + (Number.isFinite(sub.durationMinutes) ? Math.max(0, Math.trunc(sub.durationMinutes)) : 0),
@@ -311,6 +339,14 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
 
   get cartTotalPrice(): number {
     return this.selectedSubServices.reduce((total, sub) => total + (Number.isFinite(sub.price) ? sub.price : 0), 0);
+  }
+
+  get bookingServiceFee(): number {
+    return this.cartTotalPrice * 0.05;
+  }
+
+  get bookingTotalPrice(): number {
+    return this.cartTotalPrice + this.bookingServiceFee;
   }
 
   get cartItemCount(): number {
@@ -327,6 +363,22 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
 
   get canContinueFromDateTime(): boolean {
     return !!this.selectedScheduleDateIso && !!this.selectedScheduleTime;
+  }
+
+  get selectedServicesRequireLocation(): boolean {
+    return this.selectedSubServices.some((sub) => sub.requiresServiceLocation);
+  }
+
+  get selectedSavedLocation(): UserSavedLocation | null {
+    if (this.selectedSavedLocationId === null) {
+      return null;
+    }
+
+    return this.savedLocations.find((location) => location.userSavedLocationId === this.selectedSavedLocationId) ?? null;
+  }
+
+  get canContinueFromDetails(): boolean {
+    return !this.selectedServicesRequireLocation || this.selectedSavedLocationId !== null;
   }
 
   get locationLabel(): string {
@@ -482,6 +534,26 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     }
 
     return new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).format(selectedDate);
+  }
+
+  get selectedScheduleTimeRangeLabel(): string {
+    if (!this.selectedScheduleTime) {
+      return '';
+    }
+
+    const startMinutes = this.parseDisplayTimeToMinutes(this.selectedScheduleTime);
+    if (startMinutes === null || this.cartDurationMinutes <= 0) {
+      return this.selectedScheduleTime;
+    }
+
+    const endMinutes = startMinutes + this.cartDurationMinutes;
+    return `${this.selectedScheduleTime} - ${this.formatMinutesAsTime(endMinutes % 1440)}`;
+  }
+
+  formatSavedLocationAddress(location: UserSavedLocation): string {
+    return [location.address1, location.address2, `${location.city}, ${location.state} ${location.zipCode}`]
+      .filter((value) => !!value && value.trim().length > 0)
+      .join(', ');
   }
 
   get currentBusinessStatusLabel(): string {
@@ -696,6 +768,29 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     return hours * 60 + minutes;
   }
 
+  private parseDisplayTimeToMinutes(value: string | null): number | null {
+    const trimmed = (value ?? '').trim();
+    const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(trimmed);
+    if (!match) {
+      return this.parseTimeToMinutes(trimmed);
+    }
+
+    let hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    const meridiem = match[3].toUpperCase();
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes) || hours < 1 || hours > 12 || minutes < 0 || minutes > 59) {
+      return null;
+    }
+
+    if (meridiem === 'AM') {
+      hours = hours === 12 ? 0 : hours;
+    } else {
+      hours = hours === 12 ? 12 : hours + 12;
+    }
+
+    return hours * 60 + minutes;
+  }
+
   private getBusinessHoursDayIndex(date: Date): number {
     return (date.getDay() + 6) % 7;
   }
@@ -771,6 +866,39 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
       .subscribe({
         next: onSuccess,
         error: () => onError(),
+      });
+  }
+
+  private loadSavedLocationsForDetailsIfNeeded(): void {
+    if (!this.selectedServicesRequireLocation) {
+      this.savedLocations = [];
+      this.selectedSavedLocationId = null;
+      this.savedLocationsError = null;
+      return;
+    }
+
+    if (this.savedLocations.length > 0 || this.loadingSavedLocations) {
+      return;
+    }
+
+    this.loadingSavedLocations = true;
+    this.savedLocationsError = null;
+    this.auth.getProfile()
+      .pipe(takeUntil(this.destroyed$))
+      .subscribe({
+        next: (profile) => {
+          this.loadingSavedLocations = false;
+          this.savedLocations = this.normalizeSavedLocations(profile.locations ?? []);
+          const primary = this.savedLocations.find((location) => location.isPrimary);
+          this.selectedSavedLocationId = (primary ?? this.savedLocations[0] ?? null)?.userSavedLocationId ?? null;
+        },
+        error: (err) => {
+          this.loadingSavedLocations = false;
+          const errors = err?.error?.errors as string[] | undefined;
+          this.savedLocationsError = errors?.[0] ?? 'Sign in to use saved profile locations for this booking.';
+          this.savedLocations = [];
+          this.selectedSavedLocationId = null;
+        },
       });
   }
 
@@ -969,6 +1097,16 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     this.selectedScheduleTime = null;
     this.selectedDateAvailabilityTimeFrames = [];
     this.loadSelectedDateAvailability(this.selectedScheduleDateIso);
+  }
+
+  private normalizeSavedLocations(locations: UserSavedLocation[]): UserSavedLocation[] {
+    return [...locations].sort((a, b) => {
+      if (a.isPrimary !== b.isPrimary) {
+        return a.isPrimary ? -1 : 1;
+      }
+
+      return a.label.localeCompare(b.label);
+    });
   }
 
   private get maxBookableDate(): Date {

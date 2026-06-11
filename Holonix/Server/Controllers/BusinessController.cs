@@ -2599,6 +2599,7 @@ public class BusinessController : ControllerBase
             ServiceId = serviceId,
             Name = normalizedName,
             Description = NormalizeOptional(request.Description),
+            RequiresServiceLocation = request.RequiresServiceLocation,
             ConsultationNeeded = request.ConsultationNeeded,
             DurationMinutes = request.DurationMinutes,
             Price = request.Price,
@@ -2635,6 +2636,7 @@ public class BusinessController : ControllerBase
             subService.ServiceId,
             subService.Name,
             subService.Description,
+            subService.RequiresServiceLocation,
             subService.ConsultationNeeded,
             subService.DurationMinutes,
             subService.Price,
@@ -2818,6 +2820,7 @@ public class BusinessController : ControllerBase
         subService.Name = normalizedName;
         subService.ServiceId = request.ServiceId;
         subService.Description = NormalizeOptional(request.Description);
+        subService.RequiresServiceLocation = request.RequiresServiceLocation;
         subService.ConsultationNeeded = request.ConsultationNeeded;
         subService.DurationMinutes = request.DurationMinutes;
         subService.Price = request.Price;
@@ -2855,6 +2858,7 @@ public class BusinessController : ControllerBase
             subService.ServiceId,
             subService.Name,
             subService.Description,
+            subService.RequiresServiceLocation,
             subService.ConsultationNeeded,
             subService.DurationMinutes,
             subService.Price,
@@ -3367,6 +3371,7 @@ public class BusinessController : ControllerBase
                         item.ServiceId,
                         item.Name,
                         item.Description,
+                        item.RequiresServiceLocation,
                         item.ConsultationNeeded,
                         item.DurationMinutes,
                         item.Price,
@@ -3533,6 +3538,7 @@ public class BusinessController : ControllerBase
                 item.BusinessSubServiceId,
                 item.Name,
                 item.Description,
+                item.RequiresServiceLocation,
                 item.ConsultationNeeded,
                 item.DurationMinutes,
                 item.Price,
@@ -3548,6 +3554,7 @@ public class BusinessController : ControllerBase
                         item.BusinessSubServiceId,
                         item.Name,
                         item.Description,
+                        item.RequiresServiceLocation,
                         item.ConsultationNeeded,
                         item.DurationMinutes,
                         item.Price))

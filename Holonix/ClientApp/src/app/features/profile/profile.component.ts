@@ -1,9 +1,12 @@
-import { Component, ElementRef, HostListener, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
-import { AuthService } from '../../core/services/auth.service';
+import { Observable, Subject, Subscription, of } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap } from 'rxjs/operators';
+import { AuthService, UserSavedLocation } from '../../core/services/auth.service';
 import { AuthSessionService } from '../../core/services/auth-session.service';
 import { BusinessService, UserBusinessSummary } from '../../core/services/business.service';
+import { AddressSuggestion, GeocodingService } from '../../core/services/geocoding.service';
 
 interface JwtPayload {
   sub?: string;
@@ -22,7 +25,7 @@ interface JwtPayload {
   templateUrl: './profile.component.html',
   styleUrls: ['./profile.component.css'],
 })
-export class ProfileComponent implements OnInit {
+export class ProfileComponent implements OnInit, OnDestroy {
   displayName = 'User';
   firstName = 'User';
   lastName = '';
@@ -45,6 +48,26 @@ export class ProfileComponent implements OnInit {
   editableDateOfBirth = '';
   editableDateOfBirthDisplay = '';
   editablePhoneNumber = '';
+  savedLocations: UserSavedLocation[] = [];
+  locationFormLabel = '';
+  locationFormAddress1 = '';
+  locationFormAddress2 = '';
+  locationFormCity = '';
+  locationFormState = '';
+  locationFormZipCode = '';
+  locationFormLatitude: number | null = null;
+  locationFormLongitude: number | null = null;
+  locationFormIsPrimary = false;
+  isLocationFormOpen = false;
+  editingLocationId: number | null = null;
+  savingLocation = false;
+  deletingLocationIds = new Set<number>();
+  locationAddressSuggestions: AddressSuggestion[] = [];
+  loadingLocationAddressSuggestions = false;
+  locationAddressAutocompleteError = '';
+  locationAddressValidationError = '';
+  highlightedLocationAddressIndex = -1;
+  hasLocationAddressSearchCompleted = false;
   isProfileImageModalOpen = false;
   pendingProfileImageBase64 = '';
   pendingProfileImageDataUrl = '';
@@ -62,6 +85,8 @@ export class ProfileComponent implements OnInit {
   dragStartY = 0;
   dragOriginX = 0;
   dragOriginY = 0;
+  private readonly locationAddressSearch$ = new Subject<string>();
+  private readonly locationAddressSearchSubscription: Subscription;
 
   constructor(
     private router: Router,
@@ -69,8 +94,18 @@ export class ProfileComponent implements OnInit {
     private auth: AuthService,
     private businessService: BusinessService,
     private snackBar: MatSnackBar,
-    private authSession: AuthSessionService
-  ) {}
+    private authSession: AuthSessionService,
+    private geocodingService: GeocodingService
+  ) {
+    this.locationAddressSearchSubscription = this.locationAddressSearch$.pipe(
+      debounceTime(250),
+      distinctUntilChanged(),
+      switchMap((query) => this.searchLocationAddressSuggestions(query))
+    ).subscribe((suggestions) => {
+      this.locationAddressSuggestions = suggestions;
+      this.highlightedLocationAddressIndex = suggestions.length > 0 ? 0 : -1;
+    });
+  }
 
   ngOnInit(): void {
     const token = localStorage.getItem('holonix_token');
@@ -110,6 +145,9 @@ export class ProfileComponent implements OnInit {
         };
         const incomingDob = profileAny.dateOfBirth ?? profileAny.DateOfBirth;
         const incomingPhoneNumber = profileAny.phoneNumber ?? profileAny.PhoneNumber;
+        const incomingLocations = Array.isArray((profile as { locations?: unknown }).locations)
+          ? ((profile as { locations: UserSavedLocation[] }).locations ?? [])
+          : [];
         const firstName = profile.firstName?.trim() || this.firstName;
         const lastName = profile.lastName?.trim() || this.lastName;
         this.firstName = firstName;
@@ -121,6 +159,7 @@ export class ProfileComponent implements OnInit {
         this.editablePhoneNumber = this.phoneNumber;
         this.savedDateOfBirth = this.normalizeIncomingDateOfBirth(incomingDob);
         this.setEditableDateOfBirth(this.savedDateOfBirth);
+        this.savedLocations = this.normalizeSavedLocations(incomingLocations);
         if (profile.profileImageBase64) {
           localStorage.setItem('holonix_profile_image_base64', profile.profileImageBase64);
           this.profileImageDataUrl = this.buildImageDataUrl(profile.profileImageBase64);
@@ -149,6 +188,10 @@ export class ProfileComponent implements OnInit {
         this.ownedBusinesses = [];
       },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.locationAddressSearchSubscription.unsubscribe();
   }
 
   goHome(): void {
@@ -365,6 +408,9 @@ export class ProfileComponent implements OnInit {
         };
         const incomingDob = profileAny.dateOfBirth ?? profileAny.DateOfBirth;
         const incomingPhoneNumber = profileAny.phoneNumber ?? profileAny.PhoneNumber;
+        const incomingLocations = Array.isArray((profile as { locations?: unknown }).locations)
+          ? ((profile as { locations: UserSavedLocation[] }).locations ?? [])
+          : [];
         this.savingProfile = false;
         this.isEditProfileMode = false;
         this.firstName = profile.firstName.trim();
@@ -376,6 +422,7 @@ export class ProfileComponent implements OnInit {
         this.editablePhoneNumber = this.phoneNumber;
         this.savedDateOfBirth = this.normalizeIncomingDateOfBirth(incomingDob);
         this.setEditableDateOfBirth(this.savedDateOfBirth);
+        this.savedLocations = this.normalizeSavedLocations(incomingLocations);
         localStorage.setItem('holonix_display_name', this.displayName);
         this.initials = `${this.firstName.charAt(0)}${this.lastName.charAt(0)}`.toUpperCase();
         this.snackBar.open('Profile updated.', 'Close', {
@@ -468,6 +515,293 @@ export class ProfileComponent implements OnInit {
     input.value = formatted;
     input.setSelectionRange(formatted.length, formatted.length);
     this.editablePhoneNumber = formatted;
+  }
+
+  get canSaveLocation(): boolean {
+    return !this.savingLocation
+      && this.locationFormLabel.trim().length > 0
+      && this.locationFormAddress1.trim().length > 0
+      && this.locationFormCity.trim().length > 0
+      && this.locationFormState.trim().length > 0
+      && this.locationFormZipCode.trim().length > 0;
+  }
+
+  startAddLocation(): void {
+    this.resetLocationForm();
+    this.isLocationFormOpen = true;
+  }
+
+  startEditLocation(location: UserSavedLocation): void {
+    this.isLocationFormOpen = true;
+    this.editingLocationId = location.userSavedLocationId;
+    this.locationFormLabel = location.label;
+    this.locationFormAddress1 = location.address1;
+    this.locationFormAddress2 = location.address2 ?? '';
+    this.locationFormCity = location.city;
+    this.locationFormState = location.state;
+    this.locationFormZipCode = location.zipCode;
+    this.locationFormLatitude = this.normalizeCoordinate(location.latitude);
+    this.locationFormLongitude = this.normalizeCoordinate(location.longitude);
+    this.locationFormIsPrimary = location.isPrimary;
+    this.clearLocationAddressSuggestions();
+    this.locationAddressValidationError = '';
+  }
+
+  cancelLocationEdit(): void {
+    if (this.savingLocation) {
+      return;
+    }
+
+    this.resetLocationForm();
+    this.isLocationFormOpen = false;
+  }
+
+  saveLocation(): void {
+    const label = this.locationFormLabel.trim();
+    const address1 = this.locationFormAddress1.trim();
+    const address2 = this.locationFormAddress2.trim();
+    const city = this.locationFormCity.trim();
+    const state = this.locationFormState.trim();
+    const zipCode = this.locationFormZipCode.trim();
+
+    if (!label || !address1 || !city || !state || !zipCode) {
+      this.snackBar.open('Location label, address, city, state, and zip code are required.', 'Close', {
+        duration: 3000,
+        panelClass: ['snack-error'],
+      });
+      return;
+    }
+
+    this.locationAddressValidationError = '';
+    this.savingLocation = true;
+
+    if (this.locationFormLatitude !== null && this.locationFormLongitude !== null) {
+      this.persistLocation(label, address1, address2, city, state, zipCode);
+      return;
+    }
+
+    this.geocodingService.resolveAddress({
+      address1,
+      address2: address2 || null,
+      city,
+      state,
+      zipCode,
+      countryCode: 'US',
+    }).subscribe({
+      next: (suggestion) => {
+        if (!suggestion) {
+          this.savingLocation = false;
+          this.locationAddressValidationError = 'Select a valid address from the suggestions before saving.';
+          this.snackBar.open('Select a valid address before saving.', 'Close', {
+            duration: 3000,
+            panelClass: ['snack-error'],
+          });
+          return;
+        }
+
+        this.applyLocationAddressSuggestion(suggestion);
+        this.persistLocation(
+          label,
+          suggestion.address1.trim(),
+          address2,
+          (suggestion.city ?? city).trim(),
+          (suggestion.state ?? state).trim(),
+          (suggestion.zipCode ?? zipCode).trim()
+        );
+      },
+      error: () => {
+        this.savingLocation = false;
+        this.locationAddressValidationError = 'Address validation is unavailable. Try again before saving.';
+        this.snackBar.open('Could not validate the address.', 'Close', {
+          duration: 3000,
+          panelClass: ['snack-error'],
+        });
+      },
+    });
+  }
+
+  onLocationAddressInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.locationFormAddress1 = input.value;
+    this.invalidateLocationAddress();
+    this.locationAddressSearch$.next(input.value);
+  }
+
+  onLocationAddressFocus(): void {
+    if (this.locationFormAddress1.trim().length >= 3) {
+      this.locationAddressSearch$.next(this.locationFormAddress1);
+    }
+  }
+
+  onLocationAddressKeydown(event: KeyboardEvent): void {
+    if (this.locationAddressSuggestions.length === 0) {
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.highlightedLocationAddressIndex = (this.highlightedLocationAddressIndex + 1) % this.locationAddressSuggestions.length;
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.highlightedLocationAddressIndex = this.highlightedLocationAddressIndex <= 0
+        ? this.locationAddressSuggestions.length - 1
+        : this.highlightedLocationAddressIndex - 1;
+      return;
+    }
+
+    if (event.key === 'Enter' && this.highlightedLocationAddressIndex >= 0) {
+      event.preventDefault();
+      this.selectLocationAddressSuggestion(this.locationAddressSuggestions[this.highlightedLocationAddressIndex]);
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      this.clearLocationAddressSuggestions();
+    }
+  }
+
+  selectLocationAddressSuggestion(suggestion: AddressSuggestion): void {
+    this.applyLocationAddressSuggestion(suggestion);
+    this.clearLocationAddressSuggestions();
+  }
+
+  onLocationCityInput(event: Event): void {
+    this.locationFormCity = (event.target as HTMLInputElement).value;
+    this.invalidateLocationAddress();
+  }
+
+  onLocationStateInput(event: Event): void {
+    this.locationFormState = (event.target as HTMLInputElement).value;
+    this.invalidateLocationAddress();
+  }
+
+  onLocationZipCodeInput(event: Event): void {
+    this.locationFormZipCode = (event.target as HTMLInputElement).value;
+    this.invalidateLocationAddress();
+  }
+
+  formatLocationAddressSuggestion(suggestion: AddressSuggestion): string {
+    return suggestion.fullAddress
+      ?? [suggestion.address1, suggestion.city, suggestion.state, suggestion.zipCode].filter(Boolean).join(', ');
+  }
+
+  getLocationAddressNoResultsMessage(): string {
+    const query = this.locationFormAddress1.trim();
+    if (/^\d+$/.test(query)) {
+      return 'Keep typing the street name to find a full address, for example 303 Main.';
+    }
+
+    return 'No matching full addresses found. Check the street address or keep typing.';
+  }
+
+  get showLocationAddressNoResults(): boolean {
+    return this.hasLocationAddressSearchCompleted
+      && !this.loadingLocationAddressSuggestions
+      && !this.locationAddressAutocompleteError
+      && this.locationAddressSuggestions.length === 0
+      && this.locationFormAddress1.trim().length >= 3;
+  }
+
+  private persistLocation(
+    label: string,
+    address1: string,
+    address2: string,
+    city: string,
+    state: string,
+    zipCode: string
+  ): void {
+    const wasEditing = this.editingLocationId !== null;
+    const payload = {
+      label,
+      address1,
+      address2: address2 || null,
+      city,
+      state,
+      zipCode,
+      latitude: this.locationFormLatitude,
+      longitude: this.locationFormLongitude,
+      isPrimary: this.locationFormIsPrimary,
+    };
+
+    const request = this.editingLocationId === null
+      ? this.auth.createSavedLocation(payload)
+      : this.auth.updateSavedLocation(this.editingLocationId, payload);
+
+    request.subscribe({
+      next: (location) => {
+        this.savingLocation = false;
+        const nextLocations = this.editingLocationId === null
+          ? [...this.savedLocations, location]
+          : this.savedLocations.map((item) => item.userSavedLocationId === location.userSavedLocationId ? location : item);
+        this.savedLocations = this.normalizeSavedLocations(nextLocations);
+        this.resetLocationForm();
+        this.isLocationFormOpen = false;
+        this.snackBar.open(wasEditing ? 'Location updated.' : 'Location saved.', 'Close', {
+          duration: 2500,
+          panelClass: ['snack-success'],
+        });
+      },
+      error: (err) => {
+        this.savingLocation = false;
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
+        const errors = err?.error?.errors as string[] | undefined;
+        this.snackBar.open(errors?.[0] ?? 'Failed to save location.', 'Close', {
+          duration: 3000,
+          panelClass: ['snack-error'],
+        });
+      },
+    });
+  }
+
+  deleteLocation(location: UserSavedLocation): void {
+    if (this.deletingLocationIds.has(location.userSavedLocationId)) {
+      return;
+    }
+
+    this.deletingLocationIds.add(location.userSavedLocationId);
+    this.auth.deleteSavedLocation(location.userSavedLocationId).subscribe({
+      next: () => {
+        this.deletingLocationIds.delete(location.userSavedLocationId);
+        this.savedLocations = this.savedLocations.filter((item) => item.userSavedLocationId !== location.userSavedLocationId);
+        this.savedLocations = this.normalizeSavedLocations(this.savedLocations);
+        if (this.editingLocationId === location.userSavedLocationId) {
+          this.resetLocationForm();
+          this.isLocationFormOpen = false;
+        }
+        this.snackBar.open('Location removed.', 'Close', {
+          duration: 2500,
+          panelClass: ['snack-success'],
+        });
+      },
+      error: (err) => {
+        this.deletingLocationIds.delete(location.userSavedLocationId);
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
+        const errors = err?.error?.errors as string[] | undefined;
+        this.snackBar.open(errors?.[0] ?? 'Failed to remove location.', 'Close', {
+          duration: 3000,
+          panelClass: ['snack-error'],
+        });
+      },
+    });
+  }
+
+  isDeletingLocation(userSavedLocationId: number): boolean {
+    return this.deletingLocationIds.has(userSavedLocationId);
+  }
+
+  formatSavedLocationAddress(location: UserSavedLocation): string {
+    return [location.address1, location.address2, `${location.city}, ${location.state} ${location.zipCode}`]
+      .filter((value) => !!value && value.trim().length > 0)
+      .join(', ');
   }
 
   startPreviewImageDrag(event: MouseEvent | TouchEvent): void {
@@ -606,6 +940,9 @@ export class ProfileComponent implements OnInit {
     const element = target instanceof Element ? target : target?.parentElement;
     if (!element?.closest('.auth-actions-logged-in')) {
       this.isUserMenuOpen = false;
+    }
+    if (!element?.closest('.saved-location-address-shell')) {
+      this.clearLocationAddressSuggestions();
     }
   }
 
@@ -790,5 +1127,87 @@ export class ProfileComponent implements OnInit {
       candidate.getMonth() === month - 1 &&
       candidate.getDate() === day
     );
+  }
+
+  private resetLocationForm(): void {
+    this.editingLocationId = null;
+    this.locationFormLabel = '';
+    this.locationFormAddress1 = '';
+    this.locationFormAddress2 = '';
+    this.locationFormCity = '';
+    this.locationFormState = '';
+    this.locationFormZipCode = '';
+    this.locationFormLatitude = null;
+    this.locationFormLongitude = null;
+    this.locationFormIsPrimary = this.savedLocations.length === 0;
+    this.clearLocationAddressSuggestions();
+    this.locationAddressValidationError = '';
+  }
+
+  private searchLocationAddressSuggestions(query: string): Observable<AddressSuggestion[]> {
+    const trimmed = query.trim();
+    if (trimmed.length < 3) {
+      this.loadingLocationAddressSuggestions = false;
+      this.locationAddressAutocompleteError = '';
+      this.hasLocationAddressSearchCompleted = false;
+      return of([]);
+    }
+
+    const contextualQuery = [
+      trimmed,
+      this.locationFormCity.trim(),
+      this.locationFormState.trim(),
+      this.locationFormZipCode.trim(),
+    ].filter(Boolean).join(', ');
+
+    this.loadingLocationAddressSuggestions = true;
+    this.locationAddressAutocompleteError = '';
+
+    return this.geocodingService.getAddressSuggestions(contextualQuery, 'US').pipe(
+      catchError(() => {
+        this.locationAddressAutocompleteError = 'Address suggestions are unavailable right now.';
+        return of([]);
+      }),
+      finalize(() => {
+        this.loadingLocationAddressSuggestions = false;
+        this.hasLocationAddressSearchCompleted = true;
+      })
+    );
+  }
+
+  private applyLocationAddressSuggestion(suggestion: AddressSuggestion): void {
+    this.locationFormAddress1 = suggestion.address1;
+    this.locationFormCity = suggestion.city ?? this.locationFormCity;
+    this.locationFormState = suggestion.state ?? this.locationFormState;
+    this.locationFormZipCode = suggestion.zipCode ?? this.locationFormZipCode;
+    this.locationFormLatitude = suggestion.latitude;
+    this.locationFormLongitude = suggestion.longitude;
+    this.locationAddressValidationError = '';
+  }
+
+  private invalidateLocationAddress(): void {
+    this.locationFormLatitude = null;
+    this.locationFormLongitude = null;
+    this.locationAddressValidationError = '';
+  }
+
+  private clearLocationAddressSuggestions(): void {
+    this.locationAddressSuggestions = [];
+    this.highlightedLocationAddressIndex = -1;
+    this.hasLocationAddressSearchCompleted = false;
+  }
+
+  private normalizeCoordinate(value: number | null | undefined): number | null {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  }
+
+  private normalizeSavedLocations(locations: UserSavedLocation[]): UserSavedLocation[] {
+    return [...locations].sort((a, b) => {
+      if (a.isPrimary !== b.isPrimary) {
+        return a.isPrimary ? -1 : 1;
+      }
+
+      return a.label.localeCompare(b.label);
+    });
   }
 }

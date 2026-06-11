@@ -32,7 +32,8 @@ Use this when a task touches Angular routing, shared services, auth session beha
 - Business tab navigation should use `businessCode`.
 - Search flow persists `holonix_search_origin_v1` in local storage and the last search URL in session storage.
 - Public business browsing uses `/:businessCode`, and the public cart screen uses `/:businessCode/cart`.
-- The public booking flow now loads employee-derived availability from the public business API instead of relying only on the static business-hours profile field.
+- The public booking flow now loads employee-derived availability from the public business API instead of relying only on the static business-hours profile field, and its Details step uses profile saved locations when selected services require a customer service location.
+- The profile page includes a saved locations section backed by `auth.service.ts` CRUD calls to `/api/auth/profile/locations`; address entry uses Mapbox/geocoding autocomplete and validates typed addresses before saving so each saved location has coordinates for later booking/job flows.
 
 ## Styling Guidance
 

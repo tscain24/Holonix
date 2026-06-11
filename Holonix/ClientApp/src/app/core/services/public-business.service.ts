@@ -6,6 +6,7 @@ export interface PublicBusinessSubService {
   businessSubServiceId: number;
   name: string;
   description?: string | null;
+  requiresServiceLocation: boolean;
   consultationNeeded: boolean;
   durationMinutes: number;
   price: number;

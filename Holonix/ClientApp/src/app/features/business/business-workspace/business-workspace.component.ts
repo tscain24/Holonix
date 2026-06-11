@@ -490,6 +490,7 @@ export class BusinessWorkspaceComponent implements OnInit {
     this.creatingSubServiceIds.add(service.serviceId);
     this.businessService.createBusinessSubService(businessCode, service.serviceId, {
       name,
+      requiresServiceLocation: false,
       consultationNeeded: true,
       durationMinutes: 15,
       price: 0,

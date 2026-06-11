@@ -56,6 +56,7 @@ export class BusinessServiceManagerComponent implements OnInit {
   createSubServiceName = '';
   createParentServiceId: number | null = null;
   createSubServicePrice = '0';
+  createRequiresServiceLocation = false;
   createConsultationNeeded = false;
   createDurationHours = '0';
   createDurationMinutes = '15';
@@ -66,6 +67,7 @@ export class BusinessServiceManagerComponent implements OnInit {
   editSubServiceName = '';
   editParentServiceId: number | null = null;
   editSubServicePrice = '0';
+  editRequiresServiceLocation = false;
   editConsultationNeeded = false;
   editDurationHours = '0';
   editDurationMinutes = '15';
@@ -248,7 +250,7 @@ export class BusinessServiceManagerComponent implements OnInit {
     const effectiveDate = this.editEffectiveDate.trim();
     const canUseEffectiveDate = effectiveDate.length > 0
       && (effectiveDate >= this.todayDateInputValue || effectiveDate === this.editOriginalEffectiveDate);
-    return !!this.editingSubServiceId
+    return this.editingSubServiceId !== null
       && !!this.editParentServiceId
       && trimmedName.length > 0
       && canUseEffectiveDate
@@ -479,6 +481,10 @@ export class BusinessServiceManagerComponent implements OnInit {
     }
   }
 
+  onCreateRequiresServiceLocationChange(event: Event): void {
+    this.createRequiresServiceLocation = (event.target as HTMLInputElement).checked;
+  }
+
   onEmployeeCountInput(event: Event): void {
     this.createEmployeeCount = (event.target as HTMLInputElement).value;
   }
@@ -605,6 +611,7 @@ export class BusinessServiceManagerComponent implements OnInit {
     this.businessService.createBusinessSubService(businessCode, serviceId, {
       name,
       description: description || null,
+      requiresServiceLocation: this.createRequiresServiceLocation,
       consultationNeeded: this.createConsultationNeeded,
       durationMinutes,
       price,
@@ -615,6 +622,7 @@ export class BusinessServiceManagerComponent implements OnInit {
       next: () => {
         this.createSubServiceName = '';
         this.createSubServicePrice = '0';
+        this.createRequiresServiceLocation = false;
         this.createConsultationNeeded = false;
         this.createDurationHours = '0';
         this.createDurationMinutes = '15';
@@ -651,6 +659,7 @@ export class BusinessServiceManagerComponent implements OnInit {
     this.editSubServiceName = subService.name;
     this.editParentServiceId = Number.isFinite(subService.serviceId) && subService.serviceId > 0 ? subService.serviceId : subService.bucketServiceId;
     this.editSubServicePrice = `${subService.price ?? 0}`;
+    this.editRequiresServiceLocation = !!subService.requiresServiceLocation;
     this.editConsultationNeeded = !!subService.consultationNeeded;
     this.editDurationHours = `${Math.floor((subService.durationMinutes ?? 0) / 60)}`;
     this.editDurationMinutes = `${(subService.durationMinutes ?? 0) % 60}`;
@@ -666,6 +675,7 @@ export class BusinessServiceManagerComponent implements OnInit {
     this.editSubServiceName = '';
     this.editParentServiceId = null;
     this.editSubServicePrice = '0';
+    this.editRequiresServiceLocation = false;
     this.editConsultationNeeded = false;
     this.editDurationHours = '0';
     this.editDurationMinutes = '15';
@@ -695,6 +705,10 @@ export class BusinessServiceManagerComponent implements OnInit {
     if (this.editConsultationNeeded) {
       this.editSubServicePrice = '0.00';
     }
+  }
+
+  onEditRequiresServiceLocationChange(event: Event): void {
+    this.editRequiresServiceLocation = (event.target as HTMLInputElement).checked;
   }
 
   onEditEmployeeCountInput(event: Event): void {
@@ -731,21 +745,63 @@ export class BusinessServiceManagerComponent implements OnInit {
     const canUseEffectiveDate = effectiveDate.length > 0
       && (effectiveDate >= this.todayDateInputValue || effectiveDate === this.editOriginalEffectiveDate);
 
-    if (!workspace || !businessCode || !businessSubServiceId || !serviceId || this.savingSubService) {
+    if (!workspace || !businessCode || businessSubServiceId === null || !serviceId || this.savingSubService) {
       return;
     }
 
-    if (!name
-      || !effectiveDate
-      || !Number.isFinite(price)
-      || price < 0
-      || (price === 0 && !this.editConsultationNeeded)
-      || !Number.isInteger(durationMinutes)
-      || durationMinutes <= 0
-      || durationMinutes % 15 !== 0
-      || !Number.isInteger(employeeCount)
-      || employeeCount <= 0
-      || !canUseEffectiveDate) {
+    if (!name) {
+      this.snackBar.open('Service name is required.', 'Close', {
+        duration: 3000,
+        panelClass: ['snack-error'],
+      });
+      return;
+    }
+
+    if (!Number.isFinite(price) || price < 0) {
+      this.snackBar.open('Price must be zero or greater.', 'Close', {
+        duration: 3000,
+        panelClass: ['snack-error'],
+      });
+      return;
+    }
+
+    if (price === 0 && !this.editConsultationNeeded) {
+      this.snackBar.open('Price can only be $0 when Consultation Needed is checked.', 'Close', {
+        duration: 3000,
+        panelClass: ['snack-error'],
+      });
+      return;
+    }
+
+    if (!Number.isInteger(durationMinutes) || durationMinutes <= 0 || durationMinutes % 15 !== 0) {
+      this.snackBar.open('Duration must be greater than zero and use 15-minute intervals.', 'Close', {
+        duration: 3000,
+        panelClass: ['snack-error'],
+      });
+      return;
+    }
+
+    if (!Number.isInteger(employeeCount) || employeeCount <= 0) {
+      this.snackBar.open('Employees needed must be a whole number greater than zero.', 'Close', {
+        duration: 3000,
+        panelClass: ['snack-error'],
+      });
+      return;
+    }
+
+    if (!effectiveDate) {
+      this.snackBar.open('Effective date is required.', 'Close', {
+        duration: 3000,
+        panelClass: ['snack-error'],
+      });
+      return;
+    }
+
+    if (!canUseEffectiveDate) {
+      this.snackBar.open('Effective date cannot be in the past.', 'Close', {
+        duration: 3000,
+        panelClass: ['snack-error'],
+      });
       return;
     }
 
@@ -754,6 +810,7 @@ export class BusinessServiceManagerComponent implements OnInit {
       name,
       serviceId,
       description: description || null,
+      requiresServiceLocation: this.editRequiresServiceLocation,
       consultationNeeded: this.editConsultationNeeded,
       durationMinutes,
       price,
@@ -913,6 +970,11 @@ export class BusinessServiceManagerComponent implements OnInit {
   isConsultationNeeded(subService: VisibleBusinessSubService): boolean {
     const candidate = subService as VisibleBusinessSubService & { ConsultationNeeded?: boolean };
     return !!(candidate.consultationNeeded ?? candidate.ConsultationNeeded);
+  }
+
+  requiresServiceLocation(subService: VisibleBusinessSubService): boolean {
+    const candidate = subService as VisibleBusinessSubService & { RequiresServiceLocation?: boolean };
+    return !!(candidate.requiresServiceLocation ?? candidate.RequiresServiceLocation);
   }
 
   formatSubServiceEffectiveDate(subService: VisibleBusinessSubService): string {

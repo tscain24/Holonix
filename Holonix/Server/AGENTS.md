@@ -31,6 +31,7 @@ This is the ASP.NET Core backend for Holonix.
 - `Business.BusinessCode` is required, unique, and the preferred route identifier.
 - `BusinessDetails` is a one-to-one row keyed by `BusinessId`.
 - The EF `Service` entity maps to `service.Category`; `BusinessService` maps to `business.BusinessCategory`; `BusinessSubService` maps to `business.BusinessService`.
+- `UserAddress` is the legacy single registration address row; reusable user profile locations live in `UserSavedLocation`.
 - Most business-related relationships use `DeleteBehavior.Restrict`; do not assume cascade deletes except where configured.
 - `ApplicationUser.NormalizedEmail` has a filtered unique index for active users: inactive users can free an email address.
 - Active records are commonly filtered with `InactiveDate == null`, `IsActive`, and/or `EndDate == null`.

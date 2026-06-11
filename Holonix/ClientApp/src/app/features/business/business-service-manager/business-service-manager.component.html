@@ -193,6 +193,11 @@
                 <input type="checkbox" [checked]="createConsultationNeeded" (change)="onCreateConsultationNeededChange($event)" />
                 <span>Consultation needed for $0 pricing</span>
               </label>
+
+              <label class="service-checkbox-row">
+                <input type="checkbox" [checked]="createRequiresServiceLocation" (change)="onCreateRequiresServiceLocationChange($event)" />
+                <span>Requires customer service location</span>
+              </label>
             </div>
 
             <label class="service-field">
@@ -251,7 +256,7 @@
           </div>
         </div>
 
-        <div class="create-sub-service-panel" *ngIf="canManageSubServices && editingSubServiceId">
+        <div class="create-sub-service-panel" *ngIf="canManageSubServices && editingSubServiceId !== null">
           <div class="section-heading">
             <h2>Edit Sub-Service</h2>
             <p>Update the selected service or move it to another category.</p>
@@ -283,6 +288,11 @@
               <label class="service-checkbox-row">
                 <input type="checkbox" [checked]="editConsultationNeeded" (change)="onEditConsultationNeededChange($event)" />
                 <span>Consultation needed for $0 pricing</span>
+              </label>
+
+              <label class="service-checkbox-row">
+                <input type="checkbox" [checked]="editRequiresServiceLocation" (change)="onEditRequiresServiceLocationChange($event)" />
+                <span>Requires customer service location</span>
               </label>
             </div>
 
@@ -351,6 +361,7 @@
                 <th scope="col">Price</th>
                 <th scope="col">Duration</th>
                 <th scope="col">Employees Needed</th>
+                <th scope="col">Service Location</th>
                 <th scope="col">Assigned Users</th>
                 <th scope="col" *ngIf="canManageSubServices">Actions</th>
               </tr>
@@ -366,6 +377,7 @@
                 <td>{{ formatSubServicePrice(subService) }}</td>
                 <td>{{ formatDuration(subService) }}</td>
                 <td>{{ formatEmployeeCount(subService) }}</td>
+                <td>{{ requiresServiceLocation(subService) ? 'Required' : 'Not required' }}</td>
                 <td>{{ formatAssignedUsers(subService) }}</td>
                 <td *ngIf="canManageSubServices" class="service-table-actions">
                   <div class="sub-service-actions">
@@ -423,6 +435,10 @@
               <div class="service-card-meta-row">
                 <span class="service-card-label">Employees</span>
                 <span class="service-card-value">{{ formatEmployeeCount(subService) }}</span>
+              </div>
+              <div class="service-card-meta-row">
+                <span class="service-card-label">Service Location</span>
+                <span class="service-card-value">{{ requiresServiceLocation(subService) ? 'Required' : 'Not required' }}</span>
               </div>
               <div class="service-card-meta-row">
                 <span class="service-card-label">Assigned</span>

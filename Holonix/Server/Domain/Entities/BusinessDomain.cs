@@ -88,6 +88,7 @@ public class BusinessSubService
     public int ServiceId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public bool RequiresServiceLocation { get; set; }
     public bool ConsultationNeeded { get; set; }
     public int DurationMinutes { get; set; }
     public decimal Price { get; set; }

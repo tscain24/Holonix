@@ -6,4 +6,5 @@ public record UserProfileResponse(
     string? DateOfBirth,
     string Email,
     string? PhoneNumber,
-    string? ProfileImageBase64);
+    string? ProfileImageBase64,
+    IReadOnlyList<UserSavedLocationResponse> Locations);

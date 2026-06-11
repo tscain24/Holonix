@@ -9,11 +9,12 @@ Use this when a task touches login, registration, profile, JWTs, token refresh, 
 - `Application/Handlers/Auth/LoginUserHandler.cs` handles login.
 - `Infrastructure/Services/TokenService.cs` creates JWTs.
 - `Domain/Entities/ApplicationUser.cs` extends `IdentityUser` with `FirstName`, `LastName`, `DateOfBirth`, `ProfileImageBase64`, and `InactiveDate`.
+- `Domain/Entities/UserSavedLocation.cs` stores reusable user profile locations; legacy registration address data still exists in `UserAddress`.
 - Identity uses EF Core stores in `ApplicationDbContext`.
 
 ## Frontend
 
-- `ClientApp/src/app/core/services/auth.service.ts`: login/register/profile/profile-image/delete-profile calls and auth DTO interfaces.
+- `ClientApp/src/app/core/services/auth.service.ts`: login/register/profile/profile-image/delete-profile/profile-location calls and auth DTO interfaces.
 - `ClientApp/src/app/core/services/auth-session.service.ts`: session persistence, refresh flow, expiry flag, token decoding, and raw refresh HTTP client.
 - `ClientApp/src/app/core/services/auth.interceptor.ts`: attaches bearer tokens and retries once after refresh on protected 401 responses.
 
@@ -40,9 +41,11 @@ Components commonly initialize header/user-menu state from these keys.
 
 - Profile update requires first and last name.
 - Date of birth must parse as `YYYY-MM-DD`.
+- Saved locations require a label plus address, city, state, zip code, and Mapbox-resolved latitude/longitude. The profile UI validates typed addresses through geocoding before calling the save endpoints.
 - Profile image and business icon fields may arrive as data URLs; backend strips the `base64,` prefix before storing.
 - User deletion is a soft delete: sets `InactiveDate`, locks out the user, changes username, and end-dates business memberships/roles.
 - Active user queries should filter `InactiveDate == null`.
+- `GET /api/auth/profile` now returns saved locations, and location CRUD lives under `/api/auth/profile/locations`.
 
 ## Password Rules
 

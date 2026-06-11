@@ -42,6 +42,7 @@ public sealed record PublicBusinessSubServiceResponse(
     long BusinessSubServiceId,
     string Name,
     string? Description,
+    bool RequiresServiceLocation,
     bool ConsultationNeeded,
     int DurationMinutes,
     decimal Price);

@@ -156,6 +156,51 @@
 
     </div>
 
+    <article class="profile-card">
+      <div class="saved-locations-header">
+        <div>
+          <h2>Saved Locations</h2>
+          <p>Store the places you want to choose from when booking services.</p>
+        </div>
+        <button type="button" class="btn btn-secondary" [disabled]="savingLocation" (click)="startAddLocation()">
+          Add Location
+        </button>
+      </div>
+
+      <div class="saved-locations-grid" *ngIf="savedLocations.length > 0; else noSavedLocations">
+        <div class="saved-location-card" *ngFor="let location of savedLocations">
+          <div class="saved-location-top">
+            <div>
+              <div class="saved-location-label-row">
+                <h3>{{ location.label }}</h3>
+                <span class="saved-location-primary-pill" *ngIf="location.isPrimary">Primary</span>
+              </div>
+              <p>{{ formatSavedLocationAddress(location) }}</p>
+            </div>
+            <div class="saved-location-actions">
+              <button type="button" class="btn btn-secondary" [disabled]="savingLocation" (click)="startEditLocation(location)">
+                Edit
+              </button>
+              <button
+                type="button"
+                class="btn btn-danger-secondary"
+                [disabled]="isDeletingLocation(location.userSavedLocationId)"
+                (click)="deleteLocation(location)">
+                {{ isDeletingLocation(location.userSavedLocationId) ? 'Removing...' : 'Remove' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ng-template #noSavedLocations>
+        <div class="saved-locations-empty">
+          No saved locations yet.
+        </div>
+      </ng-template>
+
+    </article>
+
     <section class="business-profile-cta" *ngIf="!isBusinessOwner" aria-label="Create business profile">
       <div class="business-profile-copy">
         <p class="business-profile-kicker">Holonix Business</p>
@@ -200,6 +245,98 @@
         </button>
         <button type="button" class="btn btn-danger" [disabled]="deletingAccount" (click)="confirmDeleteAccount()">
           {{ deletingAccount ? 'Deleting...' : 'Delete Account' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="profile-image-modal-overlay" *ngIf="isLocationFormOpen">
+    <div class="profile-image-modal saved-location-modal" role="dialog" aria-modal="true" aria-label="Saved location form">
+      <div class="saved-location-form-heading">
+        <div>
+          <h3>{{ editingLocationId === null ? 'Add Location' : 'Edit Location' }}</h3>
+          <p>Choose a valid address from Mapbox so this location can be used for service bookings.</p>
+        </div>
+        <button type="button" class="btn btn-secondary" [disabled]="savingLocation" (click)="cancelLocationEdit()">
+          Cancel
+        </button>
+      </div>
+
+      <div class="saved-location-form-grid">
+        <label class="saved-location-field">
+          <span>Label</span>
+          <input type="text" class="profile-input" [value]="locationFormLabel" (input)="locationFormLabel = $any($event.target).value" placeholder="Home, Office, Mom's house" />
+        </label>
+
+        <div class="saved-location-field saved-location-field-wide saved-location-address-shell">
+          <span>Address</span>
+          <input
+            type="text"
+            class="profile-input"
+            [value]="locationFormAddress1"
+            (input)="onLocationAddressInput($event)"
+            (focus)="onLocationAddressFocus()"
+            (keydown)="onLocationAddressKeydown($event)"
+            placeholder="Start typing a street address"
+            autocomplete="street-address"
+          />
+
+          <div class="saved-location-suggestions" *ngIf="locationAddressSuggestions.length > 0">
+            <button
+              type="button"
+              class="saved-location-suggestion"
+              [class.saved-location-suggestion-active]="index === highlightedLocationAddressIndex"
+              *ngFor="let suggestion of locationAddressSuggestions; let index = index"
+              (mousedown)="$event.preventDefault(); selectLocationAddressSuggestion(suggestion)">
+              <span class="saved-location-suggestion-primary">{{ suggestion.address1 }}</span>
+              <span class="saved-location-suggestion-secondary">{{ formatLocationAddressSuggestion(suggestion) }}</span>
+            </button>
+          </div>
+
+          <p class="saved-location-autocomplete-state" *ngIf="loadingLocationAddressSuggestions">Searching addresses...</p>
+          <p class="saved-location-autocomplete-state error" *ngIf="locationAddressAutocompleteError">
+            {{ locationAddressAutocompleteError }}
+          </p>
+          <p class="saved-location-autocomplete-state" *ngIf="showLocationAddressNoResults">
+            {{ getLocationAddressNoResultsMessage() }}
+          </p>
+          <p class="saved-location-autocomplete-state error" *ngIf="locationAddressValidationError">
+            {{ locationAddressValidationError }}
+          </p>
+        </div>
+
+        <label class="saved-location-field saved-location-field-wide">
+          <span>Address 2</span>
+          <input type="text" class="profile-input" [value]="locationFormAddress2" (input)="locationFormAddress2 = $any($event.target).value" placeholder="Apartment, suite, etc. (optional)" />
+        </label>
+
+        <label class="saved-location-field">
+          <span>City</span>
+          <input type="text" class="profile-input" [value]="locationFormCity" (input)="onLocationCityInput($event)" />
+        </label>
+
+        <label class="saved-location-field">
+          <span>State</span>
+          <input type="text" class="profile-input" [value]="locationFormState" (input)="onLocationStateInput($event)" />
+        </label>
+
+        <label class="saved-location-field">
+          <span>Zip Code</span>
+          <input type="text" class="profile-input" [value]="locationFormZipCode" (input)="onLocationZipCodeInput($event)" />
+        </label>
+      </div>
+
+      <label class="saved-location-primary-toggle">
+        <input type="checkbox" [checked]="locationFormIsPrimary" (change)="locationFormIsPrimary = $any($event.target).checked" />
+        <span>Use as my primary saved location</span>
+      </label>
+
+      <div class="profile-inline-actions">
+        <button type="button" class="btn btn-secondary" [disabled]="savingLocation" (click)="cancelLocationEdit()">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" [disabled]="!canSaveLocation" (click)="saveLocation()">
+          {{ savingLocation ? 'Saving...' : (editingLocationId === null ? 'Save Location' : 'Update Location') }}
         </button>
       </div>
     </div>

@@ -3,6 +3,7 @@ using System;
 using Holonix.Server.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Holonix.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260611010641_AddRequiresServiceLocationToBusinessSubServices")]
+    partial class AddRequiresServiceLocationToBusinessSubServices
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -841,74 +844,6 @@ namespace Holonix.Server.Migrations
                     b.ToTable("UserAddress", "authentication");
                 });
 
-            modelBuilder.Entity("Holonix.Server.Domain.Entities.UserSavedLocation", b =>
-                {
-                    b.Property<long>("UserSavedLocationId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("UserSavedLocationId"));
-
-                    b.Property<string>("Address1")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("Address2")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("City")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("InactiveDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsPrimary")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<decimal?>("Latitude")
-                        .HasColumnType("decimal(9,6)");
-
-                    b.Property<decimal?>("Longitude")
-                        .HasColumnType("decimal(9,6)");
-
-                    b.Property<string>("State")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
-
-                    b.Property<string>("ZipCode")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.HasKey("UserSavedLocationId");
-
-                    b.HasIndex("UserId")
-                        .IsUnique()
-                        .HasFilter("\"IsPrimary\" = TRUE AND \"InactiveDate\" IS NULL");
-
-                    b.HasIndex("UserId", "InactiveDate");
-
-                    b.ToTable("UserSavedLocation", "authentication");
-                });
-
             modelBuilder.Entity("Holonix.Server.Domain.Entities.Workload", b =>
                 {
                     b.Property<long>("WorkloadId")
@@ -1393,17 +1328,6 @@ namespace Holonix.Server.Migrations
                     b.HasOne("Holonix.Server.Domain.Entities.ApplicationUser", "User")
                         .WithOne()
                         .HasForeignKey("Holonix.Server.Domain.Entities.UserAddress", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Holonix.Server.Domain.Entities.UserSavedLocation", b =>
-                {
-                    b.HasOne("Holonix.Server.Domain.Entities.ApplicationUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

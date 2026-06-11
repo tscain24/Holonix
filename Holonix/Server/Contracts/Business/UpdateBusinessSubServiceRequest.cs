@@ -4,6 +4,7 @@ public sealed record UpdateBusinessSubServiceRequest(
     string Name,
     int ServiceId,
     string? Description,
+    bool RequiresServiceLocation,
     bool ConsultationNeeded,
     int DurationMinutes,
     decimal Price,

@@ -162,13 +162,17 @@ public class AuthController : ControllerBase
             return NotFound(new { errors = new[] { "User not found." } });
         }
 
+        await EnsureLegacySavedLocationAsync(user.Id, cancellationToken);
+        var locations = await GetActiveSavedLocationsAsync(user.Id, cancellationToken);
+
         var response = new UserProfileResponse(
             user.FirstName,
             user.LastName,
             user.DateOfBirth?.ToString("yyyy-MM-dd"),
             user.Email ?? string.Empty,
             user.PhoneNumber,
-            user.ProfileImageBase64);
+            user.ProfileImageBase64,
+            locations);
 
         return Ok(response);
     }
@@ -227,9 +231,165 @@ public class AuthController : ControllerBase
             user.DateOfBirth?.ToString("yyyy-MM-dd"),
             user.Email ?? string.Empty,
             user.PhoneNumber,
-            user.ProfileImageBase64);
+            user.ProfileImageBase64,
+            await GetActiveSavedLocationsAsync(user.Id, cancellationToken));
 
         return Ok(response);
+    }
+
+    [Authorize]
+    [HttpPost("profile/locations")]
+    public async Task<IActionResult> CreateSavedLocation(CreateUserSavedLocationRequest request, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var userExists = await _userManager.Users
+            .AsNoTracking()
+            .AnyAsync(candidate => candidate.Id == userId && candidate.InactiveDate == null, cancellationToken);
+
+        if (!userExists)
+        {
+            return NotFound(new { errors = new[] { "User not found." } });
+        }
+
+        var errors = ValidateSavedLocationRequest(request.Label, request.Address1, request.City, request.State, request.ZipCode, request.Latitude, request.Longitude);
+        if (errors.Count > 0)
+        {
+            return BadRequest(new { errors });
+        }
+
+        await EnsureLegacySavedLocationAsync(userId, cancellationToken);
+
+        var hasActiveLocations = await _dbContext.UserSavedLocations
+            .AsNoTracking()
+            .AnyAsync(item => item.UserId == userId && item.InactiveDate == null, cancellationToken);
+        var shouldBePrimary = request.IsPrimary || !hasActiveLocations;
+
+        if (shouldBePrimary)
+        {
+            await ClearPrimarySavedLocationsAsync(userId, cancellationToken);
+        }
+
+        var location = new UserSavedLocation
+        {
+            UserId = userId,
+            Label = request.Label.Trim(),
+            Address1 = request.Address1.Trim(),
+            Address2 = NormalizeOptional(request.Address2),
+            City = request.City.Trim(),
+            State = request.State.Trim(),
+            ZipCode = request.ZipCode.Trim(),
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
+            IsPrimary = shouldBePrimary,
+            CreatedDate = DateTime.UtcNow,
+        };
+
+        _dbContext.UserSavedLocations.Add(location);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(ToSavedLocationResponse(location));
+    }
+
+    [Authorize]
+    [HttpPut("profile/locations/{userSavedLocationId:long}")]
+    public async Task<IActionResult> UpdateSavedLocation(
+        long userSavedLocationId,
+        UpdateUserSavedLocationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var errors = ValidateSavedLocationRequest(request.Label, request.Address1, request.City, request.State, request.ZipCode, request.Latitude, request.Longitude);
+        if (errors.Count > 0)
+        {
+            return BadRequest(new { errors });
+        }
+
+        await EnsureLegacySavedLocationAsync(userId, cancellationToken);
+
+        var location = await _dbContext.UserSavedLocations
+            .SingleOrDefaultAsync(
+                item => item.UserSavedLocationId == userSavedLocationId && item.UserId == userId && item.InactiveDate == null,
+                cancellationToken);
+
+        if (location is null)
+        {
+            return NotFound(new { errors = new[] { "Saved location not found." } });
+        }
+
+        if (request.IsPrimary)
+        {
+            await ClearPrimarySavedLocationsAsync(userId, cancellationToken, userSavedLocationId);
+        }
+
+        location.Label = request.Label.Trim();
+        location.Address1 = request.Address1.Trim();
+        location.Address2 = NormalizeOptional(request.Address2);
+        location.City = request.City.Trim();
+        location.State = request.State.Trim();
+        location.ZipCode = request.ZipCode.Trim();
+        location.Latitude = request.Latitude;
+        location.Longitude = request.Longitude;
+        location.IsPrimary = request.IsPrimary;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(ToSavedLocationResponse(location));
+    }
+
+    [Authorize]
+    [HttpDelete("profile/locations/{userSavedLocationId:long}")]
+    public async Task<IActionResult> DeleteSavedLocation(long userSavedLocationId, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        await EnsureLegacySavedLocationAsync(userId, cancellationToken);
+
+        var location = await _dbContext.UserSavedLocations
+            .SingleOrDefaultAsync(
+                item => item.UserSavedLocationId == userSavedLocationId && item.UserId == userId && item.InactiveDate == null,
+                cancellationToken);
+
+        if (location is null)
+        {
+            return NotFound(new { errors = new[] { "Saved location not found." } });
+        }
+
+        location.InactiveDate = DateTime.UtcNow;
+        location.IsPrimary = false;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var remainingLocations = await _dbContext.UserSavedLocations
+            .Where(item => item.UserId == userId && item.InactiveDate == null)
+            .OrderBy(item => item.CreatedDate)
+            .ToListAsync(cancellationToken);
+
+        if (remainingLocations.Count > 0 && remainingLocations.All(item => !item.IsPrimary))
+        {
+            remainingLocations[0].IsPrimary = true;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return NoContent();
     }
 
     [Authorize]
@@ -282,5 +442,142 @@ public class AuthController : ControllerBase
     private static string? NormalizePhoneNumber(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private async Task EnsureLegacySavedLocationAsync(string userId, CancellationToken cancellationToken)
+    {
+        var hasSavedLocations = await _dbContext.UserSavedLocations
+            .AsNoTracking()
+            .AnyAsync(item => item.UserId == userId && item.InactiveDate == null, cancellationToken);
+
+        if (hasSavedLocations)
+        {
+            return;
+        }
+
+        var legacyAddress = await _dbContext.UserAddresses
+            .AsNoTracking()
+            .SingleOrDefaultAsync(item => item.UserId == userId, cancellationToken);
+
+        if (legacyAddress is null)
+        {
+            return;
+        }
+
+        _dbContext.UserSavedLocations.Add(new UserSavedLocation
+        {
+            UserId = userId,
+            Label = "Home",
+            Address1 = legacyAddress.Address1,
+            Address2 = legacyAddress.Address2,
+            City = legacyAddress.City,
+            State = legacyAddress.State,
+            ZipCode = legacyAddress.ZipCode,
+            Latitude = legacyAddress.Latitude,
+            Longitude = legacyAddress.Longitude,
+            IsPrimary = true,
+            CreatedDate = DateTime.UtcNow,
+        });
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<UserSavedLocationResponse>> GetActiveSavedLocationsAsync(string userId, CancellationToken cancellationToken)
+    {
+        return await _dbContext.UserSavedLocations
+            .AsNoTracking()
+            .Where(item => item.UserId == userId && item.InactiveDate == null)
+            .OrderByDescending(item => item.IsPrimary)
+            .ThenBy(item => item.CreatedDate)
+            .Select(item => new UserSavedLocationResponse(
+                item.UserSavedLocationId,
+                item.Label,
+                item.Address1,
+                item.Address2,
+                item.City,
+                item.State,
+                item.ZipCode,
+                item.Latitude,
+                item.Longitude,
+                item.IsPrimary))
+            .ToListAsync(cancellationToken);
+    }
+
+    private async Task ClearPrimarySavedLocationsAsync(string userId, CancellationToken cancellationToken, long? excludeUserSavedLocationId = null)
+    {
+        var locations = await _dbContext.UserSavedLocations
+            .Where(item =>
+                item.UserId == userId &&
+                item.InactiveDate == null &&
+                item.IsPrimary &&
+                (!excludeUserSavedLocationId.HasValue || item.UserSavedLocationId != excludeUserSavedLocationId.Value))
+            .ToListAsync(cancellationToken);
+
+        foreach (var location in locations)
+        {
+            location.IsPrimary = false;
+        }
+    }
+
+    private static UserSavedLocationResponse ToSavedLocationResponse(UserSavedLocation item)
+    {
+        return new UserSavedLocationResponse(
+            item.UserSavedLocationId,
+            item.Label,
+            item.Address1,
+            item.Address2,
+            item.City,
+            item.State,
+            item.ZipCode,
+            item.Latitude,
+            item.Longitude,
+            item.IsPrimary);
+    }
+
+    private static List<string> ValidateSavedLocationRequest(
+        string? label,
+        string? address1,
+        string? city,
+        string? state,
+        string? zipCode,
+        decimal? latitude,
+        decimal? longitude)
+    {
+        var errors = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            errors.Add("Location label is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(address1)
+            || string.IsNullOrWhiteSpace(city)
+            || string.IsNullOrWhiteSpace(state)
+            || string.IsNullOrWhiteSpace(zipCode))
+        {
+            errors.Add("Address, city, state, and zip code are required.");
+        }
+
+        if (!latitude.HasValue || !longitude.HasValue)
+        {
+            errors.Add("Saved locations must be selected from a valid address result.");
+        }
+
+        if (latitude is < -90 or > 90)
+        {
+            errors.Add("Latitude must be between -90 and 90.");
+        }
+
+        if (longitude is < -180 or > 180)
+        {
+            errors.Add("Longitude must be between -180 and 180.");
+        }
+
+        return errors;
     }
 }

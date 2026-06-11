@@ -92,7 +92,7 @@
                 </div>
 
                 <div class="service-card-footer">
-                  <div class="service-price">{{ formatPrice(sub.price) }}</div>
+                  <div class="service-price">{{ formatPriceWithCents(sub.price) }}</div>
                   <button
                     type="button"
                     class="primary-btn"
@@ -226,40 +226,34 @@
           *ngIf="currentCheckoutStep > 1"
           type="button"
           class="secondary-btn booking-card-back"
-          (click)="returnToServiceStep()"
+          (click)="currentCheckoutStep === 3 ? showDateTimeStep() : returnToServiceStep()"
         >
           <span aria-hidden="true">←</span>
           Back
         </button>
-        <div class="card-title">Book a Service</div>
-        <div class="booking-card-subtitle">Build your booking like a cart, then continue to scheduling.</div>
+        <div class="card-title">Booking Request</div>
+        <div class="booking-card-subtitle">Add your services and build your request.</div>
       </div>
       <div class="booking-badge">Cart</div>
     </div>
 
     <div class="stepper" aria-label="Booking steps">
-      <button
-        type="button"
+      <div
         class="step"
         [class.step-active]="currentCheckoutStep === 1"
         [class.step-complete]="currentCheckoutStep > 1"
-        [disabled]="!isCartScreen"
-        (click)="returnToServiceStep()"
       >
         <div class="step-dot">1</div>
         <div class="step-label">Service</div>
-      </button>
-      <button
-        type="button"
+      </div>
+      <div
         class="step"
         [class.step-active]="currentCheckoutStep === 2"
         [class.step-complete]="currentCheckoutStep > 2"
-        [disabled]="!isCartScreen || !canSchedule"
-        (click)="showDateTimeStep()"
       >
         <div class="step-dot">2</div>
         <div class="step-label">Date &amp; Time</div>
-      </button>
+      </div>
       <div class="step" [class.step-active]="currentCheckoutStep === 3">
         <div class="step-dot">3</div>
         <div class="step-label">Details</div>
@@ -267,7 +261,7 @@
     </div>
 
     <div class="booking-cart-shell">
-      <ng-container *ngIf="currentCheckoutStep === 1; else dateTimeStep">
+      <ng-container *ngIf="currentCheckoutStep === 1; else checkoutLaterStep">
         <div class="booking-cart-label">Booking summary</div>
         <div class="booking-cart-note">Add one or more services, then continue to scheduling.</div>
 
@@ -290,7 +284,6 @@
               <div class="booking-selected-description" *ngIf="sub.description">{{ sub.description }}</div>
               <div class="booking-selected-meta">
                 <span *ngIf="sub.durationMinutes">{{ formatDuration(sub.durationMinutes) }}</span>
-                <span>{{ formatPrice(sub.price) }}</span>
               </div>
             </div>
           </div>
@@ -305,8 +298,8 @@
               <span class="booking-summary-value">{{ formatDuration(cartDurationMinutes) || 'Not set' }}</span>
             </div>
             <div class="booking-summary-row">
-              <span class="booking-summary-key">Cart total</span>
-              <span class="booking-summary-value">{{ formatPrice(cartTotalPrice) }}</span>
+              <span class="booking-summary-key">Service total</span>
+              <span class="booking-summary-value">{{ formatPriceWithCents(cartTotalPrice) }}</span>
             </div>
             <div class="booking-summary-row">
               <span class="booking-summary-key">Consultation</span>
@@ -342,119 +335,225 @@
         </ng-template>
       </ng-container>
 
-      <ng-template #dateTimeStep>
-        <div class="booking-cart-label">Date &amp; Time</div>
-        <div class="booking-cart-note">Choose an available day first, then pick a time slot.</div>
+      <ng-template #checkoutLaterStep>
+        <ng-container *ngIf="currentCheckoutStep === 2; else detailsStep">
+          <div class="booking-cart-label">Date &amp; Time</div>
+          <div class="booking-cart-note">Choose an available day first, then pick a time slot.</div>
 
-        <div class="schedule-layout">
-          <section class="schedule-card" aria-label="Select a date">
-            <div class="schedule-card-header">
-              <div>
-                <div class="schedule-card-title">Select a date</div>
-                <div class="schedule-card-subtitle">Employee availability determines which days can be booked.</div>
-              </div>
-              <div class="schedule-selected-pill">{{ selectedScheduleDateLabel }}</div>
-            </div>
-
-            <div class="calendar-shell">
-              <div class="calendar-toolbar">
-                <button
-                  type="button"
-                  class="calendar-nav-btn"
-                  [disabled]="!canViewPreviousCalendarMonth"
-                  (click)="previousCalendarMonth()"
-                  aria-label="Previous month"
-                >
-                  <mat-icon aria-hidden="true">chevron_left</mat-icon>
-                </button>
-                <div class="calendar-month-label">{{ calendarMonthLabel }}</div>
-                <button
-                  type="button"
-                  class="calendar-nav-btn"
-                  [disabled]="!canViewNextCalendarMonth"
-                  (click)="nextCalendarMonth()"
-                  aria-label="Next month"
-                >
-                  <mat-icon aria-hidden="true">chevron_right</mat-icon>
-                </button>
+          <div class="schedule-layout">
+            <section class="schedule-card" aria-label="Select a date">
+              <div class="schedule-card-header">
+                <div>
+                  <div class="schedule-card-title">Select a date</div>
+                  <div class="schedule-card-subtitle">Employee availability determines which days can be booked.</div>
+                </div>
+                <div class="schedule-selected-pill">{{ selectedScheduleDateLabel }}</div>
               </div>
 
-              <div class="calendar-weekdays">
-                <span>Sun</span>
-                <span>Mon</span>
-                <span>Tue</span>
-                <span>Wed</span>
-                <span>Thu</span>
-                <span>Fri</span>
-                <span>Sat</span>
-              </div>
-
-              <div class="calendar-grid">
-                <ng-container *ngFor="let week of calendarWeeks">
+              <div class="calendar-shell">
+                <div class="calendar-toolbar">
                   <button
-                    *ngFor="let cell of week"
                     type="button"
-                    class="calendar-day"
-                    [class.calendar-day--outside]="!cell.inCurrentMonth"
-                    [class.calendar-day--selected]="cell.isSelected"
-                    [class.calendar-day--today]="cell.isToday"
-                    [disabled]="!cell.isSelectable"
-                    (click)="selectScheduleDate(cell.iso)"
+                    class="calendar-nav-btn"
+                    [disabled]="!canViewPreviousCalendarMonth"
+                    (click)="previousCalendarMonth()"
+                    aria-label="Previous month"
                   >
-                    {{ cell.dayNumber }}
+                    <mat-icon aria-hidden="true">chevron_left</mat-icon>
                   </button>
-                </ng-container>
+                  <div class="calendar-month-label">{{ calendarMonthLabel }}</div>
+                  <button
+                    type="button"
+                    class="calendar-nav-btn"
+                    [disabled]="!canViewNextCalendarMonth"
+                    (click)="nextCalendarMonth()"
+                    aria-label="Next month"
+                  >
+                    <mat-icon aria-hidden="true">chevron_right</mat-icon>
+                  </button>
+                </div>
+
+                <div class="calendar-weekdays">
+                  <span>Sun</span>
+                  <span>Mon</span>
+                  <span>Tue</span>
+                  <span>Wed</span>
+                  <span>Thu</span>
+                  <span>Fri</span>
+                  <span>Sat</span>
+                </div>
+
+                <div class="calendar-grid">
+                  <ng-container *ngFor="let week of calendarWeeks">
+                    <button
+                      *ngFor="let cell of week"
+                      type="button"
+                      class="calendar-day"
+                      [class.calendar-day--outside]="!cell.inCurrentMonth"
+                      [class.calendar-day--selected]="cell.isSelected"
+                      [class.calendar-day--today]="cell.isToday"
+                      [disabled]="!cell.isSelectable"
+                      (click)="selectScheduleDate(cell.iso)"
+                    >
+                      {{ cell.dayNumber }}
+                    </button>
+                  </ng-container>
+                </div>
+              </div>
+            </section>
+
+            <section class="schedule-card" aria-label="Select a time">
+              <div class="schedule-card-header">
+                <div>
+                  <div class="schedule-card-title">Select a time</div>
+                  <div class="schedule-card-subtitle">Available slots update once a date is selected.</div>
+                </div>
+              </div>
+
+              <div class="time-slot-empty" *ngIf="!selectedScheduleDateIso">
+                Pick a date to view available times.
+              </div>
+              <div class="time-slot-empty" *ngIf="selectedScheduleDateIso && loadingSelectedDateAvailability">
+                Loading available times...
+              </div>
+              <div class="time-slot-empty" *ngIf="selectedScheduleDateIso && !loadingSelectedDateAvailability && availableTimeSlots.length === 0">
+                No time slots are available for that day.
+              </div>
+
+              <div class="time-slot-grid" *ngIf="selectedScheduleDateIso && !loadingSelectedDateAvailability && availableTimeSlots.length > 0">
+                <button
+                  type="button"
+                  class="time-slot"
+                  *ngFor="let slot of availableTimeSlots"
+                  [class.time-slot--selected]="selectedScheduleTime === slot"
+                  (click)="selectScheduleTime(slot)"
+                >
+                  {{ slot }}
+                </button>
+              </div>
+            </section>
+          </div>
+
+          <div class="booking-cta-panel schedule-cta-panel">
+            <div class="booking-cta-copy">
+              <div class="booking-cta-title">Schedule selected</div>
+              <div class="booking-cta-subtitle">
+                {{ selectedScheduleDateIso ? selectedScheduleDateLabel : 'Choose a date' }}
+                <span *ngIf="selectedScheduleTimeRangeLabel"> at {{ selectedScheduleTimeRangeLabel }}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="primary-btn booking-cta-btn"
+              [disabled]="!canContinueFromDateTime"
+              (click)="showDetailsStep()"
+            >
+              Continue
+            </button>
+          </div>
+        </ng-container>
+      </ng-template>
+
+      <ng-template #detailsStep>
+        <div class="booking-cart-label">Details</div>
+        <div class="booking-cart-note">Review your services and schedule, then choose a saved location if one is required.</div>
+
+        <div class="details-layout">
+          <section class="details-card" aria-label="Selected services">
+            <div class="details-card-title">Services selected</div>
+            <div class="details-service-list">
+              <div class="details-service-row" *ngFor="let sub of selectedSubServices">
+                <div>
+                  <div class="details-service-name">{{ sub.name }}</div>
+                  <div class="details-service-meta">
+                    <span *ngIf="sub.durationMinutes">{{ formatDuration(sub.durationMinutes) }}</span>
+                  </div>
+                </div>
+                <div class="details-service-price">{{ formatPrice(sub.price) }}</div>
               </div>
             </div>
           </section>
 
-          <section class="schedule-card" aria-label="Select a time">
-            <div class="schedule-card-header">
+          <section class="details-card" aria-label="Selected date and time">
+            <div class="details-card-title">Date &amp; time</div>
+            <div class="details-schedule-summary">
+              <mat-icon aria-hidden="true">event</mat-icon>
               <div>
-                <div class="schedule-card-title">Select a time</div>
-                <div class="schedule-card-subtitle">Available slots update once a date is selected.</div>
+                <div class="details-schedule-date">{{ selectedScheduleDateLabel }}</div>
+                <div class="details-schedule-time">{{ selectedScheduleTimeRangeLabel || 'Time not selected' }}</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="details-card" *ngIf="selectedServicesRequireLocation" aria-label="Select service location">
+            <div class="details-card-header">
+              <div>
+                <div class="details-card-title">Service location</div>
+                <div class="details-card-subtitle">Choose one of the saved locations from your profile.</div>
               </div>
             </div>
 
-            <div class="time-slot-empty" *ngIf="!selectedScheduleDateIso">
-              Pick a date to view available times.
-            </div>
-            <div class="time-slot-empty" *ngIf="selectedScheduleDateIso && loadingSelectedDateAvailability">
-              Loading available times...
-            </div>
-            <div class="time-slot-empty" *ngIf="selectedScheduleDateIso && !loadingSelectedDateAvailability && availableTimeSlots.length === 0">
-              No time slots are available for that day.
+            <div class="time-slot-empty" *ngIf="loadingSavedLocations">Loading saved locations...</div>
+            <div class="time-slot-empty" *ngIf="!loadingSavedLocations && savedLocationsError">{{ savedLocationsError }}</div>
+            <div class="time-slot-empty" *ngIf="!loadingSavedLocations && !savedLocationsError && savedLocations.length === 0">
+              You do not have any saved locations yet. Add one from your profile before booking a location-based service.
             </div>
 
-            <div class="time-slot-grid" *ngIf="selectedScheduleDateIso && !loadingSelectedDateAvailability && availableTimeSlots.length > 0">
+            <div class="saved-location-choice-list" *ngIf="!loadingSavedLocations && savedLocations.length > 0">
               <button
                 type="button"
-                class="time-slot"
-                *ngFor="let slot of availableTimeSlots"
-                [class.time-slot--selected]="selectedScheduleTime === slot"
-                (click)="selectScheduleTime(slot)"
+                class="saved-location-choice"
+                *ngFor="let location of savedLocations"
+                [class.saved-location-choice--selected]="selectedSavedLocationId === location.userSavedLocationId"
+                (click)="selectSavedLocation(location)"
               >
-                {{ slot }}
+                <span class="saved-location-choice-top">
+                  <span class="saved-location-choice-label">{{ location.label }}</span>
+                  <span class="saved-location-choice-pill" *ngIf="location.isPrimary">Primary</span>
+                </span>
+                <span class="saved-location-choice-address">{{ formatSavedLocationAddress(location) }}</span>
               </button>
             </div>
           </section>
+
+          <section class="details-card" *ngIf="!selectedServicesRequireLocation" aria-label="No service location required">
+            <div class="details-card-title">Service location</div>
+            <div class="details-muted">No selected services require a customer service location.</div>
+          </section>
         </div>
+
+        <section class="details-card booking-price-summary" aria-label="Booking price summary">
+          <div class="details-card-title">Price summary</div>
+          <div class="booking-price-summary-list">
+            <div class="booking-summary-row">
+              <span class="booking-summary-key">Services subtotal</span>
+              <span class="booking-summary-value">{{ formatPriceWithCents(cartTotalPrice) }}</span>
+            </div>
+            <div class="booking-summary-row">
+              <span class="booking-summary-key">Service fee</span>
+              <span class="booking-summary-value">{{ formatPriceWithCents(bookingServiceFee) }}</span>
+            </div>
+            <div class="booking-summary-row booking-summary-row--total">
+              <span class="booking-summary-key">Total</span>
+              <span class="booking-summary-value">{{ formatPriceWithCents(bookingTotalPrice) }}</span>
+            </div>
+          </div>
+        </section>
 
         <div class="booking-cta-panel schedule-cta-panel">
           <div class="booking-cta-copy">
-            <div class="booking-cta-title">Schedule selected</div>
+            <div class="booking-cta-title">Booking details ready</div>
             <div class="booking-cta-subtitle">
-              {{ selectedScheduleDateIso ? selectedScheduleDateLabel : 'Choose a date' }}
-              <span *ngIf="selectedScheduleTime"> at {{ selectedScheduleTime }}</span>
+              Card will not charge until 24 hours before an accepted job request.
             </div>
           </div>
           <button
             type="button"
             class="primary-btn booking-cta-btn"
-            [disabled]="!canContinueFromDateTime"
-            (click)="proceedFromCart()"
+            [disabled]="!canContinueFromDetails"
+            (click)="showComingSoon('Booking submission')"
           >
-            Continue
+            Checkout
           </button>
         </div>
       </ng-template>

@@ -125,6 +125,7 @@ export interface BusinessWorkspaceSubService {
   serviceId: number;
   name: string;
   description?: string | null;
+  requiresServiceLocation: boolean;
   consultationNeeded: boolean;
   durationMinutes: number;
   price: number;
@@ -141,6 +142,7 @@ export interface BusinessWorkspaceSubServiceAssignment {
 export interface CreateBusinessSubServiceRequest {
   name: string;
   description?: string | null;
+  requiresServiceLocation: boolean;
   consultationNeeded: boolean;
   durationMinutes: number;
   price: number;

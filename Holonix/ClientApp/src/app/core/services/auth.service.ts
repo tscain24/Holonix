@@ -46,6 +46,7 @@ export interface UserProfileResponse {
   email: string;
   phoneNumber?: string | null;
   profileImageBase64?: string | null;
+  locations: UserSavedLocation[];
 }
 
 export interface UpdateUserProfileRequest {
@@ -55,12 +56,40 @@ export interface UpdateUserProfileRequest {
   phoneNumber?: string | null;
 }
 
+export interface UserSavedLocation {
+  userSavedLocationId: number;
+  label: string;
+  address1: string;
+  address2?: string | null;
+  city: string;
+  state: string;
+  zipCode: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  isPrimary: boolean;
+}
+
+export interface CreateUserSavedLocationRequest {
+  label: string;
+  address1: string;
+  address2?: string | null;
+  city: string;
+  state: string;
+  zipCode: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  isPrimary: boolean;
+}
+
+export interface UpdateUserSavedLocationRequest extends CreateUserSavedLocationRequest {}
+
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
   private readonly profileEndpoint = '/api/auth/profile';
   private readonly profileImageEndpoint = '/api/auth/profile-image';
+  private readonly profileLocationsEndpoint = '/api/auth/profile/locations';
   private readonly fallbackOrigins = [
     'http://localhost:5237',
     'https://localhost:7241',
@@ -129,6 +158,42 @@ export class AuthService {
     );
   }
 
+  createSavedLocation(payload: CreateUserSavedLocationRequest): Observable<UserSavedLocation> {
+    return this.http.post<UserSavedLocation>(this.profileLocationsEndpoint, payload).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryCreateSavedLocationFallback(payload, 0);
+      })
+    );
+  }
+
+  updateSavedLocation(userSavedLocationId: number, payload: UpdateUserSavedLocationRequest): Observable<UserSavedLocation> {
+    return this.http.put<UserSavedLocation>(`${this.profileLocationsEndpoint}/${userSavedLocationId}`, payload).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryUpdateSavedLocationFallback(userSavedLocationId, payload, 0);
+      })
+    );
+  }
+
+  deleteSavedLocation(userSavedLocationId: number): Observable<void> {
+    return this.http.delete<void>(`${this.profileLocationsEndpoint}/${userSavedLocationId}`).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryDeleteSavedLocationFallback(userSavedLocationId, 0);
+      })
+    );
+  }
+
   private tryGetProfileFallback(index: number): Observable<UserProfileResponse> {
     if (index >= this.fallbackOrigins.length) {
       return throwError(() => new Error('Profile endpoint not found on configured local origins.'));
@@ -190,6 +255,61 @@ export class AuthService {
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
           return this.tryDeleteProfileFallback(index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryCreateSavedLocationFallback(payload: CreateUserSavedLocationRequest, index: number): Observable<UserSavedLocation> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Profile locations endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.profileLocationsEndpoint}`;
+    return this.http.post<UserSavedLocation>(url, payload).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryCreateSavedLocationFallback(payload, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryUpdateSavedLocationFallback(
+    userSavedLocationId: number,
+    payload: UpdateUserSavedLocationRequest,
+    index: number
+  ): Observable<UserSavedLocation> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Profile locations endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.profileLocationsEndpoint}/${userSavedLocationId}`;
+    return this.http.put<UserSavedLocation>(url, payload).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryUpdateSavedLocationFallback(userSavedLocationId, payload, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryDeleteSavedLocationFallback(userSavedLocationId: number, index: number): Observable<void> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Profile locations endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.profileLocationsEndpoint}/${userSavedLocationId}`;
+    return this.http.delete<void>(url).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryDeleteSavedLocationFallback(userSavedLocationId, index + 1);
         }
 
         return throwError(() => err);
