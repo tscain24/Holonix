@@ -275,14 +275,14 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 24px;
-  align-items: start;
+  align-items: flex-start;
 }
 
 .workspace-hero-identity {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 18px;
-  align-items: start;
+  align-items: flex-start;
   min-width: 0;
 }
 
@@ -555,7 +555,7 @@
 
 .section-heading-actions {
   display: flex;
-  align-items: start;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
   flex-wrap: wrap;
@@ -573,7 +573,7 @@
 }
 
 .info-grid {
-  align-items: start;
+  align-items: flex-start;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -1158,7 +1158,7 @@ span.selected-service-chip {
 
 .job-card-main {
   display: flex;
-  align-items: start;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
 }

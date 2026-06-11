@@ -96,11 +96,12 @@
 .hero-logo {
   width: 120px;
   height: 120px;
-  border-radius: 0;
-  background: transparent;
-  padding: 0;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  padding: 8px;
   object-fit: contain;
-  box-shadow: none;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.08);
 }
 
 .hero-title-row {
@@ -436,6 +437,7 @@
 
 .booking-card-header-main {
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .booking-card-back {
@@ -1305,6 +1307,13 @@
   margin-top: 18px;
 }
 
+.cart-screen-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
 .cart-screen-topbar {
   display: flex;
   align-items: center;
@@ -1337,6 +1346,17 @@
   margin-top: 8px;
   color: #64748b;
   font-weight: 600;
+}
+
+.cart-screen-logo {
+  width: 84px;
+  height: 84px;
+  object-fit: contain;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  padding: 6px;
+  flex: 0 0 auto;
 }
 
 .cart-screen-body {
@@ -1401,6 +1421,11 @@
 
   .cart-screen-title {
     font-size: 28px;
+  }
+
+  .cart-screen-logo {
+    width: 68px;
+    height: 68px;
   }
 }
 

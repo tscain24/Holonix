@@ -207,8 +207,18 @@
       </button>
       <section class="cart-screen" aria-label="Booking cart screen">
         <div class="cart-screen-header">
-          <h2 class="cart-screen-title">{{ b.name }}</h2>
-          <div class="cart-screen-subtitle">{{ cartItemCount }} {{ cartItemCount === 1 ? 'service selected' : 'services selected' }}</div>
+          <div class="cart-screen-heading-row">
+            <div>
+              <h2 class="cart-screen-title">{{ b.name }}</h2>
+              <div class="cart-screen-subtitle">{{ cartItemCount }} {{ cartItemCount === 1 ? 'service selected' : 'services selected' }}</div>
+            </div>
+            <img
+              *ngIf="businessIconSrc"
+              [src]="businessIconSrc"
+              alt="Business logo"
+              class="cart-screen-logo"
+            />
+          </div>
         </div>
         <div class="cart-screen-body">
           <ng-container [ngTemplateOutlet]="bookingCartTemplate"></ng-container>
@@ -231,7 +241,7 @@
           <span aria-hidden="true">←</span>
           Back
         </button>
-        <div class="card-title">Booking Request</div>
+        <div class="card-title">Job Request</div>
         <div class="booking-card-subtitle">Add your services and build your request.</div>
       </div>
       <div class="booking-badge">Cart</div>

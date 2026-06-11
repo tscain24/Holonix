@@ -47,4 +47,5 @@ Use this when a task touches Angular routing, shared services, auth session beha
 ## Build/Run
 
 - From `ClientApp/`, build with `npm run build`.
+- Production build budgets currently warn at `1.5mb` initial bundle size and `22kb` per component style, with errors at `2mb` and `28kb`.
 - The dev command is `npm start`, but the repo-level `.\start-dev.ps1` is preferred because it coordinates backend and frontend ports.

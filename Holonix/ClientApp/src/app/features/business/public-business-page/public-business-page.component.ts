@@ -43,6 +43,8 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   private todayAvailabilityTimeFrames: PublicBusinessAvailabilityTimeFrame[] = [];
   private selectedDateAvailabilityTimeFrames: PublicBusinessAvailabilityTimeFrame[] = [];
   private hasLoadedTodayAvailability = false;
+  private readonly dateAvailabilityCache = new Map<string, PublicBusinessAvailabilityTimeFrame[]>();
+  private readonly loadingDateAvailability = new Set<string>();
 
   private readonly destroyed$ = new Subject<void>();
 
@@ -75,6 +77,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
           this.savedLocationsError = null;
           this.todayAvailabilityTimeFrames = [];
           this.selectedDateAvailabilityTimeFrames = [];
+          this.clearDateAvailabilityCache();
           this.hasLoadedTodayAvailability = false;
           this.loadingSelectedDateAvailability = false;
           this.visibleCalendarMonth = PublicBusinessPageComponent.startOfMonth(new Date());
@@ -145,6 +148,8 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
 
     this.selectedSubServices = [...this.selectedSubServices, sub];
     this.persistSelectedSubServices();
+    this.clearDateAvailabilityCache();
+    this.loadVisibleCalendarAvailability();
     this.reloadSelectedDateAvailabilityIfNeeded();
     this.snackBar.open('Booking flow coming soon.', 'OK', { duration: 2500 });
   }
@@ -152,6 +157,8 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   removeSubService(sub: PublicBusinessSubService): void {
     this.selectedSubServices = this.selectedSubServices.filter((item) => item.businessSubServiceId !== sub.businessSubServiceId);
     this.persistSelectedSubServices();
+    this.clearDateAvailabilityCache();
+    this.loadVisibleCalendarAvailability();
     this.reloadSelectedDateAvailabilityIfNeeded();
   }
 
@@ -218,6 +225,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     }
 
     this.currentCheckoutStep = 2;
+    this.loadVisibleCalendarAvailability();
   }
 
   showDetailsStep(): void {
@@ -237,10 +245,12 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     }
 
     this.visibleCalendarMonth = candidate;
+    this.loadVisibleCalendarAvailability();
   }
 
   nextCalendarMonth(): void {
     this.visibleCalendarMonth = new Date(this.visibleCalendarMonth.getFullYear(), this.visibleCalendarMonth.getMonth() + 1, 1);
+    this.loadVisibleCalendarAvailability();
   }
 
   selectScheduleDate(dateIso: string): void {
@@ -503,7 +513,18 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     }
 
     const slots: string[] = [];
-    for (const frame of this.selectedDateAvailabilityTimeFrames) {
+    return this.buildTimeSlotsForDate(this.selectedScheduleDateIso, this.selectedDateAvailabilityTimeFrames);
+  }
+
+  private buildTimeSlotsForDate(dateIso: string, frames: PublicBusinessAvailabilityTimeFrame[]): string[] {
+    const slots: string[] = [];
+    const now = new Date();
+    const todayIso = PublicBusinessPageComponent.toDateIso(now);
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const isSelectedDateToday = dateIso === todayIso;
+    const requiredMinutes = Math.max(PublicBusinessPageComponent.scheduleSlotMinutes, this.cartDurationMinutes);
+
+    for (const frame of frames) {
       const openMinutes = this.parseTimeToMinutes(frame.startTime);
       const closeMinutes = this.parseTimeToMinutes(frame.endTime);
       if (openMinutes === null || closeMinutes === null) {
@@ -515,8 +536,13 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
         endMinutes += 1440;
       }
 
-      for (let minutes = openMinutes; minutes + PublicBusinessPageComponent.scheduleSlotMinutes <= endMinutes; minutes += PublicBusinessPageComponent.scheduleSlotMinutes) {
-        slots.push(this.formatMinutesAsTime(minutes % 1440));
+      for (let minutes = openMinutes; minutes + requiredMinutes <= endMinutes; minutes += PublicBusinessPageComponent.scheduleSlotMinutes) {
+        const normalizedMinutes = minutes % 1440;
+        if (isSelectedDateToday && normalizedMinutes <= currentMinutes) {
+          continue;
+        }
+
+        slots.push(this.formatMinutesAsTime(normalizedMinutes));
       }
     }
 
@@ -721,6 +747,19 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   }
 
   private isDateSelectable(dateIso: string): boolean {
+    if (!this.isDatePotentiallySelectable(dateIso)) {
+      return false;
+    }
+
+    const cachedFrames = this.dateAvailabilityCache.get(dateIso);
+    if (cachedFrames) {
+      return this.buildTimeSlotsForDate(dateIso, cachedFrames).length > 0;
+    }
+
+    return true;
+  }
+
+  private isDatePotentiallySelectable(dateIso: string): boolean {
     const date = new Date(`${dateIso}T00:00:00`);
     if (Number.isNaN(date.getTime())) {
       return false;
@@ -829,6 +868,13 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const cachedFrames = this.dateAvailabilityCache.get(dateIso);
+    if (cachedFrames) {
+      this.selectedDateAvailabilityTimeFrames = cachedFrames;
+      this.loadingSelectedDateAvailability = false;
+      return;
+    }
+
     this.loadingSelectedDateAvailability = true;
     this.loadDailyAvailability(
       businessCode,
@@ -840,18 +886,51 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
         }
 
         const dailyFrames = this.normalizeAvailabilityTimeFrames(response);
-        this.selectedDateAvailabilityTimeFrames = dailyFrames.length > 0
-          ? this.intersectWithBusinessHoursByDateIso(dateIso, dailyFrames)
-          : this.getWeeklyAvailabilityFramesForDateIso(dateIso);
+        this.selectedDateAvailabilityTimeFrames = this.intersectWithBusinessHoursByDateIso(dateIso, dailyFrames);
+        this.dateAvailabilityCache.set(dateIso, this.selectedDateAvailabilityTimeFrames);
         this.loadingSelectedDateAvailability = false;
       },
       () => {
         if (this.selectedScheduleDateIso === dateIso) {
           this.selectedDateAvailabilityTimeFrames = this.getWeeklyAvailabilityFramesForDateIso(dateIso);
+          this.dateAvailabilityCache.set(dateIso, this.selectedDateAvailabilityTimeFrames);
           this.loadingSelectedDateAvailability = false;
         }
       }
     );
+  }
+
+  private loadVisibleCalendarAvailability(): void {
+    const businessCode = (this.business?.businessCode ?? '').trim();
+    if (!businessCode || this.currentCheckoutStep !== 2) {
+      return;
+    }
+
+    for (const dateIso of this.visibleCalendarDateIsos) {
+      if (!this.isDatePotentiallySelectable(dateIso)
+        || this.dateAvailabilityCache.has(dateIso)
+        || this.loadingDateAvailability.has(dateIso)) {
+        continue;
+      }
+
+      this.loadingDateAvailability.add(dateIso);
+      this.loadDailyAvailability(
+        businessCode,
+        dateIso,
+        this.selectedSubServiceIdsForAvailability,
+        (response) => {
+          const dailyFrames = this.normalizeAvailabilityTimeFrames(response);
+          const boundedFrames = this.intersectWithBusinessHoursByDateIso(dateIso, dailyFrames);
+          this.dateAvailabilityCache.set(dateIso, boundedFrames);
+          this.loadingDateAvailability.delete(dateIso);
+        },
+        () => {
+          const fallbackFrames = this.getWeeklyAvailabilityFramesForDateIso(dateIso);
+          this.dateAvailabilityCache.set(dateIso, fallbackFrames);
+          this.loadingDateAvailability.delete(dateIso);
+        }
+      );
+    }
   }
 
   private loadDailyAvailability(
@@ -1089,6 +1168,21 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
       .filter((id) => Number.isFinite(id) && id > 0);
   }
 
+  private get visibleCalendarDateIsos(): string[] {
+    const monthStart = PublicBusinessPageComponent.startOfMonth(this.visibleCalendarMonth);
+    const gridStart = new Date(monthStart);
+    gridStart.setDate(monthStart.getDate() - monthStart.getDay());
+
+    const dates: string[] = [];
+    for (let offset = 0; offset < 42; offset++) {
+      const cellDate = new Date(gridStart);
+      cellDate.setDate(gridStart.getDate() + offset);
+      dates.push(PublicBusinessPageComponent.toDateIso(cellDate));
+    }
+
+    return dates;
+  }
+
   private reloadSelectedDateAvailabilityIfNeeded(): void {
     if (!this.selectedScheduleDateIso) {
       return;
@@ -1097,6 +1191,11 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     this.selectedScheduleTime = null;
     this.selectedDateAvailabilityTimeFrames = [];
     this.loadSelectedDateAvailability(this.selectedScheduleDateIso);
+  }
+
+  private clearDateAvailabilityCache(): void {
+    this.dateAvailabilityCache.clear();
+    this.loadingDateAvailability.clear();
   }
 
   private normalizeSavedLocations(locations: UserSavedLocation[]): UserSavedLocation[] {
