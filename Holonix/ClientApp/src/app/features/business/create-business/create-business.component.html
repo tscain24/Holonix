@@ -212,7 +212,33 @@
           </small>
         </div>
 
-        <label class="field field-span-2">
+        <div class="field field-span-2">
+          <span>Business Location <strong aria-hidden="true">*</strong></span>
+          <div class="address-mode-grid" role="group" aria-label="Business location detail level">
+            <button
+              type="button"
+              class="address-mode-card"
+              [class.address-mode-card-active]="addressMode === 'full'"
+              (click)="setAddressMode('full')"
+            >
+              <strong>Full Address</strong>
+              <span>Use a street address, city, state, and ZIP code.</span>
+            </button>
+            <button
+              type="button"
+              class="address-mode-card"
+              [class.address-mode-card-active]="addressMode === 'cityState'"
+              (click)="setAddressMode('cityState')"
+            >
+              <strong>General Location</strong>
+              <span>Hide the street address and keep a general location.</span>
+            </button>
+          </div>
+          <small class="field-note">
+          </small>
+        </div>
+
+        <label class="field field-span-2" *ngIf="!isCityStateOnlyMode">
           <span>Address 1 <strong aria-hidden="true">*</strong></span>
           <div class="address-autocomplete">
             <input
@@ -255,38 +281,94 @@
           </small>
         </label>
 
-        <label class="field field-span-2">
+        <label class="field field-span-2" *ngIf="!isCityStateOnlyMode">
           <span>Address 2</span>
           <input type="text" formControlName="address2" placeholder="Suite 200" />
         </label>
 
-        <label class="field">
+        <div class="field field-span-2" *ngIf="isCityStateOnlyMode">
+          <span>City and State Lookup <strong aria-hidden="true">*</strong></span>
+          <div class="address-autocomplete">
+            <input
+              #cityStateInput
+              type="text"
+              [value]="addressSearchTerm"
+              placeholder="Woodstock, Georgia or 30188"
+              autocomplete="off"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              (input)="onAddressSearchInput($event, cityStateInput)"
+              (keydown)="onAddressSearchKeydown($event, cityStateInput)"
+              (focus)="openAddressDropdown(cityStateInput)"
+              (blur)="closeAddressDropdown()"
+            />
+
+            <div
+              class="service-dropdown"
+              [class.service-dropdown-up]="addressDropdownDirection === 'up'"
+              *ngIf="addressDropdownOpen"
+            >
+              <div class="service-dropdown-state" *ngIf="loadingAddressSuggestions">Searching locations...</div>
+              <div class="service-dropdown-state field-error" *ngIf="!loadingAddressSuggestions && addressAutocompleteError">
+                {{ addressAutocompleteError }}
+              </div>
+              <button
+                *ngFor="let suggestion of addressSuggestions; let i = index"
+                type="button"
+                class="service-option"
+                [class.service-option-active]="highlightedAddressIndex === i"
+                (mousedown)="selectAddressSuggestion(suggestion)"
+              >
+                {{ formatLocationSuggestionLabel(suggestion) }}
+              </button>
+              <div class="service-dropdown-state" *ngIf="!loadingAddressSuggestions && !addressAutocompleteError && addressSuggestions.length === 0">
+                Search by city, state, or ZIP code to verify the business location.
+              </div>
+            </div>
+          </div>
+          <div
+            class="verification-status"
+            [class.verification-status-verified]="hasVerifiedCityStateLocation"
+            [class.verification-status-error]="!hasVerifiedCityStateLocation && submitAttempted"
+          >
+            <span class="verification-status-icon" aria-hidden="true">
+              {{ hasVerifiedCityStateLocation ? '✓' : '✕' }}
+            </span>
+            <span>{{ cityStateVerificationMessage }}</span>
+          </div>
+        </div>
+
+        <label class="field" *ngIf="!isCityStateOnlyMode">
           <span>City <strong aria-hidden="true">*</strong></span>
-          <input type="text" formControlName="city" placeholder="Woodstock" />
+          <input type="text" formControlName="city" placeholder="Woodstock" [readonly]="isCityStateOnlyMode" />
           <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.city.invalid">
             City is required.
           </small>
         </label>
 
-        <label class="field">
+        <label class="field" *ngIf="!isCityStateOnlyMode">
           <span>State <strong aria-hidden="true">*</strong></span>
-          <input type="text" formControlName="state" placeholder="Georgia" />
+          <input type="text" formControlName="state" placeholder="Georgia" [readonly]="isCityStateOnlyMode" />
           <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.state.invalid">
             State is required.
           </small>
         </label>
 
-        <label class="field">
-          <span>ZIP Code <strong aria-hidden="true">*</strong></span>
-          <input type="text" formControlName="zipCode" placeholder="30188" />
+        <label class="field" *ngIf="!isCityStateOnlyMode">
+          <span>
+            ZIP Code
+            <strong aria-hidden="true" *ngIf="!isCityStateOnlyMode">*</strong>
+          </span>
+          <input type="text" formControlName="zipCode" placeholder="30188" [readonly]="isCityStateOnlyMode" />
           <small class="field-note field-error" *ngIf="submitAttempted && businessForm.controls.zipCode.invalid">
-            ZIP code is required.
+            {{ isCityStateOnlyMode ? 'ZIP code must be 32 characters or fewer.' : 'ZIP code is required.' }}
           </small>
         </label>
 
         <div class="field">
           <span>Country <strong aria-hidden="true">*</strong></span>
-          <div class="service-picker service-picker-single country-picker" [class.service-picker-invalid]="submitAttempted && businessForm.controls.countryId.invalid">
+          <div class="country-autocomplete" [class.country-autocomplete-invalid]="submitAttempted && businessForm.controls.countryId.invalid">
             <input
               #countryInput
               type="text"
@@ -567,9 +649,7 @@
     <div class="leave-modal-copy">
       <p class="leave-modal-kicker">Confirm Location</p>
       <h2 id="address-confirm-modal-title">Use this recommended location?</h2>
-      <p>
-        Holonix found a match for the address you entered. Confirming will set the latitude and longitude used for map search and nearby discovery.
-      </p>
+      <p>{{ confirmLocationPrompt }}</p>
       <p *ngIf="pendingLaunchAddress">
         <strong>{{ pendingLaunchAddress.fullAddress || pendingLaunchAddress.address1 }}</strong>
       </p>

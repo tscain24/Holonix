@@ -6,6 +6,7 @@ Business frontend work spans this folder and `src/app/core/services/business.ser
 
 - `business-overview/`: user's business list and entry point.
 - `create-business/`: business creation wizard/form.
+- `create-business/`: business creation wizard/form. Step 1 now includes a location-mode toggle: `Full Address` keeps street address autocomplete and required ZIP code, while `City and State only` hides the duplicate city/state/ZIP entry fields and instead shows a dedicated Mapbox `City and State Lookup` with a compact verification status line. In that simplified mode, the user must pick a location suggestion first; the selection fills `city`, `state`, optional `zipCode`, and the latitude/longitude used for launch.
 - `business-workspace/`: overview tab, profile/general information editing, selected parent services, quick sub-service add/remove, job/employee summaries, delete/leave business.
 - `business-employees/`: employees tab, invites, paged employees, filters, sorting, role update, deactivate.
 - `business-service-manager/`: services tab focused on sub-services, assignment, filtering, paging, create/edit/delete.

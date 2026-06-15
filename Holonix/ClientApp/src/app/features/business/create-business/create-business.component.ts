@@ -25,6 +25,8 @@ type CreateBusinessForm = {
   isProductBased: FormControl<boolean | null>;
 };
 
+type BusinessAddressMode = 'full' | 'cityState';
+
 @Component({
   selector: 'app-create-business',
   templateUrl: './create-business.component.html',
@@ -58,6 +60,7 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
   addressAutocompleteError: string | null = null;
   private readonly addressSearch$ = new Subject<string>();
   private applyingAddressSuggestion = false;
+  addressMode: BusinessAddressMode = 'full';
   countrySearch = '';
   allCountries: CountryOption[] = [];
   countryDropdownOpen = false;
@@ -83,11 +86,11 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     description: this.formBuilder.control('', [Validators.maxLength(1000)]),
     businessEmail: this.formBuilder.control('', [Validators.email, Validators.maxLength(256)]),
     businessPhoneNumber: this.formBuilder.control('', [Validators.maxLength(32)]),
-    address1: this.formBuilder.control('', [Validators.required, Validators.maxLength(200)]),
+    address1: this.formBuilder.control('', [Validators.maxLength(200)]),
     address2: this.formBuilder.control('', [Validators.maxLength(200)]),
     city: this.formBuilder.control('', [Validators.required, Validators.maxLength(120)]),
     state: this.formBuilder.control('', [Validators.required, Validators.maxLength(120)]),
-    zipCode: this.formBuilder.control('', [Validators.required, Validators.maxLength(32)]),
+    zipCode: this.formBuilder.control('', [Validators.maxLength(32)]),
     latitude: this.formBuilder.control<number | null>(null),
     longitude: this.formBuilder.control<number | null>(null),
     countryId: this.formBuilder.control<number | null>(null, [Validators.required]),
@@ -165,6 +168,27 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
             this.loadingAddressSuggestions = false;
             this.addressAutocompleteError = null;
             return of([]);
+          }
+
+          if (this.isCityStateOnlyMode) {
+            this.loadingAddressSuggestions = true;
+            this.addressAutocompleteError = null;
+            return this.geocodingService.getLocationSuggestions(term, this.getSelectedCountryCode(), 5).pipe(
+              catchError((err) => {
+                // eslint-disable-next-line no-console
+                console.error('Failed to load location suggestions.', err);
+                if (err?.status === 401) {
+                  this.addressAutocompleteError = 'Your session expired. Please sign in again.';
+                } else {
+                  this.addressAutocompleteError = 'Could not load city and state suggestions.';
+                }
+
+                return of([]);
+              }),
+              finalize(() => {
+                this.loadingAddressSuggestions = false;
+              })
+            );
           }
 
           const city = (this.businessForm.controls.city.value ?? '').trim();
@@ -293,7 +317,9 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
   get currentStepDescription(): string {
     switch (this.currentStep) {
       case 1:
-        return 'Enter the basics for your business profile. We will use this address for future geocoding.';
+        return this.addressMode === 'cityState'
+          ? 'Enter the basics for your business profile. We will use a verified city and state location to anchor the business.'
+          : 'Enter the basics for your business profile. We will use this address for future geocoding.';
       case 2:
         return 'Set up how your business operates and choose the identity details customers will see first.';
       case 3:
@@ -322,6 +348,34 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     ].filter((value): value is string => !!value && value.trim().length > 0);
 
     return parts.length > 0 ? parts.join(', ') : 'Not provided';
+  }
+
+  get verifiedCityStateSummary(): string {
+    const parts = [
+      (this.businessForm.controls.city.value ?? '').trim(),
+      (this.businessForm.controls.state.value ?? '').trim(),
+      (this.businessForm.controls.zipCode.value ?? '').trim(),
+    ].filter((value) => value.length > 0);
+
+    return parts.length > 0 ? parts.join(', ') : 'No location selected yet';
+  }
+
+  get hasVerifiedCityStateLocation(): boolean {
+    return this.isCityStateOnlyMode
+      && this.businessForm.controls.latitude.value !== null
+      && this.businessForm.controls.longitude.value !== null
+      && (this.businessForm.controls.city.value ?? '').trim().length > 0
+      && (this.businessForm.controls.state.value ?? '').trim().length > 0;
+  }
+
+  get cityStateVerificationMessage(): string {
+    return this.hasVerifiedCityStateLocation
+      ? `Verified with Mapbox: ${this.verifiedCityStateSummary}`
+      : 'Select a suggestion to verify the business location.';
+  }
+
+  get isCityStateOnlyMode(): boolean {
+    return this.addressMode === 'cityState';
   }
 
   get businessModelLabel(): string {
@@ -424,9 +478,40 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     this.selectedServices = this.selectedServices.filter((service) => service.serviceId !== serviceId);
   }
 
+  setAddressMode(mode: BusinessAddressMode): void {
+    if (this.addressMode === mode) {
+      return;
+    }
+
+    this.addressMode = mode;
+    this.addressSuggestions = [];
+    this.addressDropdownOpen = false;
+    this.highlightedAddressIndex = -1;
+    this.addressAutocompleteError = null;
+    this.addressSearchTerm = '';
+    this.applyAddressModeValidators();
+
+    this.businessForm.controls.latitude.setValue(null, { emitEvent: false });
+    this.businessForm.controls.longitude.setValue(null, { emitEvent: false });
+
+    if (mode === 'cityState') {
+      this.businessForm.controls.address1.setValue('', { emitEvent: false });
+      this.businessForm.controls.address2.setValue('', { emitEvent: false });
+      this.businessForm.controls.address1.markAsPristine();
+      this.businessForm.controls.address2.markAsPristine();
+      this.businessForm.controls.city.setValue('', { emitEvent: false });
+      this.businessForm.controls.state.setValue('', { emitEvent: false });
+      this.businessForm.controls.zipCode.setValue('', { emitEvent: false });
+    }
+  }
+
   onAddressSearchInput(event: Event, input: HTMLInputElement): void {
     const value = input.value;
     this.addressSearchTerm = value;
+    if (this.isCityStateOnlyMode) {
+      this.businessForm.controls.latitude.setValue(null, { emitEvent: false });
+      this.businessForm.controls.longitude.setValue(null, { emitEvent: false });
+    }
     this.addressDropdownDirection = this.getDropdownDirection(input);
     this.addressDropdownOpen = true;
     this.highlightedAddressIndex = this.addressSuggestions.length > 0 ? 0 : -1;
@@ -488,7 +573,7 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
 
   selectAddressSuggestion(suggestion: AddressSuggestion): void {
     this.applyingAddressSuggestion = true;
-    this.businessForm.controls.address1.setValue(suggestion.address1);
+    this.businessForm.controls.address1.setValue(this.isCityStateOnlyMode ? '' : suggestion.address1);
     this.businessForm.controls.city.setValue(suggestion.city ?? this.businessForm.controls.city.value ?? '');
     this.businessForm.controls.state.setValue(suggestion.state ?? this.businessForm.controls.state.value ?? '');
     this.businessForm.controls.zipCode.setValue(suggestion.zipCode ?? this.businessForm.controls.zipCode.value ?? '');
@@ -496,7 +581,9 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     this.businessForm.controls.longitude.setValue(suggestion.longitude);
     this.applyingAddressSuggestion = false;
 
-    this.addressSearchTerm = suggestion.fullAddress || suggestion.address1;
+    this.addressSearchTerm = this.isCityStateOnlyMode
+      ? suggestion.fullAddress || [suggestion.city, suggestion.state, suggestion.zipCode].filter(Boolean).join(', ')
+      : (suggestion.fullAddress || suggestion.address1);
     this.addressDropdownOpen = false;
     this.highlightedAddressIndex = -1;
   }
@@ -705,20 +792,34 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
       return;
     }
 
-    const address1 = (this.businessForm.controls.address1.value ?? '').trim();
+    const address1 = this.isCityStateOnlyMode
+      ? ''
+      : (this.businessForm.controls.address1.value ?? '').trim();
     const city = (this.businessForm.controls.city.value ?? '').trim();
     const state = (this.businessForm.controls.state.value ?? '').trim();
     const zipCode = (this.businessForm.controls.zipCode.value ?? '').trim();
-    const address2 = this.businessForm.controls.address2.value?.trim() || null;
+    const address2 = this.isCityStateOnlyMode
+      ? null
+      : (this.businessForm.controls.address2.value?.trim() || null);
     const latitude = this.businessForm.controls.latitude.value;
     const longitude = this.businessForm.controls.longitude.value;
 
+    if (this.isCityStateOnlyMode && (latitude === null || longitude === null)) {
+      this.snackBar.open('Select a city and state suggestion from Mapbox to continue.', 'Close', {
+        duration: 4000,
+        panelClass: ['snack-error'],
+      });
+      this.addressDropdownOpen = true;
+      this.highlightedAddressIndex = this.addressSuggestions.length > 0 ? 0 : -1;
+      return;
+    }
+
     const shouldResolveCoordinates = latitude === null
       && longitude === null
-      && address1.length > 0
       && city.length > 0
       && state.length > 0
-      && zipCode.length > 0;
+      && (this.isCityStateOnlyMode || address1.length > 0)
+      && (this.isCityStateOnlyMode || zipCode.length > 0);
 
     const payload: CreateBusinessRequest = {
       name: (this.businessForm.controls.name.value ?? '').trim(),
@@ -805,7 +906,7 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     if (useRecommended && this.pendingLaunchAddress) {
       this.pendingCreatePayload = {
         ...this.pendingCreatePayload,
-        address1: this.pendingLaunchAddress.address1,
+        address1: this.isCityStateOnlyMode ? this.pendingCreatePayload.address1 : this.pendingLaunchAddress.address1,
         city: this.pendingLaunchAddress.city ?? this.pendingCreatePayload.city,
         state: this.pendingLaunchAddress.state ?? this.pendingCreatePayload.state,
         zipCode: this.pendingLaunchAddress.zipCode ?? this.pendingCreatePayload.zipCode,
@@ -813,7 +914,9 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
         longitude: this.pendingLaunchAddress.longitude,
       };
 
-      this.businessForm.controls.address1.setValue(this.pendingLaunchAddress.address1, { emitEvent: false });
+      if (!this.isCityStateOnlyMode) {
+        this.businessForm.controls.address1.setValue(this.pendingLaunchAddress.address1, { emitEvent: false });
+      }
       if (this.pendingLaunchAddress.city) {
         this.businessForm.controls.city.setValue(this.pendingLaunchAddress.city, { emitEvent: false });
       }
@@ -833,8 +936,10 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
     this.pendingCreatePayload = null;
 
     if (!useRecommended) {
-      this.addressDropdownOpen = true;
-      this.highlightedAddressIndex = this.addressSuggestions.length > 0 ? 0 : -1;
+      if (!this.isCityStateOnlyMode) {
+        this.addressDropdownOpen = true;
+        this.highlightedAddressIndex = this.addressSuggestions.length > 0 ? 0 : -1;
+      }
       return;
     }
 
@@ -865,6 +970,21 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
         });
       },
     });
+  }
+
+  private applyAddressModeValidators(): void {
+    const address1Validators = [Validators.maxLength(200)];
+    const zipCodeValidators = [Validators.maxLength(32)];
+
+    if (!this.isCityStateOnlyMode) {
+      address1Validators.unshift(Validators.required);
+      zipCodeValidators.unshift(Validators.required);
+    }
+
+    this.businessForm.controls.address1.setValidators(address1Validators);
+    this.businessForm.controls.address1.updateValueAndValidity({ emitEvent: false });
+    this.businessForm.controls.zipCode.setValidators(zipCodeValidators);
+    this.businessForm.controls.zipCode.updateValueAndValidity({ emitEvent: false });
   }
 
   private commitCountrySelection(): void {
@@ -1048,6 +1168,17 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
       .map((x) => `${labels[x.dayOfWeek] ?? 'Day'} ${x.openTime}-${x.closeTime}`);
 
     return parts.length > 0 ? parts.join(' | ') : 'Not set';
+  }
+
+  get confirmLocationPrompt(): string {
+    return this.isCityStateOnlyMode
+      ? 'Holonix found a match for the city and state you entered. Confirming will set the latitude and longitude used for map search and nearby discovery.'
+      : 'Holonix found a match for the address you entered. Confirming will set the latitude and longitude used for map search and nearby discovery.';
+  }
+
+  formatLocationSuggestionLabel(suggestion: AddressSuggestion): string {
+    return suggestion.fullAddress
+      || [suggestion.city, suggestion.state, suggestion.zipCode].filter((value): value is string => !!value).join(', ');
   }
 
   private normalizeBusinessHoursDraft(): BusinessHoursDay[] | null {

@@ -30,6 +30,7 @@ Use this when a task changes request/response shapes, API routes, frontend servi
   - Includes `GET /{businessCode}/my-availability/daily` and `GET /{businessCode}/availability/team/daily`.
   - The daily availability routes now share a backend availability calculator so public and workspace surfaces stay aligned, including all-day time off exclusion and partial-day time off subtraction.
   - Business sub-service create/update and workspace/public profile payloads now include `requiresServiceLocation` so customer booking flows can tell when a selected service needs a user location on a later step.
+  - `POST /api/business` still uses the same address fields, but the create-business screen can now submit a privacy-preserving `City and State only` location with blank `address1` and optional `zipCode` as long as it already includes a confirmed latitude/longitude pair from Mapbox.
 - `HomeController`: `/api/home`
   - `GET /pending-invites`
   - `POST /pending-invites/{workloadId}/accept`

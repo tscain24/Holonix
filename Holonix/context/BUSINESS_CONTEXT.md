@@ -36,7 +36,7 @@ Backend permission checks live mostly in `Server/Controllers/BusinessController.
 
 ## Important Workflows
 
-- Create business: creates `Business`, `BusinessDetails`, selected `BusinessService` rows, active `BusinessUser`, owner `BusinessUserRole`, and returns a refreshed auth token.
+- Create business: creates `Business`, `BusinessDetails`, selected `BusinessService` rows, active `BusinessUser`, owner `BusinessUserRole`, and returns a refreshed auth token. The create-business wizard now supports either a full street address or a `City and State only` mode for privacy-sensitive businesses. In the simplified mode, the street fields stay blank and the user must choose a verified Mapbox location suggestion for the city/state lookup before submit; that selection fills `city`, `state`, optional `zipCode`, and the required latitude/longitude.
 - Business overview/workspace: loads business profile, services/sub-services, role-specific employee metadata, top employees, recent jobs, available role filters, and aggregates.
 - Employees: paginated employee list with filters/sort; admins/owners can invite, close invites, deactivate employees, and update eligible roles.
 - Services: owners can update selected parent services. Owners/admins can create, edit, assign, flag whether a customer service location is required, and soft-delete business sub-services.

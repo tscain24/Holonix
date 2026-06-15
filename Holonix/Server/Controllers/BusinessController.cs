@@ -2979,6 +2979,11 @@ public class BusinessController : ControllerBase
 
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
+        var address1 = request.Address1?.Trim() ?? string.Empty;
+        var city = request.City?.Trim() ?? string.Empty;
+        var state = request.State?.Trim() ?? string.Empty;
+        var zipCode = request.ZipCode?.Trim() ?? string.Empty;
+
         var business = new Business
         {
             BusinessCode = await GenerateUniqueBusinessCodeAsync(cancellationToken),
@@ -3001,12 +3006,12 @@ public class BusinessController : ControllerBase
                 new()
                 {
                     IsPrimary = true,
-                    Address1 = request.Address1.Trim(),
+                    Address1 = address1,
                     Address2 = NormalizeOptional(request.Address2),
-                    City = request.City.Trim(),
-                    State = request.State.Trim(),
+                    City = city,
+                    State = state,
                     CountryId = request.CountryId,
-                    ZipCode = request.ZipCode.Trim(),
+                    ZipCode = zipCode,
                     Latitude = request.Latitude,
                     Longitude = request.Longitude,
                 },
@@ -3078,13 +3083,17 @@ public class BusinessController : ControllerBase
             errors.Add("Business name is required.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Address1) ||
-            string.IsNullOrWhiteSpace(request.City) ||
-            string.IsNullOrWhiteSpace(request.State) ||
-            string.IsNullOrWhiteSpace(request.ZipCode))
+        var address1 = request.Address1?.Trim() ?? string.Empty;
+        var city = request.City?.Trim() ?? string.Empty;
+        var state = request.State?.Trim() ?? string.Empty;
+        var zipCode = request.ZipCode?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(city) || string.IsNullOrWhiteSpace(state))
         {
             errors.Add("Business address is required.");
         }
+
+        var isPartialLocation = string.IsNullOrWhiteSpace(address1) || string.IsNullOrWhiteSpace(zipCode);
 
         if ((request.Latitude.HasValue && !request.Longitude.HasValue) || (!request.Latitude.HasValue && request.Longitude.HasValue))
         {
@@ -3101,6 +3110,11 @@ public class BusinessController : ControllerBase
             {
                 errors.Add("Longitude must be between -180 and 180.");
             }
+        }
+
+        if (isPartialLocation && (!request.Latitude.HasValue || !request.Longitude.HasValue))
+        {
+            errors.Add("City and state only locations must include confirmed latitude and longitude.");
         }
 
         if (request.BusinessJobPercentage < 0 || request.BusinessJobPercentage > 100)
