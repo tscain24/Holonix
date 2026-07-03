@@ -34,6 +34,7 @@ Use this when a task changes EF entities, model configuration, migrations, seede
 - Active `BusinessSubService` names are unique per `(BusinessId, ServiceId, Name)` with an `InactiveDate IS NULL` filter.
 - `BusinessSubServiceAssignment` is unique per `(BusinessSubServiceId, BusinessUserId)`.
 - `EmployeeInviteWorkload` has unique indexes on both `WorkloadId` and `EmployeeInviteId`.
+- `BookingPayment` has unique indexes on both `JobId` and `WorkloadId`, plus a filtered unique index on non-null `StripeCheckoutSessionId`.
 
 ## Seeders
 
@@ -41,7 +42,7 @@ Startup seeders in `Program.cs`:
 
 - `BusinessRoleSeeder`: `Owner` 1000, `Administrator` 800, `Manager` 700, `Employee` 500.
 - `ServiceSeeder`: canonical title-cased service catalog; removes deprecated unassigned services.
-- `WorkloadReferenceSeeder`: `Employee Invite` workload type with `Pending Invite`, `Active`, `Denied`, and `Closed` statuses.
+- `WorkloadReferenceSeeder`: `Employee Invite` workload type with `Pending Invite`, `Active`, `Denied`, and `Closed` statuses, plus `Customer Booking` with lifecycle statuses from `Pending Checkout` through `Completed` and side states such as `Payment Failed`.
 
 Add or change reference behavior in seeders rather than scattering setup logic through controllers.
 
@@ -49,6 +50,7 @@ Add or change reference behavior in seeders rather than scattering setup logic t
 
 - Existing migrations are historical source. Avoid editing old migrations unless the user explicitly asks.
 - For model changes, create a new migration and update `ApplicationDbContextModelSnapshot`.
+- `Infrastructure/Data/ApplicationDbContextFactory.cs` is the design-time EF entry point; it resolves config from the `Server/` project directory and includes user-secrets plus environment variables so `dotnet ef` can run from the repo root without an explicit `--connection`.
 - Designer files and snapshot files are large; avoid opening them unless diagnosing EF model history.
 - `Server/Holonix.Server.csproj` excludes `tmp-*` paths because the Web SDK otherwise treats many project files as content.
 - Keep verification artifacts outside `Server/` when possible.

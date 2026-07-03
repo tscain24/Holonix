@@ -1,7 +1,7 @@
 <section class="public-business-page" aria-label="Business profile">
   <button *ngIf="!isCartScreen" type="button" class="secondary-btn back-link" (click)="goBackToSearch()">
     <span aria-hidden="true">←</span>
-    Back to search results
+    {{ backLinkLabel }}
   </button>
 
   <div class="state-row" *ngIf="loading">Loading business...</div>
@@ -320,10 +320,16 @@
           <div class="booking-cta-panel">
             <div class="booking-cta-copy">
               <div class="booking-cta-title">Ready for the next step?</div>
-              <div class="booking-cta-subtitle">Pick a date and time for the services in your cart.</div>
+              <div class="booking-cta-subtitle">
+                {{
+                  isCartScreen && !isLoggedIn
+                    ? 'Log in to continue from your cart into scheduling.'
+                    : 'Pick a date and time for the services in your cart.'
+                }}
+              </div>
             </div>
             <button type="button" class="primary-btn booking-cta-btn" (click)="proceedFromCart()">
-              {{ isCartScreen ? 'Schedule' : 'View Cart' }}
+              {{ cartPrimaryCtaLabel }}
             </button>
           </div>
         </div>
@@ -532,7 +538,7 @@
           </section>
         </div>
 
-        <section class="details-card booking-price-summary" aria-label="Booking price summary">
+        <section class="details-card booking-price-summary" aria-label="Booking price summary and legal acknowledgements">
           <div class="details-card-title">Price summary</div>
           <div class="booking-price-summary-list">
             <div class="booking-summary-row">
@@ -548,24 +554,43 @@
               <span class="booking-summary-value">{{ formatPriceWithCents(bookingTotalPrice) }}</span>
             </div>
           </div>
-        </section>
 
-        <div class="booking-cta-panel schedule-cta-panel">
-          <div class="booking-cta-copy">
-            <div class="booking-cta-title">Booking details ready</div>
-            <div class="booking-cta-subtitle">
-              Card will not charge until 24 hours before an accepted job request.
+          <div class="details-card-legal">
+            <div class="details-card-subtitle">
+            You must review and accept these policies before submitting your booking request.
             </div>
+
+            <label class="details-check-row">
+              <input
+                type="checkbox"
+                [checked]="acceptedLegalPolicies"
+                (change)="setAcceptedLegalPolicies($any($event.target).checked)"
+              />
+              <span>
+                I agree to the
+                <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+                and
+                <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>.
+              </span>
+            </label>
           </div>
-          <button
-            type="button"
-            class="primary-btn booking-cta-btn"
-            [disabled]="!canContinueFromDetails"
-            (click)="showComingSoon('Booking submission')"
-          >
-            Checkout
-          </button>
-        </div>
+
+          <div class="booking-cta-panel schedule-cta-panel booking-cta-panel-inline">
+            <div class="booking-cta-copy">
+              <div class="booking-cta-subtitle">
+                  Card will not charge until 24 hours before an accepted job request.
+              </div>
+            </div>
+            <button
+              type="button"
+              class="primary-btn booking-cta-btn"
+              [disabled]="!canContinueFromDetails"
+              (click)="showComingSoon('Booking submission')"
+            >
+              Checkout
+            </button>
+          </div>
+        </section>
       </ng-template>
     </div>
   </div>

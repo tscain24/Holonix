@@ -30,6 +30,8 @@ import { AppHeaderComponent } from './core/components/app-header/app-header.comp
 import { ServiceSearchResultsComponent } from './features/search/service-search-results/service-search-results.component';
 import { AppBottomNavComponent } from './core/components/app-bottom-nav/app-bottom-nav.component';
 import { PublicBusinessPageComponent } from './features/business/public-business-page/public-business-page.component';
+import { TermsOfServiceComponent } from './features/legal/terms-of-service/terms-of-service.component';
+import { PrivacyPolicyComponent } from './features/legal/privacy-policy/privacy-policy.component';
 
 @NgModule({
   declarations: [
@@ -49,7 +51,9 @@ import { PublicBusinessPageComponent } from './features/business/public-business
     BusinessServiceManagerComponent,
     BusinessAvailabilityComponent,
     ServiceSearchResultsComponent,
-    PublicBusinessPageComponent
+    PublicBusinessPageComponent,
+    TermsOfServiceComponent,
+    PrivacyPolicyComponent
   ],
   imports: [
     BrowserModule,

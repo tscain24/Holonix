@@ -1,0 +1,87 @@
+<section class="terms-page" aria-label="Holonix Terms of Service">
+  <div class="terms-shell">
+    <header class="terms-hero">
+      <div class="terms-hero-main">
+        <a class="terms-back-link" routerLink="/home">
+          <span aria-hidden="true">←</span>
+          Back to Holonix
+        </a>
+
+        <div class="terms-hero-copy">
+          <p class="terms-kicker">Legal</p>
+          <h1>Holonix Terms of Service</h1>
+          <p class="terms-summary">
+            These Terms govern access to and use of the Holonix platform, including booking flows,
+            business participation, customer activity, and related services.
+          </p>
+        </div>
+
+        <div class="terms-highlight-grid" aria-label="Terms summary">
+          <article class="terms-highlight-card" *ngFor="let highlight of highlights">
+            <h2>{{ highlight.title }}</h2>
+            <p>{{ highlight.detail }}</p>
+          </article>
+        </div>
+      </div>
+
+      <aside class="terms-status-card" aria-label="Terms details">
+        <div class="terms-status-block">
+          <span class="terms-status-label">Last Updated</span>
+          <strong>{{ lastUpdated }}</strong>
+        </div>
+
+        <div class="terms-status-divider" aria-hidden="true"></div>
+
+        <div class="terms-status-block">
+          <span class="terms-status-label">Document Status</span>
+          <p>
+            This page is based on your current Holonix comprehensive draft and presented in a
+            cleaner customer-facing format.
+          </p>
+        </div>
+      </aside>
+    </header>
+
+    <section class="terms-callout" aria-label="Legal review note">
+      <h2>Legal Review Recommended</h2>
+      <p>
+        Because Holonix processes payments and facilitates service bookings, these Terms should be
+        reviewed by an attorney licensed in the jurisdictions where Holonix operates before public release.
+      </p>
+    </section>
+
+    <div class="terms-layout">
+      <nav class="terms-index" aria-label="Terms sections">
+        <span class="terms-index-label">On this page</span>
+        <div class="terms-index-links">
+          <button type="button" *ngFor="let section of sections; let i = index" (click)="scrollToSection(i)">
+            {{ section.title }}
+          </button>
+        </div>
+      </nav>
+
+      <div class="terms-content">
+        <article
+          class="terms-section"
+          *ngFor="let section of sections; let i = index"
+          [attr.id]="getSectionId(i)"
+        >
+          <div class="terms-section-heading">
+            <span class="terms-section-number">{{ i + 1 }}</span>
+            <h2>{{ getSectionLabel(section.title) }}</h2>
+          </div>
+
+          <p *ngFor="let paragraph of section.paragraphs">
+            {{ paragraph }}
+          </p>
+
+          <ul *ngIf="section.bullets?.length">
+            <li *ngFor="let bullet of section.bullets">
+              {{ bullet }}
+            </li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>

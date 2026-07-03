@@ -24,6 +24,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<BusinessUserTimeOff> BusinessUserTimeOffs => Set<BusinessUserTimeOff>();
     public DbSet<Job> Jobs => Set<Job>();
     public DbSet<JobWorkload> JobWorkloads => Set<JobWorkload>();
+    public DbSet<BookingPayment> BookingPayments => Set<BookingPayment>();
     public DbSet<JobRecurrence> JobRecurrences => Set<JobRecurrence>();
     public DbSet<JobRecurrenceException> JobRecurrenceExceptions => Set<JobRecurrenceException>();
     public DbSet<EmployeeInvite> EmployeeInvites => Set<EmployeeInvite>();
@@ -357,6 +358,33 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         {
             entity.ToTable("JobWorkload", "job");
             entity.HasKey(x => x.JobWorkloadId);
+            entity.HasOne(x => x.Job)
+                .WithMany()
+                .HasForeignKey(x => x.JobId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Workload)
+                .WithMany()
+                .HasForeignKey(x => x.WorkloadId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<BookingPayment>(entity =>
+        {
+            entity.ToTable("BookingPayment", "job");
+            entity.HasKey(x => x.BookingPaymentId);
+            entity.Property(x => x.PaymentStatus).IsRequired().HasMaxLength(120);
+            entity.Property(x => x.StripeCustomerId).HasMaxLength(255);
+            entity.Property(x => x.StripeCheckoutSessionId).HasMaxLength(255);
+            entity.Property(x => x.StripeSetupIntentId).HasMaxLength(255);
+            entity.Property(x => x.StripePaymentMethodId).HasMaxLength(255);
+            entity.Property(x => x.StripePaymentIntentId).HasMaxLength(255);
+            entity.Property(x => x.LastPaymentFailureCode).HasMaxLength(120);
+            entity.Property(x => x.LastPaymentFailureMessage).HasMaxLength(1000);
+            entity.HasIndex(x => x.JobId).IsUnique();
+            entity.HasIndex(x => x.WorkloadId).IsUnique();
+            entity.HasIndex(x => x.StripeCheckoutSessionId)
+                .IsUnique()
+                .HasFilter("\"StripeCheckoutSessionId\" IS NOT NULL");
             entity.HasOne(x => x.Job)
                 .WithMany()
                 .HasForeignKey(x => x.JobId)

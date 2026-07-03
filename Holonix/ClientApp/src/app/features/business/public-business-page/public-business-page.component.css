@@ -982,6 +982,15 @@
   margin-top: 18px;
 }
 
+.booking-cta-panel-inline {
+  margin-top: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .details-layout {
   margin-top: 16px;
   display: grid;
@@ -1149,6 +1158,41 @@
 
 .booking-price-summary {
   margin-top: 14px;
+}
+
+.details-card-legal {
+  margin-top: 14px;
+}
+
+.details-check-row {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: flex-start;
+  color: #173057;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.details-check-row input[type='checkbox'] {
+  margin: 2px 0 0;
+  width: 18px;
+  height: 18px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.details-check-row a {
+  color: #1d4ed8;
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.details-check-row a:hover,
+.details-check-row a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .booking-price-summary-list {

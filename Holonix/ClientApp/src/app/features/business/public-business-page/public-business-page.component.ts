@@ -19,6 +19,7 @@ import {
 export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   private static readonly closingSoonThresholdMinutes = 45;
   private static readonly cartStorageKeyPrefix = 'holonix_public_business_cart_v1:';
+  private static readonly backContextStorageKeyPrefix = 'holonix_public_business_back_context_v1:';
   private static readonly scheduleSlotMinutes = 30;
   private static readonly bookingAdvanceDays = 45;
 
@@ -31,13 +32,15 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   currentCheckoutStep: 1 | 2 | 3 = 1;
   selectedScheduleDateIso: string | null = null;
   selectedScheduleTime: string | null = null;
+  acceptedLegalPolicies = false;
   savedLocations: UserSavedLocation[] = [];
   selectedSavedLocationId: number | null = null;
   loadingSavedLocations = false;
   savedLocationsError: string | null = null;
   visibleCalendarMonth = PublicBusinessPageComponent.startOfMonth(new Date());
-  entrySource: 'search' | 'direct' = 'direct';
+  entrySource: 'search' | 'business' | 'direct' = 'direct';
   entrySearchedCategoryName: string | null = null;
+  businessReturnUrl: string | null = null;
   loadingSelectedDateAvailability = false;
 
   private todayAvailabilityTimeFrames: PublicBusinessAvailabilityTimeFrame[] = [];
@@ -57,8 +60,6 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.applyNavigationContext();
-
     combineLatest([this.route.paramMap, this.route.url])
       .pipe(
         map(([params, url]) => ({
@@ -66,11 +67,13 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
           isCartScreen: url.some((segment) => (segment.path ?? '').trim().toLowerCase() === 'cart'),
         })),
         switchMap(({ businessCode, isCartScreen }) => {
+          this.applyNavigationContext(businessCode);
           this.isCartScreen = isCartScreen;
           this.selectedSubServices = [];
           this.currentCheckoutStep = 1;
           this.selectedScheduleDateIso = null;
           this.selectedScheduleTime = null;
+          this.acceptedLegalPolicies = false;
           this.savedLocations = [];
           this.selectedSavedLocationId = null;
           this.loadingSavedLocations = false;
@@ -122,6 +125,11 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   }
 
   goBackToSearch(): void {
+    if (this.entrySource === 'business' && this.businessReturnUrl) {
+      void this.router.navigateByUrl(this.businessReturnUrl);
+      return;
+    }
+
     const last = sessionStorage.getItem('holonix_last_search_url_v1');
     if (last && last.startsWith('/')) {
       void this.router.navigateByUrl(last);
@@ -130,15 +138,32 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     void this.router.navigate(['/search']);
   }
 
-  private applyNavigationContext(): void {
+  get backLinkLabel(): string {
+    return this.entrySource === 'business' ? 'Back to business' : 'Back to search results';
+  }
+
+  private applyNavigationContext(businessCode: string): void {
     const state = (history.state ?? {}) as Record<string, unknown>;
     const entryValue = state['entry'];
     const entry = typeof entryValue === 'string' ? entryValue : '';
-    this.entrySource = entry === 'search' ? 'search' : 'direct';
+    const returnUrlValue = state['returnUrl'];
+    const stateReturnUrl = typeof returnUrlValue === 'string' && returnUrlValue.startsWith('/')
+      ? returnUrlValue
+      : null;
+    const storedContext = this.readBackContext(businessCode);
+
+    this.entrySource = entry === 'search' || entry === 'business'
+      ? entry
+      : (storedContext?.entrySource ?? 'direct');
+    this.businessReturnUrl = stateReturnUrl ?? storedContext?.returnUrl ?? null;
 
     const searchedCategoryValue = state['searchedCategoryName'];
     const searchedCategoryName = typeof searchedCategoryValue === 'string' ? searchedCategoryValue.trim() : '';
-    this.entrySearchedCategoryName = searchedCategoryName ? searchedCategoryName : null;
+    this.entrySearchedCategoryName = searchedCategoryName
+      ? searchedCategoryName
+      : (storedContext?.searchedCategoryName ?? null);
+
+    this.persistBackContext(businessCode);
   }
 
   selectSubService(sub: PublicBusinessSubService): void {
@@ -180,6 +205,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
       state: {
         entry: this.entrySource,
         searchedCategoryName: this.entrySearchedCategoryName,
+        returnUrl: this.businessReturnUrl,
       },
     });
   }
@@ -194,6 +220,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
       state: {
         entry: this.entrySource,
         searchedCategoryName: this.entrySearchedCategoryName,
+        returnUrl: this.businessReturnUrl,
       },
     });
   }
@@ -201,6 +228,11 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   proceedFromCart(): void {
     if (!this.isCartScreen) {
       this.openCart();
+      return;
+    }
+
+    if (!this.isLoggedIn) {
+      this.redirectToLoginForBooking();
       return;
     }
 
@@ -224,12 +256,22 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (!this.isLoggedIn) {
+      this.redirectToLoginForBooking();
+      return;
+    }
+
     this.currentCheckoutStep = 2;
     this.loadVisibleCalendarAvailability();
   }
 
   showDetailsStep(): void {
     if (!this.canContinueFromDateTime) {
+      return;
+    }
+
+    if (!this.isLoggedIn) {
+      this.redirectToLoginForBooking();
       return;
     }
 
@@ -270,6 +312,10 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
 
   selectSavedLocation(location: UserSavedLocation): void {
     this.selectedSavedLocationId = location.userSavedLocationId;
+  }
+
+  setAcceptedLegalPolicies(value: boolean): void {
+    this.acceptedLegalPolicies = value;
   }
 
   showComingSoon(section: string): void {
@@ -371,6 +417,18 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     return this.selectedSubServices.length > 0;
   }
 
+  get isLoggedIn(): boolean {
+    return !!localStorage.getItem('holonix_token');
+  }
+
+  get cartPrimaryCtaLabel(): string {
+    if (!this.isCartScreen) {
+      return 'View Cart';
+    }
+
+    return this.isLoggedIn ? 'Schedule' : 'Log in to proceed';
+  }
+
   get canContinueFromDateTime(): boolean {
     return !!this.selectedScheduleDateIso && !!this.selectedScheduleTime;
   }
@@ -388,7 +446,8 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   }
 
   get canContinueFromDetails(): boolean {
-    return !this.selectedServicesRequireLocation || this.selectedSavedLocationId !== null;
+    const hasRequiredLocation = !this.selectedServicesRequireLocation || this.selectedSavedLocationId !== null;
+    return hasRequiredLocation && this.acceptedLegalPolicies;
   }
 
   get locationLabel(): string {
@@ -1162,6 +1221,63 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     return `${PublicBusinessPageComponent.cartStorageKeyPrefix}${businessCode}`;
   }
 
+  private getBackContextStorageKey(businessCode: string): string {
+    return `${PublicBusinessPageComponent.backContextStorageKeyPrefix}${businessCode}`;
+  }
+
+  private persistBackContext(businessCode: string): void {
+    if (!businessCode) {
+      return;
+    }
+
+    sessionStorage.setItem(
+      this.getBackContextStorageKey(businessCode),
+      JSON.stringify({
+        entrySource: this.entrySource,
+        searchedCategoryName: this.entrySearchedCategoryName,
+        returnUrl: this.businessReturnUrl,
+      })
+    );
+  }
+
+  private readBackContext(
+    businessCode: string
+  ): { entrySource: 'search' | 'business' | 'direct'; searchedCategoryName: string | null; returnUrl: string | null } | null {
+    if (!businessCode) {
+      return null;
+    }
+
+    const raw = sessionStorage.getItem(this.getBackContextStorageKey(businessCode));
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as {
+        entrySource?: unknown;
+        searchedCategoryName?: unknown;
+        returnUrl?: unknown;
+      };
+      const entrySource = parsed.entrySource === 'search' || parsed.entrySource === 'business' || parsed.entrySource === 'direct'
+        ? parsed.entrySource
+        : 'direct';
+      const searchedCategoryName = typeof parsed.searchedCategoryName === 'string' && parsed.searchedCategoryName.trim()
+        ? parsed.searchedCategoryName.trim()
+        : null;
+      const returnUrl = typeof parsed.returnUrl === 'string' && parsed.returnUrl.startsWith('/')
+        ? parsed.returnUrl
+        : null;
+
+      return {
+        entrySource,
+        searchedCategoryName,
+        returnUrl,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   private get selectedSubServiceIdsForAvailability(): number[] {
     return this.selectedSubServices
       .map((sub) => Number(sub.businessSubServiceId))
@@ -1262,5 +1378,16 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     }
 
     return `https://${domain}`;
+  }
+
+  private redirectToLoginForBooking(): void {
+    void this.router.navigate(['/login'], {
+      queryParams: {
+        returnUrl: this.router.url,
+      },
+      state: {
+        toastMessage: 'Log in to continue booking.',
+      },
+    });
   }
 }

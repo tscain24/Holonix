@@ -38,6 +38,8 @@ The app expects the backend at `/api` via `proxy.conf.json`, targeting `http://l
 - `/login`
 - `/register`
 - `/profile`
+- `/terms`
+- `/privacy`
 - `/business`
 - `/business/create`
 - `/workspace/overview/:businessCode`

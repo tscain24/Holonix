@@ -118,6 +118,9 @@
 
           <div class="workspace-hero-aside" *ngIf="canEditBusinessProfile || canLeaveBusiness">
             <div class="hero-actions hero-actions-hero">
+              <button type="button" class="hero-btn hero-btn-secondary" *ngIf="!editingProfile" (click)="goToPublicPage()">
+                View Public Page
+              </button>
               <button
                 type="button"
                 class="hero-btn hero-btn-danger hero-btn-danger-soft"

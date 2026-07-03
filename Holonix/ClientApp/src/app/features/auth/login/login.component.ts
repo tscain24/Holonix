@@ -1,7 +1,7 @@
 ﻿import { Component } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { AuthSessionService } from '../../../core/services/auth-session.service';
 
@@ -13,6 +13,7 @@ import { AuthSessionService } from '../../../core/services/auth-session.service'
 export class LoginComponent {
   loading = false;
   showPassword = false;
+  private returnUrl: string | null = null;
 
   form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
@@ -24,6 +25,7 @@ export class LoginComponent {
     private auth: AuthService,
     private authSession: AuthSessionService,
     private snackBar: MatSnackBar,
+    private route: ActivatedRoute,
     private router: Router
   ) {}
 
@@ -43,6 +45,9 @@ export class LoginComponent {
         panelClass: ['snack-error'],
       });
     }
+
+    const rawReturnUrl = (this.route.snapshot.queryParamMap.get('returnUrl') ?? '').trim();
+    this.returnUrl = rawReturnUrl.startsWith('/') ? rawReturnUrl : null;
   }
 
   submit(): void {
@@ -61,7 +66,12 @@ export class LoginComponent {
           duration: 3000,
           panelClass: ['snack-success'],
         });
-        this.router.navigate(['/home'], { state: { displayName: res.displayName } });
+        if (this.returnUrl) {
+          void this.router.navigateByUrl(this.returnUrl, { state: { displayName: res.displayName } });
+          return;
+        }
+
+        void this.router.navigate(['/home'], { state: { displayName: res.displayName } });
       },
       error: (err) => {
         this.loading = false;

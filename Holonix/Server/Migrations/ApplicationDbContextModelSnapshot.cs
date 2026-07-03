@@ -638,6 +638,86 @@ namespace Holonix.Server.Migrations
                     b.ToTable("EmployeeInviteWorkload", "work");
                 });
 
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BookingPayment", b =>
+                {
+                    b.Property<long>("BookingPaymentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("BookingPaymentId"));
+
+                    b.Property<DateTime?>("ChargeScheduledForUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ChargedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("JobId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("LastPaymentFailureCode")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("LastPaymentFailureMessage")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("LastPaymentFailureUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime?>("SetupCompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("StripeCheckoutSessionId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("StripeCustomerId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("StripePaymentIntentId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("StripePaymentMethodId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("StripeSetupIntentId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTime>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("WorkloadId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("BookingPaymentId");
+
+                    b.HasIndex("JobId")
+                        .IsUnique();
+
+                    b.HasIndex("StripeCheckoutSessionId")
+                        .IsUnique()
+                        .HasFilter("\"StripeCheckoutSessionId\" IS NOT NULL");
+
+                    b.HasIndex("WorkloadId")
+                        .IsUnique();
+
+                    b.ToTable("BookingPayment", "job");
+                });
+
             modelBuilder.Entity("Holonix.Server.Domain.Entities.Job", b =>
                 {
                     b.Property<long>("JobId")
@@ -1370,6 +1450,25 @@ namespace Holonix.Server.Migrations
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.JobWorkload", b =>
+                {
+                    b.HasOne("Holonix.Server.Domain.Entities.Job", "Job")
+                        .WithMany()
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Holonix.Server.Domain.Entities.Workload", "Workload")
+                        .WithMany()
+                        .HasForeignKey("WorkloadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Job");
+
+                    b.Navigation("Workload");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BookingPayment", b =>
                 {
                     b.HasOne("Holonix.Server.Domain.Entities.Job", "Job")
                         .WithMany()

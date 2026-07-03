@@ -12,6 +12,8 @@ import { BusinessServiceManagerComponent } from './features/business/business-se
 import { BusinessAvailabilityComponent } from './features/business/business-availability/business-availability.component';
 import { ServiceSearchResultsComponent } from './features/search/service-search-results/service-search-results.component';
 import { PublicBusinessPageComponent } from './features/business/public-business-page/public-business-page.component';
+import { TermsOfServiceComponent } from './features/legal/terms-of-service/terms-of-service.component';
+import { PrivacyPolicyComponent } from './features/legal/privacy-policy/privacy-policy.component';
 
 function publicBusinessCodeMatcher(segments: UrlSegment[]): UrlMatchResult | null {
   if (segments.length !== 1) {
@@ -23,7 +25,7 @@ function publicBusinessCodeMatcher(segments: UrlSegment[]): UrlMatchResult | nul
     return null;
   }
 
-  const reserved = new Set(['home', 'login', 'register', 'profile', 'business', 'businesses', 'search', 'workspace']);
+  const reserved = new Set(['home', 'login', 'register', 'profile', 'business', 'businesses', 'search', 'workspace', 'terms', 'privacy']);
   if (reserved.has(raw.toLowerCase())) {
     return null;
   }
@@ -48,6 +50,8 @@ const routes: Routes = [
   { path: 'home', component: HomeComponent },
   { path: 'register', component: RegisterComponent },
   { path: 'profile', component: ProfileComponent },
+  { path: 'terms', component: TermsOfServiceComponent },
+  { path: 'privacy', component: PrivacyPolicyComponent },
   { path: 'business', component: BusinessOverviewComponent },
   { path: 'business/create', component: CreateBusinessComponent },
 

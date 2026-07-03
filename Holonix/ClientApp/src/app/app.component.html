@@ -1,8 +1,69 @@
-<div class="app-shell">
+<div class="app-shell" [class.app-shell-with-header]="hasVisibleHeader">
   <app-header></app-header>
   <main class="app-main">
     <router-outlet></router-outlet>
   </main>
-  <footer class="app-footer">&copy; 2026 Holonix LLC | All Rights Reserved</footer>
+  <footer class="app-footer" aria-label="Holonix footer">
+    <div class="app-footer-inner">
+      <div class="app-footer-top">
+        <div class="app-footer-brand-block">
+          <a class="app-footer-brand" routerLink="/home" aria-label="Holonix home">
+            <img src="/assets/holonix-logo.svg" alt="Holonix logo" />
+            <span>Holonix</span>
+          </a>
+
+          <p class="app-footer-copy">
+            Connecting customers with trusted business professionals.
+          </p>
+
+          <div class="app-footer-social" aria-label="Holonix social links">
+            <a class="app-footer-social-link" href="https://www.instagram.com/holonix.io/" target="_blank" rel="noopener noreferrer" aria-label="Holonix on Instagram">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path
+                  d="M7.75 2h8.5A5.76 5.76 0 0 1 22 7.75v8.5A5.76 5.76 0 0 1 16.25 22h-8.5A5.76 5.76 0 0 1 2 16.25v-8.5A5.76 5.76 0 0 1 7.75 2Zm0 1.8A3.96 3.96 0 0 0 3.8 7.75v8.5a3.96 3.96 0 0 0 3.95 3.95h8.5a3.96 3.96 0 0 0 3.95-3.95v-8.5a3.96 3.96 0 0 0-3.95-3.95Zm8.95 1.35a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4ZM12 6.85A5.15 5.15 0 1 1 6.85 12 5.16 5.16 0 0 1 12 6.85Zm0 1.8A3.35 3.35 0 1 0 15.35 12 3.35 3.35 0 0 0 12 8.65Z"
+                />
+              </svg>
+            </a>
+            <a class="app-footer-social-link" href="mailto:info@holonix.io" aria-label="Email Holonix">
+              <mat-icon aria-hidden="true">alternate_email</mat-icon>
+            </a>
+          </div>
+        </div>
+
+        <nav class="app-footer-links" aria-label="Footer links">
+          <div class="app-footer-column">
+            <h2>Explore</h2>
+            <a routerLink="/search">Find Services</a>
+            <a routerLink="/business">For Businesses</a>
+            <a routerLink="/register">Create Account</a>
+          </div>
+
+          <div class="app-footer-column">
+            <h2>Account</h2>
+            <a routerLink="/login">Sign In</a>
+            <a routerLink="/profile">Profile</a>
+            <a routerLink="/business/create">Start a Business</a>
+          </div>
+
+          <div class="app-footer-column">
+            <h2>Support</h2>
+            <a href="mailto:info@holonix.io">Contact Support</a>
+            <a routerLink="/privacy">Privacy</a>
+            <a routerLink="/terms">Terms</a>
+          </div>
+        </nav>
+      </div>
+
+      <div class="app-footer-bottom">
+        <p>&copy; {{ currentYear }} Holonix LLC.</p>
+        <div class="app-footer-meta">
+          <span>
+            <mat-icon aria-hidden="true">verified_user</mat-icon>
+            Trusted business marketplace
+          </span>
+        </div>
+      </div>
+    </div>
+  </footer>
   <app-bottom-nav></app-bottom-nav>
 </div>

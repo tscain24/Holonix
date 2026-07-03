@@ -213,6 +213,30 @@ public class JobWorkload
     public Workload Workload { get; set; } = null!;
 }
 
+public class BookingPayment
+{
+    public long BookingPaymentId { get; set; }
+    public long JobId { get; set; }
+    public long WorkloadId { get; set; }
+    public string PaymentStatus { get; set; } = string.Empty;
+    public string? StripeCustomerId { get; set; }
+    public string? StripeCheckoutSessionId { get; set; }
+    public string? StripeSetupIntentId { get; set; }
+    public string? StripePaymentMethodId { get; set; }
+    public string? StripePaymentIntentId { get; set; }
+    public DateTime? SetupCompletedUtc { get; set; }
+    public DateTime? ChargeScheduledForUtc { get; set; }
+    public DateTime? ChargedAtUtc { get; set; }
+    public DateTime? LastPaymentFailureUtc { get; set; }
+    public string? LastPaymentFailureCode { get; set; }
+    public string? LastPaymentFailureMessage { get; set; }
+    public DateTime CreatedDate { get; set; }
+    public DateTime UpdatedDate { get; set; }
+
+    public Job Job { get; set; } = null!;
+    public Workload Workload { get; set; } = null!;
+}
+
 public class JobRecurrence
 {
     public long JobRecurrenceId { get; set; }
@@ -282,6 +306,7 @@ public class WorkloadType
 public static class WorkloadTypeNames
 {
     public const string EmployeeInvite = "Employee Invite";
+    public const string CustomerBooking = "Customer Booking";
 }
 
 public class WorkloadStatus
@@ -299,4 +324,23 @@ public static class WorkloadStatusNames
     public const string Active = "Active";
     public const string Denied = "Denied";
     public const string Closed = "Closed";
+    public const string PendingCheckout = "Pending Checkout";
+    public const string AwaitingAcceptance = "Awaiting Acceptance";
+    public const string Accepted = "Accepted";
+    public const string Scheduled = "Scheduled";
+    public const string ReadyToStart = "Ready To Start";
+    public const string InProgress = "In Progress";
+    public const string Completed = "Completed";
+    public const string CheckoutExpired = "Checkout Expired";
+    public const string PaymentFailed = "Payment Failed";
+    public const string Cancelled = "Cancelled";
+}
+
+public static class BookingPaymentStatusNames
+{
+    public const string SetupPending = "Setup Pending";
+    public const string SetupCompleted = "Setup Completed";
+    public const string ChargePending = "Charge Pending";
+    public const string ChargeSucceeded = "Charge Succeeded";
+    public const string ChargeFailed = "Charge Failed";
 }

@@ -266,6 +266,20 @@ export class BusinessWorkspaceComponent implements OnInit {
     this.router.navigate(['/workspace', 'overview', businessCode], { fragment: 'jobs' });
   }
 
+  goToPublicPage(): void {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode) {
+      return;
+    }
+
+    this.router.navigate(['/', businessCode], {
+      state: {
+        entry: 'business',
+        returnUrl: this.router.url,
+      },
+    });
+  }
+
   goToProfile(): void {
     this.router.navigate(['/profile']);
   }

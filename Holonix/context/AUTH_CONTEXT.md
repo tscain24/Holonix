@@ -17,6 +17,7 @@ Use this when a task touches login, registration, profile, JWTs, token refresh, 
 - `ClientApp/src/app/core/services/auth.service.ts`: login/register/profile/profile-image/delete-profile/profile-location calls and auth DTO interfaces.
 - `ClientApp/src/app/core/services/auth-session.service.ts`: session persistence, refresh flow, expiry flag, token decoding, and raw refresh HTTP client.
 - `ClientApp/src/app/core/services/auth.interceptor.ts`: attaches bearer tokens and retries once after refresh on protected 401 responses.
+- `ClientApp/src/app/features/auth/login/login.component.ts`: login form flow, toast handling, and optional post-login `returnUrl` redirects back into the originating public booking/cart route.
 
 ## Local Storage Keys
 
