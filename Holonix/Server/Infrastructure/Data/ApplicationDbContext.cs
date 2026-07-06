@@ -188,8 +188,6 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(x => x.City).HasMaxLength(120);
             entity.Property(x => x.State).HasMaxLength(120);
             entity.Property(x => x.ZipCode).HasMaxLength(32);
-            entity.Property(x => x.Latitude).HasColumnType("decimal(9,6)");
-            entity.Property(x => x.Longitude).HasColumnType("decimal(9,6)");
             entity.Property(x => x.BusinessIconBase64);
             entity.Property(x => x.BusinessJobPercentage).HasColumnType("decimal(5,2)");
             entity.HasOne(x => x.Country)

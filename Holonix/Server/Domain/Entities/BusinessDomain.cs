@@ -35,8 +35,6 @@ public class BusinessDetails
     public string? State { get; set; }
     public int? CountryId { get; set; }
     public string? ZipCode { get; set; }
-    public decimal? Latitude { get; set; }
-    public decimal? Longitude { get; set; }
     public string? BusinessIconBase64 { get; set; }
     public decimal BusinessJobPercentage { get; set; }
 

@@ -30,6 +30,7 @@ This is the ASP.NET Core backend for Holonix.
 - Domain schemas include `business`, `service`, `job`, `work`, and `reference`.
 - `Business.BusinessCode` is required, unique, and the preferred route identifier.
 - `BusinessDetails` is a one-to-one row keyed by `BusinessId`.
+- `BusinessDetails` is a one-to-one row keyed by `BusinessId`; business coordinates now belong on the primary `BusinessAddress` row rather than duplicating latitude/longitude in `BusinessDetails`.
 - The EF `Service` entity maps to `service.Category`; `BusinessService` maps to `business.BusinessCategory`; `BusinessSubService` maps to `business.BusinessService`.
 - `UserAddress` is the legacy single registration address row; reusable user profile locations live in `UserSavedLocation`.
 - Most business-related relationships use `DeleteBehavior.Restrict`; do not assume cascade deletes except where configured.

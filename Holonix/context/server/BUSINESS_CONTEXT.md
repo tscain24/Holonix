@@ -36,7 +36,8 @@ Base route: `api/business`
 Important mappings in `Infrastructure/Data/ApplicationDbContext.cs`:
 
 - `Business` -> `business.Business`; unique `BusinessCode`.
-- `BusinessDetails` -> `business.BusinessDetails`; one-to-one with `Business`, restricted country FK.
+- `BusinessDetails` -> `business.BusinessDetails`; one-to-one with `Business`, restricted country FK, profile metadata only.
+- `BusinessAddress` -> `business.BusinessAddress`; primary active address row is the source of truth for business address coordinates.
 - `Service` -> `service.Category`.
 - `BusinessService` -> `business.BusinessCategory`.
 - `BusinessSubService` -> `business.BusinessService`.

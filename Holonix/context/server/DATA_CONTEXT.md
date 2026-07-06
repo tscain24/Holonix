@@ -12,6 +12,7 @@ Use this when a task changes EF entities, model configuration, migrations, seede
 - Domain schemas include `business`, `service`, `job`, `work`, and `reference`.
 - The provider is PostgreSQL via `UseNpgsql`.
 - `Service` maps to `service.Category`, `BusinessService` maps to `business.BusinessCategory`, and `BusinessSubService` maps to `business.BusinessService`, including the `RequiresServiceLocation` boolean flag on business-specific service offerings.
+- `BusinessAddress` is the operational source of truth for business coordinates; `BusinessDetails` keeps profile metadata but no longer stores duplicate latitude/longitude columns.
 - `UserSavedLocation` has one filtered active-primary row per user and soft-deletes via `InactiveDate`.
 - Most domain relationships use `DeleteBehavior.Restrict`.
 - Startup runs `Database.MigrateAsync()` in `Program.cs`.

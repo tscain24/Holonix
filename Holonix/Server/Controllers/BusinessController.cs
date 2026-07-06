@@ -3093,7 +3093,7 @@ public class BusinessController : ControllerBase
             errors.Add("Business address is required.");
         }
 
-        var isPartialLocation = string.IsNullOrWhiteSpace(address1) || string.IsNullOrWhiteSpace(zipCode);
+        var isPartialLocation = string.IsNullOrWhiteSpace(zipCode);
 
         if ((request.Latitude.HasValue && !request.Longitude.HasValue) || (!request.Latitude.HasValue && request.Longitude.HasValue))
         {

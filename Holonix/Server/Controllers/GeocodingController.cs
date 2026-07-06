@@ -95,21 +95,37 @@ public sealed class GeocodingController : ControllerBase
         [FromBody] ResolveAddressRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.Address1)
-            || string.IsNullOrWhiteSpace(request.City)
-            || string.IsNullOrWhiteSpace(request.State)
-            || string.IsNullOrWhiteSpace(request.ZipCode))
+        var address1 = request.Address1?.Trim() ?? string.Empty;
+        var city = request.City?.Trim() ?? string.Empty;
+        var state = request.State?.Trim() ?? string.Empty;
+        var zipCode = request.ZipCode?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(city) || string.IsNullOrWhiteSpace(state))
         {
-            return BadRequest(new { errors = new[] { "Address is incomplete." } });
+            return BadRequest(new { errors = new[] { "Location is incomplete." } });
         }
 
         try
         {
-            var query = $"{request.Address1.Trim()}, {request.City.Trim()}, {request.State.Trim()} {request.ZipCode.Trim()}";
+            var queryParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(address1))
+            {
+                queryParts.Add(address1);
+            }
+
+            queryParts.Add($"{city}, {state}");
+
+            if (!string.IsNullOrWhiteSpace(zipCode))
+            {
+                queryParts.Add(zipCode);
+            }
+
+            var query = string.Join(", ", queryParts);
+            var types = string.IsNullOrWhiteSpace(address1) ? LocationTypes : "address";
             var suggestions = await _geocodingService.AutocompleteAsync(
                 query,
                 string.IsNullOrWhiteSpace(request.CountryCode) ? null : request.CountryCode.Trim(),
-                types: "address",
+                types,
                 limit: 1,
                 cancellationToken);
 

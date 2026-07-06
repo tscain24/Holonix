@@ -30,7 +30,7 @@ Use this when a task changes request/response shapes, API routes, frontend servi
   - Includes `GET /{businessCode}/my-availability/daily` and `GET /{businessCode}/availability/team/daily`.
   - The daily availability routes now share a backend availability calculator so public and workspace surfaces stay aligned, including all-day time off exclusion and partial-day time off subtraction.
   - Business sub-service create/update and workspace/public profile payloads now include `requiresServiceLocation` so customer booking flows can tell when a selected service needs a user location on a later step.
-  - `POST /api/business` still uses the same address fields, but the create-business screen can now submit a privacy-preserving `City and State only` location with blank `address1` and optional `zipCode` as long as it already includes a confirmed latitude/longitude pair from Mapbox.
+  - `POST /api/business` still uses the same address fields, but the create-business screen now runs a single location flow: `address1` and `zipCode` may be blank, while `city` and `state` remain required. When the request is effectively a broader location instead of a street address, the frontend resolves and submits latitude/longitude before launch.
 - `HomeController`: `/api/home`
   - `GET /pending-invites`
   - `POST /pending-invites/{workloadId}/accept`
@@ -42,6 +42,7 @@ Use this when a task changes request/response shapes, API routes, frontend servi
   - `GET /address-suggestions`
   - `GET /location-suggestions`
   - `POST /resolve-address`
+    - Accepts either a street-address query or a broader city/state/ZIP query. When `address1` is blank, the resolver falls back to location-style geocoding instead of rejecting the request as incomplete.
 - `MapboxController`: `/api/mapbox`
   - `GET /public-token`
 - `DevCategoryEmbeddingsController`: `/api/dev/category-embeddings`

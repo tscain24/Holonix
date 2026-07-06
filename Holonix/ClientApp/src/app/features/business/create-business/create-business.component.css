@@ -627,88 +627,6 @@
   border-color: #dc2626;
 }
 
-.verification-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #647b9d;
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.verification-status-icon {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #e5e7eb;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 700;
-  flex: 0 0 auto;
-}
-
-.verification-status-verified {
-  color: #1e40af;
-}
-
-.verification-status-verified .verification-status-icon {
-  background: #dbeafe;
-  color: #2563eb;
-}
-
-.verification-status-error {
-  color: #b91c1c;
-}
-
-.verification-status-error .verification-status-icon {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.address-mode-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.address-mode-card {
-  border: 1px solid #cfdbed;
-  border-radius: 16px;
-  background: #f9fbff;
-  color: #0f172a;
-  padding: 16px;
-  text-align: left;
-  display: grid;
-  gap: 6px;
-  cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, transform 0.2s ease;
-}
-
-.address-mode-card strong {
-  font-size: 14px;
-}
-
-.address-mode-card span {
-  color: #5b6f8d;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.address-mode-card:hover {
-  background: #ffffff;
-  border-color: #bfd1ee;
-}
-
-.address-mode-card-active {
-  border-color: #2563eb;
-  background: #eef4ff;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-  transform: translateY(-1px);
-}
-
 .selected-service-list {
   display: flex;
   flex-wrap: wrap;
@@ -1231,10 +1149,6 @@
 }
 
 @media (max-width: 640px) {
-  .address-mode-grid {
-    grid-template-columns: 1fr;
-  }
-
   .intro-feature-grid {
     grid-template-columns: 1fr;
   }
