@@ -1,9 +1,11 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, catchError, combineLatest, map, of, switchMap, takeUntil } from 'rxjs';
+import { Subject, catchError, combineLatest, finalize, map, of, switchMap, takeUntil } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Stripe, StripeElements, StripePaymentElement, loadStripe } from '@stripe/stripe-js';
 import { AuthService, UserSavedLocation } from '../../../core/services/auth.service';
 import {
+  CreatePublicBookingSetupIntentResponse,
   PublicBusinessAvailabilityTimeFrame,
   PublicBusinessDailyAvailability,
   PublicBusinessProfile,
@@ -42,12 +44,23 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   entrySearchedCategoryName: string | null = null;
   businessReturnUrl: string | null = null;
   loadingSelectedDateAvailability = false;
+  startingCheckout = false;
+  initializingPaymentElement = false;
+  paymentElementError: string | null = null;
+  paymentElementReady = false;
+
+  @ViewChild('stripePaymentElementHost')
+  private stripePaymentElementHost?: ElementRef<HTMLDivElement>;
 
   private todayAvailabilityTimeFrames: PublicBusinessAvailabilityTimeFrame[] = [];
   private selectedDateAvailabilityTimeFrames: PublicBusinessAvailabilityTimeFrame[] = [];
   private hasLoadedTodayAvailability = false;
   private readonly dateAvailabilityCache = new Map<string, PublicBusinessAvailabilityTimeFrame[]>();
   private readonly loadingDateAvailability = new Set<string>();
+  private stripeInstance: Stripe | null = null;
+  private stripeElements: StripeElements | null = null;
+  private stripePaymentElement: StripePaymentElement | null = null;
+  private paymentSetupSignature: string | null = null;
 
   private readonly destroyed$ = new Subject<void>();
 
@@ -117,9 +130,22 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
         this.loadTodayAvailability();
         this.loading = false;
       });
+
+    this.route.queryParamMap
+      .pipe(takeUntil(this.destroyed$))
+      .subscribe((queryParams) => {
+        const checkoutState = (queryParams.get('checkout') ?? '').trim().toLowerCase();
+        const setupState = (queryParams.get('setup') ?? '').trim().toLowerCase();
+        if (checkoutState === 'cancelled') {
+          this.snackBar.open('Stripe checkout was cancelled.', 'OK', { duration: 2600 });
+        } else if (setupState === 'complete' || checkoutState === 'setup-complete') {
+          this.snackBar.open('Card setup completed.', 'OK', { duration: 2600 });
+        }
+      });
   }
 
   ngOnDestroy(): void {
+    this.destroyPaymentElement();
     this.destroyed$.next();
     this.destroyed$.complete();
   }
@@ -244,6 +270,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     if (this.currentCheckoutStep === 2) {
       this.currentCheckoutStep = 3;
       this.loadSavedLocationsForDetailsIfNeeded();
+      this.queuePaymentElementInitialization();
     }
   }
 
@@ -277,6 +304,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
 
     this.currentCheckoutStep = 3;
     this.loadSavedLocationsForDetailsIfNeeded();
+    this.queuePaymentElementInitialization();
   }
 
   previousCalendarMonth(): void {
@@ -312,10 +340,168 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
 
   selectSavedLocation(location: UserSavedLocation): void {
     this.selectedSavedLocationId = location.userSavedLocationId;
+    this.queuePaymentElementInitialization();
   }
 
   setAcceptedLegalPolicies(value: boolean): void {
     this.acceptedLegalPolicies = value;
+  }
+
+  async startCheckout(): Promise<void> {
+    if (!this.canContinueFromDetails || this.startingCheckout) {
+      return;
+    }
+
+    await this.ensurePaymentElementReady();
+    if (!this.stripeInstance || !this.stripeElements) {
+      this.snackBar.open(this.paymentElementError ?? 'Stripe payment form is not ready yet.', 'OK', { duration: 3200 });
+      return;
+    }
+
+    this.startingCheckout = true;
+    this.paymentElementError = null;
+
+    const businessCode = encodeURIComponent((this.business?.businessCode ?? '').trim());
+    const returnUrl = `${window.location.origin}/${businessCode}/cart?setup=complete`;
+
+    const result = await this.stripeInstance.confirmSetup({
+      elements: this.stripeElements,
+      confirmParams: {
+        return_url: returnUrl,
+      },
+      redirect: 'if_required',
+    });
+
+    this.startingCheckout = false;
+
+    if (result.error) {
+      this.paymentElementError = result.error.message ?? 'Could not save your payment method.';
+      this.snackBar.open(this.paymentElementError, 'OK', { duration: 3600 });
+      return;
+    }
+
+    this.snackBar.open('Payment method saved. You will be charged 24 hours before the job.', 'OK', { duration: 3600 });
+  }
+
+  private queuePaymentElementInitialization(): void {
+    if (this.currentCheckoutStep !== 3) {
+      return;
+    }
+
+    window.setTimeout(() => {
+      void this.ensurePaymentElementReady();
+    }, 0);
+  }
+
+  private async ensurePaymentElementReady(): Promise<void> {
+    if (this.currentCheckoutStep !== 3) {
+      return;
+    }
+
+    const host = this.stripePaymentElementHost?.nativeElement;
+    const businessCode = (this.business?.businessCode ?? '').trim();
+    if (!host || !businessCode || !this.selectedScheduleDateIso || !this.selectedScheduleTime) {
+      return;
+    }
+
+    const signature = this.buildPaymentSetupSignature();
+    if (this.paymentElementReady && this.paymentSetupSignature === signature) {
+      return;
+    }
+
+    this.destroyPaymentElement();
+    this.initializingPaymentElement = true;
+    this.paymentElementError = null;
+
+    this.api.createSetupIntent(businessCode, {
+      businessSubServiceIds: this.selectedSubServiceIdsForAvailability,
+      selectedDate: this.selectedScheduleDateIso,
+      selectedTime: this.selectedScheduleTime,
+      userSavedLocationId: this.selectedSavedLocationId,
+      acceptedLegalPolicies: this.acceptedLegalPolicies,
+    })
+      .pipe(
+        takeUntil(this.destroyed$),
+        finalize(() => {
+          this.initializingPaymentElement = false;
+        })
+      )
+      .subscribe({
+        next: async (response) => {
+          await this.mountPaymentElement(response, signature);
+        },
+        error: (err) => {
+          const errors = err?.error?.errors as string[] | undefined;
+          this.paymentElementError = errors?.[0] ?? 'Could not start Stripe payment setup.';
+          this.paymentElementReady = false;
+        },
+      });
+  }
+
+  private async mountPaymentElement(
+    response: CreatePublicBookingSetupIntentResponse,
+    signature: string
+  ): Promise<void> {
+    const host = this.stripePaymentElementHost?.nativeElement;
+    if (!host) {
+      return;
+    }
+
+    const stripe = await loadStripe(response.publishableKey);
+    if (!stripe) {
+      this.paymentElementError = 'Stripe could not be initialized.';
+      this.paymentElementReady = false;
+      return;
+    }
+
+    const appearance = {
+      theme: 'stripe',
+      variables: {
+        colorPrimary: '#2563eb',
+        colorText: '#0f172a',
+        colorDanger: '#b91c1c',
+        borderRadius: '14px',
+        spacingUnit: '4px',
+      },
+    } as const;
+
+    this.stripeInstance = stripe;
+    this.stripeElements = stripe.elements({
+      clientSecret: response.clientSecret,
+      appearance,
+    });
+    this.stripePaymentElement = this.stripeElements.create('payment', {
+      layout: 'tabs',
+      paymentMethodOrder: ['card', 'us_bank_account', 'cashapp'],
+      wallets: {
+        applePay: 'never',
+        googlePay: 'never',
+        link: 'never',
+      },
+    });
+    this.stripePaymentElement.mount(host);
+    this.paymentSetupSignature = signature;
+    this.paymentElementReady = true;
+    this.paymentElementError = null;
+  }
+
+  private destroyPaymentElement(): void {
+    this.stripePaymentElement?.destroy();
+    this.stripePaymentElement = null;
+    this.stripeElements = null;
+    this.stripeInstance = null;
+    this.paymentElementReady = false;
+    this.paymentSetupSignature = null;
+  }
+
+  private buildPaymentSetupSignature(): string {
+    return JSON.stringify({
+      businessCode: (this.business?.businessCode ?? '').trim(),
+      serviceIds: this.selectedSubServiceIdsForAvailability,
+      selectedDate: this.selectedScheduleDateIso,
+      selectedTime: this.selectedScheduleTime,
+      userSavedLocationId: this.selectedSavedLocationId,
+    });
   }
 
   showComingSoon(section: string): void {
@@ -1029,6 +1215,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
           this.savedLocations = this.normalizeSavedLocations(profile.locations ?? []);
           const primary = this.savedLocations.find((location) => location.isPrimary);
           this.selectedSavedLocationId = (primary ?? this.savedLocations[0] ?? null)?.userSavedLocationId ?? null;
+          this.queuePaymentElementInitialization();
         },
         error: (err) => {
           this.loadingSavedLocations = false;

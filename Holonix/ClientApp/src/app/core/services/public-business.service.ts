@@ -55,6 +55,21 @@ export interface PublicBusinessProfile {
   services: PublicBusinessService[];
 }
 
+export interface CreatePublicBookingSetupIntentRequest {
+  businessSubServiceIds: number[];
+  selectedDate: string;
+  selectedTime: string;
+  userSavedLocationId?: number | null;
+  acceptedLegalPolicies: boolean;
+}
+
+export interface CreatePublicBookingSetupIntentResponse {
+  publishableKey: string;
+  clientSecret: string;
+  setupIntentId: string;
+  customerId: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -81,5 +96,16 @@ export class PublicBusinessService {
     const serviceQuery = normalizedIds.map((id) => `businessSubServiceIds=${encodeURIComponent(`${id}`)}`).join('&');
     const query = serviceQuery ? `date=${encodedDate}&${serviceQuery}` : `date=${encodedDate}`;
     return this.http.get<PublicBusinessDailyAvailability>(`${this.endpoint}/${encodedBusinessCode}/availability/daily?${query}`);
+  }
+
+  createSetupIntent(
+    businessCode: string,
+    payload: CreatePublicBookingSetupIntentRequest
+  ): Observable<CreatePublicBookingSetupIntentResponse> {
+    const encodedBusinessCode = encodeURIComponent((businessCode ?? '').trim());
+    return this.http.post<CreatePublicBookingSetupIntentResponse>(
+      `${this.endpoint}/${encodedBusinessCode}/checkout/setup-intent`,
+      payload
+    );
   }
 }

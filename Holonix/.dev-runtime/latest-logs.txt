@@ -1,4 +1,4 @@
-server stdout: C:\Users\tscai\source\repos\Holonix\.dev-runtime\logs\server-20260706-132130.log
-server stderr: C:\Users\tscai\source\repos\Holonix\.dev-runtime\logs\server-20260706-132130.err.log
-client stdout: C:\Users\tscai\source\repos\Holonix\.dev-runtime\logs\client-20260706-132130.log
-client stderr: C:\Users\tscai\source\repos\Holonix\.dev-runtime\logs\client-20260706-132130.err.log
+server stdout: C:\Users\tscai\source\repos\Holonix\.dev-runtime\logs\server-20260708-155138.log
+server stderr: C:\Users\tscai\source\repos\Holonix\.dev-runtime\logs\server-20260708-155138.err.log
+client stdout: C:\Users\tscai\source\repos\Holonix\.dev-runtime\logs\client-20260708-155138.log
+client stderr: C:\Users\tscai\source\repos\Holonix\.dev-runtime\logs\client-20260708-155138.err.log

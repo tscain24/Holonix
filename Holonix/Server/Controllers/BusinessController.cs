@@ -9,7 +9,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Stripe;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -27,6 +29,7 @@ public class BusinessController : ControllerBase
     private readonly ITokenService _tokenService;
     private readonly IGeocodingService _geocodingService;
     private readonly IBusinessAvailabilityCalculator _businessAvailabilityCalculator;
+    private readonly IStripeSetupIntentService _stripeSetupIntentService;
     private readonly ILogger<BusinessController> _logger;
 
     public BusinessController(
@@ -35,6 +38,7 @@ public class BusinessController : ControllerBase
         ITokenService tokenService,
         IGeocodingService geocodingService,
         IBusinessAvailabilityCalculator businessAvailabilityCalculator,
+        IStripeSetupIntentService stripeSetupIntentService,
         ILogger<BusinessController> logger)
     {
         _dbContext = dbContext;
@@ -42,6 +46,7 @@ public class BusinessController : ControllerBase
         _tokenService = tokenService;
         _geocodingService = geocodingService;
         _businessAvailabilityCalculator = businessAvailabilityCalculator;
+        _stripeSetupIntentService = stripeSetupIntentService;
         _logger = logger;
     }
 
@@ -622,6 +627,180 @@ public class BusinessController : ControllerBase
             date,
             timeFrames.Count > 0,
             timeFrames));
+    }
+
+    [Authorize]
+    [HttpPost("public/{businessCode}/checkout/setup-intent")]
+    public async Task<IActionResult> CreatePublicBookingSetupIntent(
+        string businessCode,
+        CreatePublicBookingSetupIntentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        businessCode = (businessCode ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(businessCode))
+        {
+            return BadRequest(new { errors = new[] { "Business code is required." } });
+        }
+
+        var normalizedSubServiceIds = (request.BusinessSubServiceIds ?? Array.Empty<long>())
+            .Where(id => id > 0)
+            .Distinct()
+            .ToArray();
+
+        if (normalizedSubServiceIds.Length == 0)
+        {
+            return BadRequest(new { errors = new[] { "Select at least one service before checkout." } });
+        }
+
+        var selectedStartMinutes = TryParseDisplayTimeToMinutes(request.SelectedTime);
+        if (!selectedStartMinutes.HasValue)
+        {
+            return BadRequest(new { errors = new[] { "A valid booking time is required." } });
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (request.SelectedDate < today || request.SelectedDate > today.AddDays(45))
+        {
+            return BadRequest(new { errors = new[] { "Selected date is outside the allowed booking window." } });
+        }
+
+        var business = await _dbContext.Businesses
+            .AsNoTracking()
+            .Where(item => item.BusinessCode == businessCode && item.InactiveDate == null)
+            .Include(item => item.Details)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (business is null)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var selectedSubServices = await _dbContext.BusinessSubServices
+            .AsNoTracking()
+            .Where(item =>
+                item.BusinessId == business.BusinessId &&
+                item.InactiveDate == null &&
+                normalizedSubServiceIds.Contains(item.BusinessSubServiceId))
+            .OrderBy(item => item.Name)
+            .ToListAsync(cancellationToken);
+
+        if (selectedSubServices.Count != normalizedSubServiceIds.Length)
+        {
+            return BadRequest(new { errors = new[] { "One or more selected services are no longer available." } });
+        }
+
+        var requiresLocation = selectedSubServices.Any(item => item.RequiresServiceLocation);
+        UserSavedLocation? selectedLocation = null;
+        if (requiresLocation)
+        {
+            if (!request.UserSavedLocationId.HasValue || request.UserSavedLocationId.Value <= 0)
+            {
+                return BadRequest(new { errors = new[] { "A saved service location is required for this booking." } });
+            }
+
+            selectedLocation = await _dbContext.UserSavedLocations
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    item =>
+                        item.UserSavedLocationId == request.UserSavedLocationId.Value &&
+                        item.UserId == userId &&
+                        item.InactiveDate == null,
+                    cancellationToken);
+
+            if (selectedLocation is null)
+            {
+                return BadRequest(new { errors = new[] { "Selected saved location was not found." } });
+            }
+        }
+
+        var totalDurationMinutes = selectedSubServices.Sum(item => item.DurationMinutes);
+        var availabilityFrames = await GetPublicAvailabilityTimeFramesAsync(
+            business.BusinessId,
+            request.SelectedDate,
+            normalizedSubServiceIds,
+            cancellationToken);
+
+        if (!IsSelectedTimeAvailable(availabilityFrames, selectedStartMinutes.Value, totalDurationMinutes))
+        {
+            return BadRequest(new { errors = new[] { "That time slot is no longer available. Choose another time and try again." } });
+        }
+
+        var currentUser = await _dbContext.Users
+            .AsNoTracking()
+            .Where(item => item.Id == userId && item.InactiveDate == null)
+            .Select(item => new
+            {
+                item.Id,
+                item.Email,
+                item.FirstName,
+                item.LastName,
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (currentUser is null || string.IsNullOrWhiteSpace(currentUser.Email))
+        {
+            return BadRequest(new { errors = new[] { "A valid customer email is required before checkout." } });
+        }
+
+        var subtotal = selectedSubServices.Sum(item => item.Price);
+        var serviceFee = Math.Round(subtotal * 0.05m, 2, MidpointRounding.AwayFromZero);
+        var total = subtotal + serviceFee;
+        var serviceNames = string.Join(", ", selectedSubServices.Select(item => item.Name));
+        var selectedTime = request.SelectedTime.Trim();
+
+        var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["businessCode"] = business.BusinessCode,
+            ["businessId"] = business.BusinessId.ToString(CultureInfo.InvariantCulture),
+            ["customerUserId"] = userId,
+            ["selectedDate"] = request.SelectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["selectedTime"] = selectedTime,
+            ["businessSubServiceIds"] = string.Join(",", normalizedSubServiceIds),
+            ["subtotal"] = subtotal.ToString("0.00", CultureInfo.InvariantCulture),
+            ["serviceFee"] = serviceFee.ToString("0.00", CultureInfo.InvariantCulture),
+            ["total"] = total.ToString("0.00", CultureInfo.InvariantCulture),
+            ["serviceNames"] = serviceNames,
+        };
+
+        if (selectedLocation is not null)
+        {
+            metadata["userSavedLocationId"] = selectedLocation.UserSavedLocationId.ToString(CultureInfo.InvariantCulture);
+            metadata["serviceLocationLabel"] = selectedLocation.Label;
+        }
+
+        try
+        {
+            var setupIntent = await _stripeSetupIntentService.CreateSetupIntentAsync(
+                new StripeSetupIntentRequest(
+                    currentUser.Email,
+                    BuildDisplayName(currentUser.FirstName, currentUser.LastName, currentUser.Email),
+                    metadata),
+                cancellationToken);
+
+            return Ok(new CreatePublicBookingSetupIntentResponse(
+                setupIntent.PublishableKey,
+                setupIntent.ClientSecret,
+                setupIntent.SetupIntentId,
+                setupIntent.CustomerId));
+        }
+        catch (StripeException ex)
+        {
+            _logger.LogError(ex, "Stripe setup intent creation failed for business {BusinessCode}.", business.BusinessCode);
+            return StatusCode(StatusCodes.Status502BadGateway, new { errors = new[] { "Stripe payment setup is temporarily unavailable." } });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Stripe payment setup is misconfigured.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { errors = new[] { "Stripe payment setup is not configured yet." } });
+        }
     }
 
     [Authorize]
@@ -3977,6 +4156,79 @@ public class BusinessController : ControllerBase
         }
 
         return intersections;
+    }
+
+    private static bool IsSelectedTimeAvailable(
+        IReadOnlyList<PublicBusinessAvailabilityTimeFrameResponse> availabilityFrames,
+        int selectedStartMinutes,
+        int requiredDurationMinutes)
+    {
+        if (requiredDurationMinutes <= 0 || availabilityFrames.Count == 0)
+        {
+            return false;
+        }
+
+        var selectedEndMinutes = selectedStartMinutes + requiredDurationMinutes;
+        foreach (var frame in availabilityFrames)
+        {
+            var frameStart = TryParseTwentyFourHourTimeToMinutes(frame.StartTime);
+            var frameEnd = TryParseTwentyFourHourTimeToMinutes(frame.EndTime);
+            if (!frameStart.HasValue || !frameEnd.HasValue)
+            {
+                continue;
+            }
+
+            if (selectedStartMinutes >= frameStart.Value && selectedEndMinutes <= frameEnd.Value)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static int? TryParseDisplayTimeToMinutes(string? value)
+    {
+        var trimmed = (value ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return null;
+        }
+
+        var match = System.Text.RegularExpressions.Regex.Match(trimmed, @"^(\d{1,2}):(\d{2})\s*(AM|PM)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!match.Success)
+        {
+            return TryParseTwentyFourHourTimeToMinutes(trimmed);
+        }
+
+        var hours = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+        var minutes = int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
+        var meridiem = match.Groups[3].Value.ToUpperInvariant();
+        if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59)
+        {
+            return null;
+        }
+
+        if (meridiem == "AM")
+        {
+            hours = hours == 12 ? 0 : hours;
+        }
+        else
+        {
+            hours = hours == 12 ? 12 : hours + 12;
+        }
+
+        return (hours * 60) + minutes;
+    }
+
+    private static int? TryParseTwentyFourHourTimeToMinutes(string? value)
+    {
+        if (!TimeOnly.TryParseExact((value ?? string.Empty).Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+        {
+            return null;
+        }
+
+        return (parsed.Hour * 60) + parsed.Minute;
     }
 
     private static List<EmployeeFilterQuery> ParseEmployeeFilters(string? filters)

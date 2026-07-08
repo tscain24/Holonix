@@ -27,6 +27,7 @@ Use this when a task changes request/response shapes, API routes, frontend servi
 - `BusinessController`: `/api/business`; see `context/BUSINESS_CONTEXT.md` and `context/server/BUSINESS_CONTEXT.md`.
   - Includes `GET /public/{businessCode}` for the public business profile.
   - Includes `GET /public/{businessCode}/availability/daily` for public date-specific booking availability. That route accepts optional repeated `businessSubServiceIds` query values to make public slots service-aware.
+  - Includes authenticated `POST /public/{businessCode}/checkout/setup-intent` for the public cart's embedded Stripe card-setup flow. The backend revalidates the selected public sub-services, chosen date/time, and required saved location before creating a Stripe SetupIntent plus customer metadata for later off-session charging.
   - Includes `GET /{businessCode}/my-availability/daily` and `GET /{businessCode}/availability/team/daily`.
   - The daily availability routes now share a backend availability calculator so public and workspace surfaces stay aligned, including all-day time off exclusion and partial-day time off subtraction.
   - Business sub-service create/update and workspace/public profile payloads now include `requiresServiceLocation` so customer booking flows can tell when a selected service needs a user location on a later step.

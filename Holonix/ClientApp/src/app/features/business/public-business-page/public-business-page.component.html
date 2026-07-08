@@ -539,7 +539,23 @@
         </div>
 
         <section class="details-card booking-price-summary" aria-label="Booking price summary and legal acknowledgements">
-          <div class="details-card-title">Price summary</div>
+          <div class="details-card-payment">
+            <div class="details-card-title">Payment</div>
+            <div class="details-card-subtitle">
+              Saved and processed with Stripe. Charged 24 hours before service.
+            </div>
+
+            <div class="payment-element-shell">
+              <div class="payment-element-loading" *ngIf="initializingPaymentElement">Loading secure payment form...</div>
+              <div class="payment-element-error" *ngIf="!initializingPaymentElement && paymentElementError">{{ paymentElementError }}</div>
+              <div
+                #stripePaymentElementHost
+                class="payment-element-host"
+                [class.payment-element-host--hidden]="initializingPaymentElement || !!paymentElementError"
+              ></div>
+            </div>
+          </div>
+
           <div class="booking-price-summary-list">
             <div class="booking-summary-row">
               <span class="booking-summary-key">Services subtotal</span>
@@ -556,10 +572,6 @@
           </div>
 
           <div class="details-card-legal">
-            <div class="details-card-subtitle">
-            You must review and accept these policies before submitting your booking request.
-            </div>
-
             <label class="details-check-row">
               <input
                 type="checkbox"
@@ -576,18 +588,13 @@
           </div>
 
           <div class="booking-cta-panel schedule-cta-panel booking-cta-panel-inline">
-            <div class="booking-cta-copy">
-              <div class="booking-cta-subtitle">
-                  Card will not charge until 24 hours before an accepted job request.
-              </div>
-            </div>
             <button
               type="button"
               class="primary-btn booking-cta-btn"
-              [disabled]="!canContinueFromDetails"
-              (click)="showComingSoon('Booking submission')"
+              [disabled]="!canContinueFromDetails || startingCheckout || initializingPaymentElement || !paymentElementReady"
+              (click)="startCheckout()"
             >
-              Checkout
+              {{ startingCheckout ? 'Authorizing...' : 'Authorize Payment' }}
             </button>
           </div>
         </section>

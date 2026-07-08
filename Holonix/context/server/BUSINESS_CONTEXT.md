@@ -12,6 +12,7 @@ Base route: `api/business`
 - `GET /{businessCode}`: business workspace payload.
 - `GET /public/{businessCode}`: public business profile payload, including aggregated weekly public availability derived from active employee schedules.
 - `GET /public/{businessCode}/availability/daily`: public date-specific availability payload for booking surfaces. It accepts optional repeated `businessSubServiceIds` query values so booking availability can be constrained to the selected cart services.
+- `POST /public/{businessCode}/checkout/setup-intent`: authenticated public-cart payment-setup handoff that revalidates selected services, availability, and required saved location before creating a Stripe customer plus SetupIntent for later off-session charging.
 - `POST /`: create business and owner membership.
 - `PUT /{businessCode}`: update business profile/general information.
 - `DELETE /{businessCode}`: owner-only soft delete business.
@@ -71,6 +72,7 @@ When changing an API shape, update the Angular interfaces in `ClientApp/src/app/
 - Public business responses intentionally omit member-only workspace data and return only active parent services plus active sub-services.
 - Shared availability calculation now lives in `Application/Interfaces/IBusinessAvailabilityCalculator.cs` and `Infrastructure/Services/BusinessAvailabilityCalculator.cs`. Use that service instead of duplicating "latest effective availability for date/day" logic inside controller actions.
 - Public availability for customer-facing booking is aggregated from active `BusinessUserAvailability` rows for active business members. Employee availability keeps the backend/native Sunday-first `DayOfWeek` convention (`0 = Sunday ... 6 = Saturday`). Weekly public availability is merged per weekday in that native convention. The public daily availability endpoint, the team-daily availability endpoint, and the member daily-availability projection now all use the shared availability calculator so "latest effective rows for date/day" behavior stays aligned. That shared calculator excludes members on all-day time off and subtracts partial-day `BusinessUserTimeOff` windows from the returned time frames before merging. When the public daily endpoint receives selected `businessSubServiceIds`, it narrows the employee pool to the employees assigned to each requested sub-service, applies each sub-service's `EmployeeCount` as the required simultaneous headcount, and intersects those service-specific windows across the cart.
+- The public Stripe payment-setup flow currently uses `IStripeSetupIntentService` plus the official Stripe SDK to create Stripe customers and `SetupIntent` records with `usage=off_session`; the controller stores booking selection metadata in Stripe and returns the publishable key plus client secret so the frontend can mount Stripe's embedded Payment Element instead of redirecting to hosted Checkout.
 
 ## Seeded Reference Data
 

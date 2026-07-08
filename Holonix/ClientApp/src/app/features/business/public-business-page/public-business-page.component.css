@@ -1164,6 +1164,43 @@
   margin-top: 14px;
 }
 
+.details-card-payment {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.payment-element-shell {
+  border-radius: 16px;
+  border: 1px solid #dbeafe;
+  background: #ffffff;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.06);
+  padding: 14px;
+  min-height: 138px;
+}
+
+.payment-element-host--hidden {
+  display: none;
+}
+
+.payment-element-loading,
+.payment-element-error {
+  min-height: 108px;
+  border-radius: 12px;
+  background: #f8fbff;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: #64748b;
+  font-weight: 700;
+  padding: 12px;
+}
+
+.payment-element-error {
+  color: #b91c1c;
+  background: #fff5f5;
+}
+
 .details-check-row {
   margin-top: 14px;
   display: grid;
@@ -1477,6 +1514,15 @@
   .public-business-page {
     padding-left: 16px;
     padding-right: 16px;
+  }
+
+  .payment-intent-banner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .payment-intent-amount {
+    font-size: 24px;
   }
 
   .subservice-grid {
