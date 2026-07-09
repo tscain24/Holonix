@@ -165,6 +165,62 @@
         </div>
       </ng-template>
 
+      <section class="workspace-section" *ngIf="business.jobRequests.length > 0 || canManageJobRequests">
+        <div class="section-heading section-heading-actions">
+          <div>
+            <div class="section-heading-title-row">
+              <h2>Job Requests</h2>
+              <span class="section-count-chip">{{ business.jobRequests.length }}</span>
+            </div>
+            <p>Authorized customer bookings waiting for a business decision.</p>
+          </div>
+        </div>
+
+        <div class="section-state" *ngIf="business.jobRequests.length === 0">
+          No pending job requests right now.
+        </div>
+
+        <div class="job-list" *ngIf="business.jobRequests.length > 0">
+          <article class="job-card job-request-card" *ngFor="let request of business.jobRequests">
+            <div class="job-card-main">
+              <div>
+                <h3>{{ request.name }}</h3>
+                <p>{{ formatJobWindow(request) }}</p>
+              </div>
+              <div class="job-money">
+                <span>Total</span>
+                <strong>{{ formatMoney(request.cost) }}</strong>
+              </div>
+            </div>
+
+            <div class="job-meta">
+              <span>Customer: {{ request.customerName }}</span>
+              <span>Status: {{ request.status }}</span>
+              <span>Payment: {{ request.paymentStatus }}</span>
+            </div>
+
+            <div class="job-request-actions" *ngIf="canManageJobRequests">
+              <button
+                type="button"
+                class="hero-btn hero-btn-secondary"
+                [disabled]="isUpdatingJobRequest(request.workloadId)"
+                (click)="denyJobRequest(request.workloadId)"
+              >
+                {{ isUpdatingJobRequest(request.workloadId) ? 'Updating...' : 'Deny' }}
+              </button>
+              <button
+                type="button"
+                class="hero-btn hero-btn-primary"
+                [disabled]="isUpdatingJobRequest(request.workloadId)"
+                (click)="acceptJobRequest(request.workloadId)"
+              >
+                {{ isUpdatingJobRequest(request.workloadId) ? 'Updating...' : 'Accept' }}
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section class="workspace-section" *ngIf="canViewGeneralInformation">
         <div class="section-heading section-heading-actions">
           <div>

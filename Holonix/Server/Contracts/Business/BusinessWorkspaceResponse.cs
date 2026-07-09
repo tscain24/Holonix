@@ -26,7 +26,9 @@ public sealed record BusinessWorkspaceResponse(
     int TotalJobs,
     decimal TotalRevenue,
     IReadOnlyList<BusinessWorkspaceEmployeeResponse> Employees,
-    IReadOnlyList<BusinessWorkspaceJobResponse> Jobs);
+    IReadOnlyList<BusinessWorkspaceJobResponse> Jobs,
+    IReadOnlyList<BusinessWorkspaceJobRequestResponse> JobRequests,
+    bool CanManageJobRequests);
 
 public sealed record BusinessWorkspaceServiceResponse(
     int ServiceId,
@@ -71,3 +73,14 @@ public sealed record BusinessWorkspaceJobResponse(
     decimal Cost,
     decimal NetCost,
     string? AssignedEmployeeName);
+
+public sealed record BusinessWorkspaceJobRequestResponse(
+    long WorkloadId,
+    long JobId,
+    string Name,
+    string CustomerName,
+    DateTime StartDateTime,
+    DateTime EndDateTime,
+    decimal Cost,
+    string Status,
+    string PaymentStatus);

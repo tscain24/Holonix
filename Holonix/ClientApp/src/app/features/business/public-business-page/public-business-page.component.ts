@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, catchError, combineLatest, finalize, map, of, switchMap, takeUntil } from 'rxjs';
+import { Subject, catchError, combineLatest, finalize, firstValueFrom, map, of, switchMap, takeUntil } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Stripe, StripeElements, StripePaymentElement, loadStripe } from '@stripe/stripe-js';
 import { AuthService, UserSavedLocation } from '../../../core/services/auth.service';
@@ -48,6 +48,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   initializingPaymentElement = false;
   paymentElementError: string | null = null;
   paymentElementReady = false;
+  finalizingAuthorizedBooking = false;
 
   @ViewChild('stripePaymentElementHost')
   private stripePaymentElementHost?: ElementRef<HTMLDivElement>;
@@ -61,6 +62,8 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   private stripeElements: StripeElements | null = null;
   private stripePaymentElement: StripePaymentElement | null = null;
   private paymentSetupSignature: string | null = null;
+  private currentPaymentFlowType: 'setup' | 'payment' = 'setup';
+  private readonly finalizedSetupIntentIds = new Set<string>();
 
   private readonly destroyed$ = new Subject<void>();
 
@@ -136,8 +139,11 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
       .subscribe((queryParams) => {
         const checkoutState = (queryParams.get('checkout') ?? '').trim().toLowerCase();
         const setupState = (queryParams.get('setup') ?? '').trim().toLowerCase();
+        const setupIntentId = (queryParams.get('setup_intent') ?? '').trim();
         if (checkoutState === 'cancelled') {
           this.snackBar.open('Stripe checkout was cancelled.', 'OK', { duration: 2600 });
+        } else if ((setupState === 'complete' || checkoutState === 'setup-complete') && setupIntentId) {
+          void this.completeAuthorizedBooking({ setupIntentId });
         } else if (setupState === 'complete' || checkoutState === 'setup-complete') {
           this.snackBar.open('Card setup completed.', 'OK', { duration: 2600 });
         }
@@ -363,7 +369,6 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
 
     const businessCode = encodeURIComponent((this.business?.businessCode ?? '').trim());
     const returnUrl = `${window.location.origin}/${businessCode}/cart?setup=complete`;
-
     const result = await this.stripeInstance.confirmSetup({
       elements: this.stripeElements,
       confirmParams: {
@@ -375,12 +380,77 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     this.startingCheckout = false;
 
     if (result.error) {
-      this.paymentElementError = result.error.message ?? 'Could not save your payment method.';
+      this.paymentElementError = result.error.message ?? 'Could not authorize your payment.';
       this.snackBar.open(this.paymentElementError, 'OK', { duration: 3600 });
       return;
     }
 
-    this.snackBar.open('Payment method saved. You will be charged 24 hours before the job.', 'OK', { duration: 3600 });
+    const setupIntentId = result.setupIntent?.id?.trim() ?? '';
+    if (!setupIntentId) {
+      this.paymentElementError = 'Stripe authorization finished, but the booking could not be finalized.';
+      this.snackBar.open(this.paymentElementError, 'OK', { duration: 3600 });
+      return;
+    }
+
+    await this.completeAuthorizedBooking({
+      setupIntentId: setupIntentId || null,
+    });
+  }
+
+  private async completeAuthorizedBooking(reference: { setupIntentId?: string | null; paymentIntentId?: string | null }): Promise<void> {
+    const normalizedSetupIntentId = (reference.setupIntentId ?? '').trim();
+    const normalizedPaymentIntentId = (reference.paymentIntentId ?? '').trim();
+    const finalizedKey = normalizedPaymentIntentId || normalizedSetupIntentId;
+    const businessCode = (this.business?.businessCode ?? '').trim();
+    if (!finalizedKey || !businessCode || this.finalizedSetupIntentIds.has(finalizedKey) || this.finalizingAuthorizedBooking) {
+      return;
+    }
+
+    this.finalizingAuthorizedBooking = true;
+    try {
+      const result = await firstValueFrom(this.api.completeBooking(businessCode, {
+        setupIntentId: normalizedSetupIntentId || null,
+        paymentIntentId: normalizedPaymentIntentId || null,
+      }));
+      this.finalizedSetupIntentIds.add(finalizedKey);
+      const isImmediateCharge = (result.paymentStatus ?? '').toLowerCase().includes('charge');
+      this.snackBar.open(
+        isImmediateCharge
+          ? 'Payment captured. Booking request sent to the business.'
+          : 'Booking request sent. The business can now accept or deny it.',
+        'OK',
+        { duration: 4200 }
+      );
+    } catch (err: any) {
+      this.paymentElementError = this.extractApiErrorMessage(err) ?? 'Payment was authorized, but the booking request could not be created.';
+      this.snackBar.open(this.paymentElementError, 'OK', { duration: 4200 });
+    } finally {
+      this.finalizingAuthorizedBooking = false;
+    }
+  }
+
+  private extractApiErrorMessage(error: any): string | null {
+    const errors = error?.error?.errors as string[] | undefined;
+    if (Array.isArray(errors) && errors.length > 0 && typeof errors[0] === 'string' && errors[0].trim()) {
+      return errors[0].trim();
+    }
+
+    const detail = error?.error?.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+      return detail.trim();
+    }
+
+    const title = error?.error?.title;
+    if (typeof title === 'string' && title.trim()) {
+      return title.trim();
+    }
+
+    const message = error?.message;
+    if (typeof message === 'string' && message.trim()) {
+      return message.trim();
+    }
+
+    return null;
   }
 
   private queuePaymentElementInitialization(): void {
@@ -470,6 +540,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
       clientSecret: response.clientSecret,
       appearance,
     });
+    this.currentPaymentFlowType = response.paymentFlowType;
     this.stripePaymentElement = this.stripeElements.create('payment', {
       layout: 'tabs',
       paymentMethodOrder: ['card', 'us_bank_account', 'cashapp'],
@@ -492,6 +563,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     this.stripeInstance = null;
     this.paymentElementReady = false;
     this.paymentSetupSignature = null;
+    this.currentPaymentFlowType = 'setup';
   }
 
   private buildPaymentSetupSignature(): string {
@@ -502,6 +574,10 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
       selectedTime: this.selectedScheduleTime,
       userSavedLocationId: this.selectedSavedLocationId,
     });
+  }
+
+  get paymentTimingCopy(): string {
+    return 'Saved and processed with Stripe. Charged after acceptance.';
   }
 
   showComingSoon(section: string): void {

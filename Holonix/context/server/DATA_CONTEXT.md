@@ -36,6 +36,7 @@ Use this when a task changes EF entities, model configuration, migrations, seede
 - `BusinessSubServiceAssignment` is unique per `(BusinessSubServiceId, BusinessUserId)`.
 - `EmployeeInviteWorkload` has unique indexes on both `WorkloadId` and `EmployeeInviteId`.
 - `BookingPayment` has unique indexes on both `JobId` and `WorkloadId`, plus a filtered unique index on non-null `StripeCheckoutSessionId`.
+- `BookingPayment` links a single booking workload to a single job and stores Stripe setup/payment identifiers, setup completion timing, immediate acceptance-time charge timing, and later charge state for customer-booking flows.
 
 ## Seeders
 

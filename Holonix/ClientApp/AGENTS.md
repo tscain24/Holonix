@@ -18,6 +18,7 @@ This is the Angular frontend for Holonix.
 - Unit tests: `npm test`
 
 The app expects the backend at `/api` via `proxy.conf.json`, targeting `http://localhost:5237`.
+Local frontend development runs over `https://localhost:4200` so secure-origin Stripe features work during local testing. `npm start` expects the repo-level runtime cert files under `.dev-runtime/certs/`, which `.\start-dev.ps1` now exports from the current localhost dev certificate before launching Angular.
 
 ## App Structure
 
@@ -71,5 +72,5 @@ Legacy `/business/:businessCode*` routes still redirect to the workspace URLs.
 ## Verification
 
 - Run `npm run build` from `ClientApp/` for TypeScript/template checks.
-- When checking live behavior, use the repo root `.\start-dev.ps1` so backend and frontend ports are coordinated.
+- When checking live behavior, use the repo root `.\start-dev.ps1` so backend and frontend ports are coordinated and the Angular dev server is started over HTTPS.
 - For UI changes, verify the affected page layout at mobile and desktop breakpoints before closing the task.

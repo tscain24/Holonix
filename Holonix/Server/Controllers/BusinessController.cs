@@ -24,6 +24,11 @@ public class BusinessController : ControllerBase
 {
     private const int BusinessCodeLength = 10;
     private const string BusinessCodeCharacters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private sealed record BusinessMembershipContext(
+        long BusinessUserId,
+        string? RoleName,
+        long? RoleHierarchyNumber);
+
     private readonly ApplicationDbContext _dbContext;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ITokenService _tokenService;
@@ -477,6 +482,46 @@ public class BusinessController : ControllerBase
                     : null))
             .ToList();
 
+        var jobRequestRows = await _dbContext.JobWorkloads
+            .AsNoTracking()
+            .Where(item =>
+                item.Job.BusinessId == businessId.Value &&
+                item.Workload.WorkloadType.Type == WorkloadTypeNames.CustomerBooking &&
+                item.Workload.WorkloadStatus.Status == WorkloadStatusNames.AwaitingAcceptance)
+            .OrderBy(item => item.Job.StartDateTime)
+            .Select(item => new
+            {
+                item.WorkloadId,
+                item.JobId,
+                item.Job.Name,
+                item.Job.StartDateTime,
+                item.Job.EndDateTime,
+                item.Job.Cost,
+                Status = item.Workload.WorkloadStatus.Status,
+                CustomerFirstName = item.Job.User != null ? item.Job.User.FirstName : null,
+                CustomerLastName = item.Job.User != null ? item.Job.User.LastName : null,
+                CustomerEmail = item.Job.User != null ? item.Job.User.Email : null,
+                PaymentStatus = _dbContext.BookingPayments
+                    .Where(payment => payment.WorkloadId == item.WorkloadId)
+                    .Select(payment => payment.PaymentStatus)
+                    .FirstOrDefault(),
+            })
+            .Take(8)
+            .ToListAsync(cancellationToken);
+
+        var jobRequests = jobRequestRows
+            .Select(item => new BusinessWorkspaceJobRequestResponse(
+                item.WorkloadId,
+                item.JobId,
+                string.IsNullOrWhiteSpace(item.Name) ? $"Job #{item.JobId}" : item.Name!,
+                BuildDisplayName(item.CustomerFirstName, item.CustomerLastName, item.CustomerEmail ?? "Customer"),
+                item.StartDateTime,
+                item.EndDateTime,
+                item.Cost,
+                item.Status,
+                item.PaymentStatus ?? BookingPaymentStatusNames.SetupPending))
+            .ToList();
+
         var totalRevenue = await _dbContext.Jobs
             .AsNoTracking()
             .Where(job => job.BusinessId == businessId.Value)
@@ -515,7 +560,9 @@ public class BusinessController : ControllerBase
             totalJobs,
             totalRevenue,
             employees,
-            jobResponses);
+            jobResponses,
+            jobRequests,
+            CanManageJobRequests(currentMembership.RoleName));
 
         return Ok(response);
     }
@@ -768,6 +815,7 @@ public class BusinessController : ControllerBase
             ["serviceFee"] = serviceFee.ToString("0.00", CultureInfo.InvariantCulture),
             ["total"] = total.ToString("0.00", CultureInfo.InvariantCulture),
             ["serviceNames"] = serviceNames,
+            ["paymentFlowType"] = "setup",
         };
 
         if (selectedLocation is not null)
@@ -778,18 +826,21 @@ public class BusinessController : ControllerBase
 
         try
         {
+            var customerName = BuildDisplayName(currentUser.FirstName, currentUser.LastName, currentUser.Email);
             var setupIntent = await _stripeSetupIntentService.CreateSetupIntentAsync(
                 new StripeSetupIntentRequest(
                     currentUser.Email,
-                    BuildDisplayName(currentUser.FirstName, currentUser.LastName, currentUser.Email),
+                    customerName,
                     metadata),
                 cancellationToken);
 
             return Ok(new CreatePublicBookingSetupIntentResponse(
+                "setup",
                 setupIntent.PublishableKey,
                 setupIntent.ClientSecret,
+                setupIntent.CustomerId,
                 setupIntent.SetupIntentId,
-                setupIntent.CustomerId));
+                null));
         }
         catch (StripeException ex)
         {
@@ -802,6 +853,280 @@ public class BusinessController : ControllerBase
             return StatusCode(StatusCodes.Status503ServiceUnavailable, new { errors = new[] { "Stripe payment setup is not configured yet." } });
         }
     }
+
+    [Authorize]
+    [HttpPost("public/{businessCode}/checkout/complete")]
+    public async Task<IActionResult> CompletePublicBooking(
+        string businessCode,
+        CompletePublicBookingRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        businessCode = (businessCode ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(businessCode))
+        {
+            return BadRequest(new { errors = new[] { "Business code is required." } });
+        }
+
+        var setupIntentId = request.SetupIntentId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(setupIntentId))
+        {
+            return BadRequest(new { errors = new[] { "Setup intent id is required." } });
+        }
+
+        var existingBooking = await _dbContext.BookingPayments
+            .AsNoTracking()
+            .Where(item => item.StripeSetupIntentId == setupIntentId)
+            .Select(item => new
+            {
+                item.JobId,
+                item.WorkloadId,
+                item.PaymentStatus,
+                Status = item.Workload.WorkloadStatus.Status,
+                BusinessCode = item.Job.Business.BusinessCode,
+                CustomerUserId = item.Job.UserId,
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (existingBooking is not null)
+        {
+            if (!string.Equals(existingBooking.BusinessCode, businessCode, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(existingBooking.CustomerUserId, userId, StringComparison.Ordinal))
+            {
+                return BadRequest(new { errors = new[] { "This payment authorization does not match the current booking." } });
+            }
+
+            return Ok(new CompletePublicBookingResponse(
+                existingBooking.JobId,
+                existingBooking.WorkloadId,
+                existingBooking.Status,
+                existingBooking.PaymentStatus));
+        }
+
+        StripeRetrievedSetupIntentResult setupIntent;
+        try
+        {
+            setupIntent = await _stripeSetupIntentService.GetSetupIntentAsync(setupIntentId, cancellationToken);
+        }
+        catch (StripeException ex)
+        {
+            _logger.LogError(ex, "Stripe payment lookup failed for setup {SetupIntentId}.", setupIntentId);
+            return StatusCode(StatusCodes.Status502BadGateway, new { errors = new[] { "Stripe payment authorization is temporarily unavailable." } });
+        }
+
+        if (!string.Equals(setupIntent.Status, "succeeded", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { errors = new[] { "Payment authorization is not complete yet." } });
+        }
+
+        var metadata = setupIntent.Metadata;
+
+        if (!metadata.TryGetValue("businessCode", out var metadataBusinessCode)
+            || !string.Equals(metadataBusinessCode, businessCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { errors = new[] { "This payment authorization does not match the selected business." } });
+        }
+
+        if (!metadata.TryGetValue("customerUserId", out var metadataCustomerUserId)
+            || !string.Equals(metadataCustomerUserId, userId, StringComparison.Ordinal))
+        {
+            return BadRequest(new { errors = new[] { "This payment authorization does not match the signed-in user." } });
+        }
+
+        if (!metadata.TryGetValue("selectedDate", out var selectedDateRaw)
+            || !DateOnly.TryParseExact(selectedDateRaw, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var selectedDate))
+        {
+            return BadRequest(new { errors = new[] { "Booking date metadata is invalid." } });
+        }
+
+        if (!metadata.TryGetValue("selectedTime", out var selectedTimeRaw))
+        {
+            return BadRequest(new { errors = new[] { "Booking time metadata is invalid." } });
+        }
+
+        var selectedStartMinutes = TryParseDisplayTimeToMinutes(selectedTimeRaw);
+        if (!selectedStartMinutes.HasValue)
+        {
+            return BadRequest(new { errors = new[] { "Booking time metadata is invalid." } });
+        }
+
+        if (!metadata.TryGetValue("businessSubServiceIds", out var subServiceIdsRaw))
+        {
+            return BadRequest(new { errors = new[] { "Booking service metadata is invalid." } });
+        }
+
+        var normalizedSubServiceIds = subServiceIdsRaw
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(value => long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0)
+            .Where(value => value > 0)
+            .Distinct()
+            .ToArray();
+
+        if (normalizedSubServiceIds.Length == 0)
+        {
+            return BadRequest(new { errors = new[] { "Booking service metadata is invalid." } });
+        }
+
+        var business = await _dbContext.Businesses
+            .AsNoTracking()
+            .Where(item => item.BusinessCode == businessCode && item.InactiveDate == null)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (business is null)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var selectedSubServices = await _dbContext.BusinessSubServices
+            .AsNoTracking()
+            .Where(item =>
+                item.BusinessId == business.BusinessId &&
+                item.InactiveDate == null &&
+                normalizedSubServiceIds.Contains(item.BusinessSubServiceId))
+            .OrderBy(item => item.Name)
+            .ToListAsync(cancellationToken);
+
+        if (selectedSubServices.Count != normalizedSubServiceIds.Length)
+        {
+            return BadRequest(new { errors = new[] { "One or more selected services are no longer available." } });
+        }
+
+        var subtotal = selectedSubServices.Sum(item => item.Price);
+        if (metadata.TryGetValue("subtotal", out var subtotalRaw)
+            && decimal.TryParse(subtotalRaw, NumberStyles.Number, CultureInfo.InvariantCulture, out var metadataSubtotal))
+        {
+            subtotal = metadataSubtotal;
+        }
+
+        var total = subtotal;
+        if (metadata.TryGetValue("total", out var totalRaw)
+            && decimal.TryParse(totalRaw, NumberStyles.Number, CultureInfo.InvariantCulture, out var metadataTotal))
+        {
+            total = metadataTotal;
+        }
+
+        var startDateTime = selectedDate.ToDateTime(new TimeOnly(selectedStartMinutes.Value / 60, selectedStartMinutes.Value % 60));
+        var endDateTime = startDateTime.AddMinutes(selectedSubServices.Sum(item => item.DurationMinutes));
+        var serviceNames = metadata.TryGetValue("serviceNames", out var metadataServiceNames) && !string.IsNullOrWhiteSpace(metadataServiceNames)
+            ? metadataServiceNames.Trim()
+            : string.Join(", ", selectedSubServices.Select(item => item.Name));
+
+        var workloadTypeId = await _dbContext.WorkloadTypes
+            .AsNoTracking()
+            .Where(item => item.Type == WorkloadTypeNames.CustomerBooking)
+            .Select(item => (long?)item.WorkloadTypeId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        var awaitingAcceptanceStatusId = await _dbContext.WorkloadStatuses
+            .AsNoTracking()
+            .Where(item =>
+                item.WorkloadType.Type == WorkloadTypeNames.CustomerBooking &&
+                item.Status == WorkloadStatusNames.AwaitingAcceptance)
+            .Select(item => (long?)item.WorkloadStatusId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!workloadTypeId.HasValue || !awaitingAcceptanceStatusId.HasValue)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { errors = new[] { "Booking workload reference data is missing." } });
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        var workload = new Workload
+        {
+            CreatedDate = nowUtc,
+            CreatedByUserId = userId,
+            WorkloadTypeId = workloadTypeId.Value,
+            WorkloadStatusId = awaitingAcceptanceStatusId.Value,
+        };
+
+        var job = new Job
+        {
+            Name = string.IsNullOrWhiteSpace(serviceNames) ? "Booking Request" : serviceNames.Trim(),
+            StartDateTime = startDateTime,
+            EndDateTime = endDateTime,
+            Cost = total,
+            NetCost = subtotal,
+            UserId = userId,
+            BusinessId = business.BusinessId,
+            BusinessUserId = null,
+            IsContract = false,
+        };
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            _dbContext.Workloads.Add(workload);
+            _dbContext.Jobs.Add(job);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            _dbContext.JobWorkloads.Add(new JobWorkload
+            {
+                JobId = job.JobId,
+                WorkloadId = workload.WorkloadId,
+            });
+            _dbContext.BookingPayments.Add(new BookingPayment
+            {
+                JobId = job.JobId,
+                WorkloadId = workload.WorkloadId,
+                PaymentStatus = BookingPaymentStatusNames.SetupCompleted,
+                StripeCustomerId = setupIntent.CustomerId,
+                StripeSetupIntentId = setupIntent.SetupIntentId,
+                StripePaymentMethodId = setupIntent.PaymentMethodId,
+                SetupCompletedUtc = nowUtc,
+                CreatedDate = nowUtc,
+                UpdatedDate = nowUtc,
+            });
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            _logger.LogError(
+                ex,
+                "Failed to create authorized booking request for business {BusinessCode}, user {UserId}, setup intent {SetupIntentId}.",
+                businessCode,
+                userId,
+                setupIntent.SetupIntentId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new { errors = new[] { "The booking request could not be saved." } });
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            _logger.LogError(
+                ex,
+                "Unexpected error creating authorized booking request for business {BusinessCode}, user {UserId}, setup intent {SetupIntentId}.",
+                businessCode,
+                userId,
+                setupIntent.SetupIntentId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new { errors = new[] { "The booking request could not be finalized." } });
+        }
+
+        return Ok(new CompletePublicBookingResponse(
+            job.JobId,
+            workload.WorkloadId,
+            WorkloadStatusNames.AwaitingAcceptance,
+            BookingPaymentStatusNames.SetupCompleted));
+    }
+
+    [Authorize]
+    [HttpPost("{businessCode}/job-requests/{workloadId:long}/accept")]
+    public Task<IActionResult> AcceptJobRequest(string businessCode, long workloadId, CancellationToken cancellationToken)
+        => UpdateJobRequestStatusAsync(businessCode, workloadId, WorkloadStatusNames.Accepted, "accepted", cancellationToken);
+
+    [Authorize]
+    [HttpPost("{businessCode}/job-requests/{workloadId:long}/deny")]
+    public Task<IActionResult> DenyJobRequest(string businessCode, long workloadId, CancellationToken cancellationToken)
+        => UpdateJobRequestStatusAsync(businessCode, workloadId, WorkloadStatusNames.Cancelled, "denied", cancellationToken);
 
     [Authorize]
     [HttpGet("{businessCode}/my-availability")]
@@ -3797,6 +4122,200 @@ public class BusinessController : ControllerBase
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    private async Task<BusinessMembershipContext?> GetCurrentBusinessMembershipAsync(
+        int businessId,
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        return await _dbContext.BusinessUsers
+            .AsNoTracking()
+            .Where(businessUser =>
+                businessUser.BusinessId == businessId &&
+                businessUser.UserId == userId &&
+                businessUser.IsActive &&
+                businessUser.EndDate == null)
+            .GroupJoin(
+                _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
+                businessUser => businessUser.BusinessUserId,
+                businessUserRole => businessUserRole.BusinessUserId,
+                (businessUser, businessUserRoles) => new { businessUser.BusinessUserId, businessUserRoles })
+            .SelectMany(
+                joined => joined.businessUserRoles.DefaultIfEmpty(),
+                (joined, businessUserRole) => new
+                {
+                    joined.BusinessUserId,
+                    BusinessRoleId = businessUserRole != null ? businessUserRole.BusinessRoleId : (long?)null,
+                })
+            .GroupJoin(
+                _dbContext.BusinessRoles.AsNoTracking(),
+                joined => joined.BusinessRoleId,
+                businessRole => (long?)businessRole.BusinessRoleId,
+                (joined, businessRoles) => new { joined.BusinessUserId, businessRoles })
+            .SelectMany(
+                joined => joined.businessRoles.DefaultIfEmpty(),
+                (joined, businessRole) => new BusinessMembershipContext(
+                    joined.BusinessUserId,
+                    businessRole != null ? businessRole.Name : null,
+                    businessRole != null ? businessRole.HierarchyNumber : (long?)null))
+            .OrderByDescending(item => item.RoleHierarchyNumber)
+            .ThenBy(item => item.RoleName)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<IActionResult> UpdateJobRequestStatusAsync(
+        string businessCode,
+        long workloadId,
+        string targetStatus,
+        string actionVerb,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var currentMembership = await GetCurrentBusinessMembershipAsync(businessId.Value, userId, cancellationToken);
+        if (currentMembership is null)
+        {
+            return Forbid();
+        }
+
+        if (!CanManageJobRequests(currentMembership.RoleName))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { errors = new[] { "Only managers, administrators, and owners can manage job requests." } });
+        }
+
+        var workload = await _dbContext.Workloads
+            .Where(item =>
+                item.WorkloadId == workloadId &&
+                item.WorkloadType.Type == WorkloadTypeNames.CustomerBooking)
+            .Include(item => item.WorkloadStatus)
+            .Include(item => item.WorkloadType)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (workload is null)
+        {
+            return NotFound(new { errors = new[] { "Job request not found." } });
+        }
+
+        var jobWorkload = await _dbContext.JobWorkloads
+            .Where(item => item.WorkloadId == workloadId)
+            .Include(item => item.Job)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (jobWorkload is null || jobWorkload.Job.BusinessId != businessId.Value)
+        {
+            return NotFound(new { errors = new[] { "Job request not found." } });
+        }
+
+        if (!string.Equals(workload.WorkloadStatus.Status, WorkloadStatusNames.AwaitingAcceptance, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { errors = new[] { $"This job request can no longer be {actionVerb}." } });
+        }
+
+        var targetStatusId = await _dbContext.WorkloadStatuses
+            .AsNoTracking()
+            .Where(item =>
+                item.WorkloadType.Type == WorkloadTypeNames.CustomerBooking &&
+                item.Status == targetStatus)
+            .Select(item => (long?)item.WorkloadStatusId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!targetStatusId.HasValue)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { errors = new[] { "Job request status configuration is missing." } });
+        }
+
+        BookingPayment? bookingPayment = null;
+        if (string.Equals(targetStatus, WorkloadStatusNames.Accepted, StringComparison.OrdinalIgnoreCase))
+        {
+            bookingPayment = await _dbContext.BookingPayments
+                .SingleOrDefaultAsync(item => item.WorkloadId == workloadId, cancellationToken);
+
+            if (bookingPayment is null)
+            {
+                return NotFound(new { errors = new[] { "Booking payment record not found." } });
+            }
+
+            var startsWithinTwentyFourHours = jobWorkload.Job.StartDateTime <= DateTime.Now.AddHours(24);
+            var needsImmediateCharge = startsWithinTwentyFourHours
+                && !string.Equals(bookingPayment.PaymentStatus, BookingPaymentStatusNames.ChargeSucceeded, StringComparison.OrdinalIgnoreCase);
+
+            if (needsImmediateCharge)
+            {
+                if (string.IsNullOrWhiteSpace(bookingPayment.StripeCustomerId) || string.IsNullOrWhiteSpace(bookingPayment.StripePaymentMethodId))
+                {
+                    return BadRequest(new { errors = new[] { "This booking does not have a saved payment method available for charging." } });
+                }
+
+                var paymentFailedStatusId = await _dbContext.WorkloadStatuses
+                    .AsNoTracking()
+                    .Where(item =>
+                        item.WorkloadType.Type == WorkloadTypeNames.CustomerBooking &&
+                        item.Status == WorkloadStatusNames.PaymentFailed)
+                    .Select(item => (long?)item.WorkloadStatusId)
+                    .SingleOrDefaultAsync(cancellationToken);
+
+                if (!paymentFailedStatusId.HasValue)
+                {
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { errors = new[] { "Payment failure status configuration is missing." } });
+                }
+
+                try
+                {
+                    var charge = await _stripeSetupIntentService.ChargeSavedPaymentMethodAsync(
+                        new StripeOffSessionChargeRequest(
+                            bookingPayment.StripeCustomerId,
+                            bookingPayment.StripePaymentMethodId,
+                            jobWorkload.Job.Cost,
+                            "usd",
+                            new Dictionary<string, string>(StringComparer.Ordinal)
+                            {
+                                ["businessCode"] = businessCode,
+                                ["jobId"] = jobWorkload.JobId.ToString(CultureInfo.InvariantCulture),
+                                ["workloadId"] = workloadId.ToString(CultureInfo.InvariantCulture),
+                                ["chargeReason"] = "accepted_within_24_hours",
+                            }),
+                        cancellationToken);
+
+                    bookingPayment.StripePaymentIntentId = charge.PaymentIntentId;
+                    bookingPayment.PaymentStatus = string.Equals(charge.Status, "succeeded", StringComparison.OrdinalIgnoreCase)
+                        ? BookingPaymentStatusNames.ChargeSucceeded
+                        : BookingPaymentStatusNames.ChargePending;
+                    bookingPayment.ChargedAtUtc = string.Equals(charge.Status, "succeeded", StringComparison.OrdinalIgnoreCase)
+                        ? DateTime.UtcNow
+                        : null;
+                    bookingPayment.UpdatedDate = DateTime.UtcNow;
+                }
+                catch (StripeException ex)
+                {
+                    _logger.LogError(ex, "Immediate accepted-booking charge failed for workload {WorkloadId}.", workloadId);
+                    workload.WorkloadStatusId = paymentFailedStatusId.Value;
+                    bookingPayment.PaymentStatus = BookingPaymentStatusNames.ChargeFailed;
+                    bookingPayment.LastPaymentFailureUtc = DateTime.UtcNow;
+                    bookingPayment.LastPaymentFailureCode = ex.StripeError?.Code;
+                    bookingPayment.LastPaymentFailureMessage = ex.StripeError?.Message ?? ex.Message;
+                    bookingPayment.UpdatedDate = DateTime.UtcNow;
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                    return StatusCode(StatusCodes.Status502BadGateway, new { errors = new[] { "The customer payment could not be charged after acceptance." } });
+                }
+            }
+        }
+
+        workload.WorkloadStatusId = targetStatusId.Value;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
     private static bool CanManageEmployeeInvites(string? roleName)
     {
         return string.Equals(roleName, BusinessRoleNames.Owner, StringComparison.OrdinalIgnoreCase)
@@ -3807,6 +4326,13 @@ public class BusinessController : ControllerBase
     {
         return string.Equals(roleName, BusinessRoleNames.Owner, StringComparison.OrdinalIgnoreCase)
             || string.Equals(roleName, BusinessRoleNames.Administrator, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool CanManageJobRequests(string? roleName)
+    {
+        return string.Equals(roleName, BusinessRoleNames.Owner, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(roleName, BusinessRoleNames.Administrator, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(roleName, BusinessRoleNames.Manager, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsValidSubServiceDuration(int durationMinutes)

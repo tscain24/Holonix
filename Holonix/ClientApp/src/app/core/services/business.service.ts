@@ -165,6 +165,18 @@ export interface BusinessWorkspaceJob {
   assignedEmployeeName?: string | null;
 }
 
+export interface BusinessWorkspaceJobRequest {
+  workloadId: number;
+  jobId: number;
+  name: string;
+  customerName: string;
+  startDateTime: string;
+  endDateTime: string;
+  cost: number;
+  status: string;
+  paymentStatus: string;
+}
+
 export interface BusinessEmployeeInvite {
   workloadId: number;
   email: string;
@@ -260,6 +272,8 @@ export interface BusinessWorkspace {
   totalRevenue: number;
   employees: BusinessWorkspaceEmployee[];
   jobs: BusinessWorkspaceJob[];
+  jobRequests: BusinessWorkspaceJobRequest[];
+  canManageJobRequests: boolean;
 }
 
 export interface BusinessWorkspaceEmployeePage {
@@ -475,6 +489,30 @@ export class BusinessService {
         }
 
         return this.tryUpdateEmployeeRoleFallback(businessCode, businessUserId, roleName, 0);
+      })
+    );
+  }
+
+  acceptJobRequest(businessCode: string, workloadId: number): Observable<void> {
+    return this.http.post<void>(`${this.businessEndpoint}/${businessCode}/job-requests/${workloadId}/accept`, {}).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryAcceptJobRequestFallback(businessCode, workloadId, 0);
+      })
+    );
+  }
+
+  denyJobRequest(businessCode: string, workloadId: number): Observable<void> {
+    return this.http.post<void>(`${this.businessEndpoint}/${businessCode}/job-requests/${workloadId}/deny`, {}).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryDenyJobRequestFallback(businessCode, workloadId, 0);
       })
     );
   }
@@ -837,6 +875,40 @@ export class BusinessService {
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
           return this.tryUpdateEmployeeRoleFallback(businessCode, businessUserId, roleName, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryAcceptJobRequestFallback(businessCode: string, workloadId: number, index: number): Observable<void> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Job request accept endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/job-requests/${workloadId}/accept`;
+    return this.http.post<void>(url, {}).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryAcceptJobRequestFallback(businessCode, workloadId, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryDenyJobRequestFallback(businessCode: string, workloadId: number, index: number): Observable<void> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Job request deny endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/job-requests/${workloadId}/deny`;
+    return this.http.post<void>(url, {}).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryDenyJobRequestFallback(businessCode, workloadId, index + 1);
         }
 
         return throwError(() => err);

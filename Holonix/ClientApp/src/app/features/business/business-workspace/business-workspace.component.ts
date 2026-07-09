@@ -8,6 +8,7 @@ import {
   BusinessServiceOption,
   BusinessWorkspace,
   BusinessWorkspaceJob,
+  BusinessWorkspaceJobRequest,
   BusinessWorkspaceService,
   BusinessWorkspaceSubService,
 } from '../../../core/services/business.service';
@@ -40,6 +41,7 @@ export class BusinessWorkspaceComponent implements OnInit {
   savingServices = false;
   creatingSubServiceIds = new Set<number>();
   deletingSubServiceIds = new Set<number>();
+  updatingJobRequestIds = new Set<number>();
   savingProfile = false;
   savingGeneralInformation = false;
   deletingBusiness = false;
@@ -167,46 +169,7 @@ export class BusinessWorkspaceComponent implements OnInit {
         }
       });
 
-    this.businessService.getBusinessWorkspace(businessCode).subscribe({
-      next: (workspace) => {
-        this.businessWorkspace = workspace;
-        this.servicesExpanded = false;
-        this.resetProfileEditor(workspace);
-        this.resetGeneralInformationEditor(workspace);
-        this.loadingWorkspace = false;
-        this.loadAvailableServices();
-      },
-      error: (err) => {
-        this.loadingWorkspace = false;
-
-        if (this.authSession.hasSessionExpiredFlag()) {
-          return;
-        }
-
-        if (err?.status === 403) {
-          this.snackBar.open('You do not have access to that business.', 'Close', {
-            duration: 3500,
-            panelClass: ['snack-error'],
-          });
-          this.router.navigate(['/business']);
-          return;
-        }
-
-        if (err?.status === 404) {
-          this.snackBar.open('That business could not be found.', 'Close', {
-            duration: 3500,
-            panelClass: ['snack-error'],
-          });
-          this.router.navigate(['/business']);
-          return;
-        }
-
-        this.snackBar.open('Could not load the business workspace.', 'Close', {
-          duration: 3500,
-          panelClass: ['snack-error'],
-        });
-      },
-    });
+    this.loadWorkspace(businessCode);
   }
 
   goHome(): void {
@@ -357,6 +320,10 @@ export class BusinessWorkspaceComponent implements OnInit {
     return role.length > 0 && role !== 'owner';
   }
 
+  get canManageJobRequests(): boolean {
+    return this.businessWorkspace?.canManageJobRequests ?? false;
+  }
+
   get canConfirmDeleteBusiness(): boolean {
     return this.deleteBusinessConfirmation.trim().toUpperCase() === BusinessWorkspaceComponent.DeleteBusinessConfirmation;
   }
@@ -427,6 +394,18 @@ export class BusinessWorkspaceComponent implements OnInit {
 
   hasActiveWorkspaceEmployees(): boolean {
     return this.activeWorkspaceEmployees.length > 0;
+  }
+
+  isUpdatingJobRequest(workloadId: number): boolean {
+    return this.updatingJobRequestIds.has(workloadId);
+  }
+
+  acceptJobRequest(workloadId: number): void {
+    this.updateJobRequest(workloadId, 'accept');
+  }
+
+  denyJobRequest(workloadId: number): void {
+    this.updateJobRequest(workloadId, 'deny');
   }
 
   onServiceSearchInput(event: Event): void {
@@ -1188,7 +1167,7 @@ export class BusinessWorkspaceComponent implements OnInit {
     }).format(value || 0);
   }
 
-  formatJobWindow(job: BusinessWorkspaceJob): string {
+  formatJobWindow(job: Pick<BusinessWorkspaceJob | BusinessWorkspaceJobRequest, 'startDateTime' | 'endDateTime'>): string {
     const start = new Date(job.startDateTime);
     const end = new Date(job.endDateTime);
 
@@ -1288,6 +1267,81 @@ export class BusinessWorkspaceComponent implements OnInit {
     if (!this.isMobileNav) {
       this.isWorkspaceMenuOpen = false;
     }
+  }
+
+  private loadWorkspace(businessCode: string): void {
+    this.loadingWorkspace = true;
+    this.businessService.getBusinessWorkspace(businessCode).subscribe({
+      next: (workspace) => {
+        this.businessWorkspace = workspace;
+        this.servicesExpanded = false;
+        this.resetProfileEditor(workspace);
+        this.resetGeneralInformationEditor(workspace);
+        this.loadingWorkspace = false;
+        this.loadAvailableServices();
+      },
+      error: (err) => {
+        this.loadingWorkspace = false;
+
+        if (this.authSession.hasSessionExpiredFlag()) {
+          return;
+        }
+
+        if (err?.status === 403) {
+          this.snackBar.open('You do not have access to that business.', 'Close', {
+            duration: 3500,
+            panelClass: ['snack-error'],
+          });
+          this.router.navigate(['/business']);
+          return;
+        }
+
+        if (err?.status === 404) {
+          this.snackBar.open('That business could not be found.', 'Close', {
+            duration: 3500,
+            panelClass: ['snack-error'],
+          });
+          this.router.navigate(['/business']);
+          return;
+        }
+
+        this.snackBar.open('Could not load the business workspace.', 'Close', {
+          duration: 3500,
+          panelClass: ['snack-error'],
+        });
+      },
+    });
+  }
+
+  private updateJobRequest(workloadId: number, action: 'accept' | 'deny'): void {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    if (!businessCode || !this.canManageJobRequests || this.isUpdatingJobRequest(workloadId)) {
+      return;
+    }
+
+    this.updatingJobRequestIds.add(workloadId);
+    const request$ = action === 'accept'
+      ? this.businessService.acceptJobRequest(businessCode, workloadId)
+      : this.businessService.denyJobRequest(businessCode, workloadId);
+
+    request$
+      .pipe(finalize(() => this.updatingJobRequestIds.delete(workloadId)))
+      .subscribe({
+        next: () => {
+          this.snackBar.open(action === 'accept' ? 'Job request accepted.' : 'Job request denied.', 'Close', {
+            duration: 3200,
+            panelClass: ['snack-success'],
+          });
+          this.loadWorkspace(businessCode);
+        },
+        error: (err) => {
+          const errors = err?.error?.errors as string[] | undefined;
+          this.snackBar.open(errors?.[0] ?? 'Could not update the job request.', 'Close', {
+            duration: 3600,
+            panelClass: ['snack-error'],
+          });
+        },
+      });
   }
 
   @HostListener('document:keydown.escape')

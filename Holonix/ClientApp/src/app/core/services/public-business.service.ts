@@ -64,10 +64,24 @@ export interface CreatePublicBookingSetupIntentRequest {
 }
 
 export interface CreatePublicBookingSetupIntentResponse {
+  paymentFlowType: 'setup' | 'payment';
   publishableKey: string;
   clientSecret: string;
-  setupIntentId: string;
   customerId: string;
+  setupIntentId?: string | null;
+  paymentIntentId?: string | null;
+}
+
+export interface CompletePublicBookingRequest {
+  setupIntentId?: string | null;
+  paymentIntentId?: string | null;
+}
+
+export interface CompletePublicBookingResponse {
+  jobId: number;
+  workloadId: number;
+  status: string;
+  paymentStatus: string;
 }
 
 @Injectable({
@@ -105,6 +119,17 @@ export class PublicBusinessService {
     const encodedBusinessCode = encodeURIComponent((businessCode ?? '').trim());
     return this.http.post<CreatePublicBookingSetupIntentResponse>(
       `${this.endpoint}/${encodedBusinessCode}/checkout/setup-intent`,
+      payload
+    );
+  }
+
+  completeBooking(
+    businessCode: string,
+    payload: CompletePublicBookingRequest
+  ): Observable<CompletePublicBookingResponse> {
+    const encodedBusinessCode = encodeURIComponent((businessCode ?? '').trim());
+    return this.http.post<CompletePublicBookingResponse>(
+      `${this.endpoint}/${encodedBusinessCode}/checkout/complete`,
       payload
     );
   }

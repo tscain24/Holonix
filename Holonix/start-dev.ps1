@@ -5,6 +5,7 @@ $serverDir = Join-Path $repoRoot "Server"
 $clientDir = Join-Path $repoRoot "ClientApp"
 $runtimeDir = Join-Path $repoRoot ".dev-runtime"
 $logDir = Join-Path $runtimeDir "logs"
+$clientCertDir = Join-Path $runtimeDir "certs"
 $serverBuildDir = Join-Path $serverDir "bin\Debug\net10.0"
 $serverRuntimeDir = Join-Path $runtimeDir "server-run"
 $serverPidFile = Join-Path $runtimeDir "server.pid"
@@ -12,11 +13,13 @@ $clientPidFile = Join-Path $runtimeDir "client.pid"
 $serverExecutable = Join-Path $serverBuildDir "Holonix.Server.exe"
 $serverRuntimeExecutable = Join-Path $serverRuntimeDir "Holonix.Server.exe"
 $latestLogsFile = Join-Path $runtimeDir "latest-logs.txt"
+$clientSslCertPath = Join-Path $clientCertDir "localhost.crt"
+$clientSslKeyPath = Join-Path $clientCertDir "localhost.key"
 
 $serverHttpUrl = "http://localhost:5237"
 $serverSwaggerUrl = "$serverHttpUrl/swagger"
 $serverHttpsUrl = "https://localhost:7241"
-$clientUrl = "http://localhost:4200"
+$clientUrl = "https://localhost:4200"
 
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $serverOut = Join-Path $logDir "server-$timestamp.log"
@@ -26,6 +29,7 @@ $clientErr = Join-Path $logDir "client-$timestamp.err.log"
 
 New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+New-Item -ItemType Directory -Path $clientCertDir -Force | Out-Null
 
 function Remove-LogFiles {
     if (Test-Path $latestLogsFile) {
@@ -203,7 +207,7 @@ function Wait-ForUrl {
         }
 
         try {
-            $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 5
+            $response = Invoke-WebRequestWithOptionalTlsBypass -Url $Url -TimeoutSec 5
             if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) {
                 Write-Host "$Name is ready at $Url"
                 return
@@ -216,6 +220,33 @@ function Wait-ForUrl {
     } while ((Get-Date) -lt $deadline)
 
     throw "$Name did not become ready at $Url within $TimeoutSeconds seconds."
+}
+
+function Invoke-WebRequestWithOptionalTlsBypass {
+    param(
+        [string]$Url,
+        [int]$TimeoutSec = 5
+    )
+
+    $uri = [Uri]$Url
+    $isLocalHttps = $uri.Scheme -eq "https" -and ($uri.Host -eq "localhost" -or $uri.Host -eq "127.0.0.1")
+    if (-not $isLocalHttps) {
+        return Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec $TimeoutSec
+    }
+
+    $invokeCommand = Get-Command Invoke-WebRequest -ErrorAction SilentlyContinue
+    if ($null -ne $invokeCommand -and $invokeCommand.Parameters.ContainsKey("SkipCertificateCheck")) {
+        return Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec $TimeoutSec -SkipCertificateCheck
+    }
+
+    $previousCallback = [System.Net.ServicePointManager]::ServerCertificateValidationCallback
+    try {
+        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+        return Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec $TimeoutSec
+    }
+    finally {
+        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $previousCallback
+    }
 }
 
 function Show-RecentLogs {
@@ -341,6 +372,52 @@ function Get-PostgresConnectionString {
     return $connectionString
 }
 
+function Export-ClientHttpsCertificateFiles {
+    param(
+        [string]$CertificatePath,
+        [string]$KeyPath
+    )
+
+    New-Item -ItemType Directory -Path (Split-Path -Parent $CertificatePath) -Force | Out-Null
+
+    $certificatePathEscaped = $CertificatePath.Replace("'", "''")
+    $keyPathEscaped = $KeyPath.Replace("'", "''")
+
+    $exportScript = @"
+`$cert = Get-ChildItem Cert:\CurrentUser\My |
+    Where-Object {
+        `$_.Subject -eq 'CN=localhost' -and
+        `$_.HasPrivateKey -and
+        `$_.NotAfter -gt [DateTime]::UtcNow
+    } |
+    Sort-Object NotAfter -Descending |
+    Select-Object -First 1
+
+if (`$null -eq `$cert) {
+    throw 'No exportable localhost development certificate was found in Cert:\CurrentUser\My.'
+}
+
+`$rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey(`$cert)
+if (`$null -eq `$rsa) {
+    throw 'The localhost development certificate does not expose an RSA private key.'
+}
+
+`$certBytes = `$cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
+`$keyBytes = `$rsa.ExportPkcs8PrivateKey()
+`$certPem = ([System.Security.Cryptography.PemEncoding]::Write('CERTIFICATE', `$certBytes) -join '')
+`$keyPem = ([System.Security.Cryptography.PemEncoding]::Write('PRIVATE KEY', `$keyBytes) -join '')
+
+[System.IO.File]::WriteAllText('$certificatePathEscaped', `$certPem)
+[System.IO.File]::WriteAllText('$keyPathEscaped', `$keyPem)
+"@
+
+    $null = $exportScript | pwsh -NoProfile -Command -
+
+    if (-not (Test-Path $CertificatePath) -or -not (Test-Path $KeyPath)) {
+        throw "Frontend HTTPS certificate files were not created."
+    }
+}
+
 Stop-RecordedProcess -PidPath $serverPidFile -Name "backend"
 Stop-RecordedProcess -PidPath $clientPidFile -Name "frontend"
 Stop-PortListeners -Ports @(4200, 5237, 7241)
@@ -363,6 +440,7 @@ if (Should-BuildBackend -ProjectDirectory $serverDir -ExecutablePath $serverExec
 }
 
 Stage-ServerBuildOutput -SourceDirectory $serverBuildDir -DestinationDirectory $serverRuntimeDir
+Export-ClientHttpsCertificateFiles -CertificatePath $clientSslCertPath -KeyPath $clientSslKeyPath
 
 $postgresConnectionString = Get-PostgresConnectionString
 $escapedConnectionString = $postgresConnectionString.Replace("'", "''")

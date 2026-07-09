@@ -8,7 +8,9 @@ public sealed record CreatePublicBookingSetupIntentRequest(
     bool AcceptedLegalPolicies);
 
 public sealed record CreatePublicBookingSetupIntentResponse(
+    string PaymentFlowType,
     string PublishableKey,
     string ClientSecret,
-    string SetupIntentId,
-    string CustomerId);
+    string CustomerId,
+    string? SetupIntentId,
+    string? PaymentIntentId);

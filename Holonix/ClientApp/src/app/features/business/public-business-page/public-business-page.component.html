@@ -542,7 +542,7 @@
           <div class="details-card-payment">
             <div class="details-card-title">Payment</div>
             <div class="details-card-subtitle">
-              Saved and processed with Stripe. Charged 24 hours before service.
+              {{ paymentTimingCopy }}
             </div>
 
             <div class="payment-element-shell">
@@ -591,10 +591,10 @@
             <button
               type="button"
               class="primary-btn booking-cta-btn"
-              [disabled]="!canContinueFromDetails || startingCheckout || initializingPaymentElement || !paymentElementReady"
+              [disabled]="!canContinueFromDetails || startingCheckout || initializingPaymentElement || !paymentElementReady || finalizingAuthorizedBooking"
               (click)="startCheckout()"
             >
-              {{ startingCheckout ? 'Authorizing...' : 'Authorize Payment' }}
+              {{ startingCheckout ? 'Authorizing...' : (finalizingAuthorizedBooking ? 'Finalizing...' : 'Authorize Payment') }}
             </button>
           </div>
         </section>

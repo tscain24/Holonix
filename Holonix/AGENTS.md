@@ -7,7 +7,7 @@ Use this file as the first stop for Codex sessions. It is intentionally compact 
 - `Server/`: ASP.NET Core Web API targeting `net10.0`.
 - `ClientApp/`: Angular 16 app using Angular Material, RxJS, Tailwind/PostCSS, and the Angular CLI.
 - Development entry point is the repo root PowerShell script `.\start-dev.ps1`; clean shutdown is `.\stop-dev.ps1`.
-- Expected local URLs: frontend `http://localhost:4200`, backend HTTP `http://localhost:5237`, backend HTTPS `https://localhost:7241`, Swagger `http://localhost:5237/swagger`.
+- Expected local URLs: frontend `https://localhost:4200`, backend HTTP `http://localhost:5237`, backend HTTPS `https://localhost:7241`, Swagger `http://localhost:5237/swagger`.
 - Angular dev server proxies `/api` to `http://localhost:5237` through `ClientApp/proxy.conf.json`.
 
 ## Commands
@@ -27,6 +27,7 @@ git -c safe.directory=C:/Users/tscai/source/repos status --short
 ## Runtime Notes
 
 - `start-dev.ps1` stages backend output into `.dev-runtime/server-run` and writes logs under `.dev-runtime/logs`.
+- The Angular dev server now runs over HTTPS at `https://localhost:4200` so Stripe sees a secure local origin; `start-dev.ps1` exports the current localhost development certificate into `.dev-runtime/certs/localhost.crt` and `.dev-runtime/certs/localhost.key` for Angular to reuse, and bypasses local certificate validation only for its own readiness probe.
 - Do not place temporary verification directories under `Server/`. ASP.NET SDK content globbing can pull them into build output. The project excludes `tmp-*` paths, but keep temp artifacts outside source when possible.
 - Existing `Server/tmp-*.log` files are local verification logs, not application source.
 - Network access may be restricted during Codex runs; avoid dependency installation unless it is actually needed.

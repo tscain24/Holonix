@@ -1188,6 +1188,17 @@ span.selected-service-chip {
   background: #eef4ff;
 }
 
+.job-request-card {
+  gap: 14px;
+}
+
+.job-request-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .workspace-modal-overlay {
   position: fixed;
   inset: 0;
