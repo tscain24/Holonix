@@ -175,6 +175,32 @@ export interface BusinessWorkspaceJobRequest {
   cost: number;
   status: string;
   paymentStatus: string;
+  serviceLocation?: BusinessWorkspaceJobLocation | null;
+  costBreakdown?: BusinessWorkspaceJobCostBreakdown | null;
+}
+
+export interface BusinessWorkspaceJobCostBreakdown {
+  subtotal: number;
+  customerServiceFee: number;
+  total: number;
+  lines: BusinessWorkspaceJobCostLine[];
+}
+
+export interface BusinessWorkspaceJobCostLine {
+  serviceName: string;
+  price: number;
+  durationMinutes: number;
+}
+
+export interface BusinessWorkspaceJobLocation {
+  label?: string | null;
+  address1: string;
+  address2?: string | null;
+  city: string;
+  state: string;
+  zipCode: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface BusinessEmployeeInvite {
@@ -245,6 +271,24 @@ export interface BusinessDailyTeamAvailabilityResponse {
   members: BusinessDailyTeamAvailabilityMember[];
 }
 
+export interface JobRequestAvailabilityBooking {
+  jobId: number;
+  workloadId?: number | null;
+  name: string;
+  startDateTime: string;
+  endDateTime: string;
+  status: string;
+  assignedEmployeeName?: string | null;
+  isPendingRequest: boolean;
+  serviceLocation?: BusinessWorkspaceJobLocation | null;
+}
+
+export interface JobRequestAvailabilityResponse {
+  date: string;
+  request: JobRequestAvailabilityBooking;
+  existingJobs: JobRequestAvailabilityBooking[];
+}
+
 export interface BusinessWorkspace {
   businessId: number;
   businessCode: string;
@@ -274,6 +318,7 @@ export interface BusinessWorkspace {
   jobs: BusinessWorkspaceJob[];
   jobRequests: BusinessWorkspaceJobRequest[];
   canManageJobRequests: boolean;
+  canViewJobRequestCostBreakdowns: boolean;
 }
 
 export interface BusinessWorkspaceEmployeePage {
@@ -513,6 +558,19 @@ export class BusinessService {
         }
 
         return this.tryDenyJobRequestFallback(businessCode, workloadId, 0);
+      })
+    );
+  }
+
+  getJobRequestAvailability(businessCode: string, workloadId: number): Observable<JobRequestAvailabilityResponse> {
+    const url = `${this.businessEndpoint}/${businessCode}/job-requests/${workloadId}/availability`;
+    return this.http.get<JobRequestAvailabilityResponse>(url).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryGetJobRequestAvailabilityFallback(businessCode, workloadId, 0);
       })
     );
   }
@@ -909,6 +967,27 @@ export class BusinessService {
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
           return this.tryDenyJobRequestFallback(businessCode, workloadId, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryGetJobRequestAvailabilityFallback(
+    businessCode: string,
+    workloadId: number,
+    index: number
+  ): Observable<JobRequestAvailabilityResponse> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Job request availability endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/job-requests/${workloadId}/availability`;
+    return this.http.get<JobRequestAvailabilityResponse>(url).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryGetJobRequestAvailabilityFallback(businessCode, workloadId, index + 1);
         }
 
         return throwError(() => err);

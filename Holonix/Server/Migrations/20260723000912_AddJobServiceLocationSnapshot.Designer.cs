@@ -3,6 +3,7 @@ using System;
 using Holonix.Server.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Holonix.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260723000912_AddJobServiceLocationSnapshot")]
+    partial class AddJobServiceLocationSnapshot
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -856,41 +859,6 @@ namespace Holonix.Server.Migrations
                     b.ToTable("JobRecurrenceException", "job");
                 });
 
-            modelBuilder.Entity("Holonix.Server.Domain.Entities.JobServiceLine", b =>
-                {
-                    b.Property<long>("JobServiceLineId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("JobServiceLineId"));
-
-                    b.Property<long?>("BusinessSubServiceId")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("DurationMinutes")
-                        .HasColumnType("integer");
-
-                    b.Property<long>("JobId")
-                        .HasColumnType("bigint");
-
-                    b.Property<decimal>("Price")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("ServiceName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.HasKey("JobServiceLineId");
-
-                    b.HasIndex("BusinessSubServiceId");
-
-                    b.HasIndex("JobId", "BusinessSubServiceId")
-                        .IsUnique();
-
-                    b.ToTable("JobServiceLine", "job");
-                });
-
             modelBuilder.Entity("Holonix.Server.Domain.Entities.JobWorkload", b =>
                 {
                     b.Property<long>("JobWorkloadId")
@@ -1525,24 +1493,6 @@ namespace Holonix.Server.Migrations
                         .IsRequired();
 
                     b.Navigation("JobRecurrence");
-                });
-
-            modelBuilder.Entity("Holonix.Server.Domain.Entities.JobServiceLine", b =>
-                {
-                    b.HasOne("Holonix.Server.Domain.Entities.BusinessSubService", "BusinessSubService")
-                        .WithMany()
-                        .HasForeignKey("BusinessSubServiceId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Holonix.Server.Domain.Entities.Job", "Job")
-                        .WithMany()
-                        .HasForeignKey("JobId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("BusinessSubService");
-
-                    b.Navigation("Job");
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.JobWorkload", b =>

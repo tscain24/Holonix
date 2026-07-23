@@ -208,7 +208,10 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     this.clearDateAvailabilityCache();
     this.loadVisibleCalendarAvailability();
     this.reloadSelectedDateAvailabilityIfNeeded();
-    this.snackBar.open('Booking flow coming soon.', 'OK', { duration: 2500 });
+    this.snackBar.open('Added to Cart', 'OK', {
+      duration: 2500,
+      panelClass: ['snack-success'],
+    });
   }
 
   removeSubService(sub: PublicBusinessSubService): void {
@@ -408,19 +411,16 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
 
     this.finalizingAuthorizedBooking = true;
     try {
-      const result = await firstValueFrom(this.api.completeBooking(businessCode, {
+      await firstValueFrom(this.api.completeBooking(businessCode, {
         setupIntentId: normalizedSetupIntentId || null,
         paymentIntentId: normalizedPaymentIntentId || null,
       }));
       this.finalizedSetupIntentIds.add(finalizedKey);
-      const isImmediateCharge = (result.paymentStatus ?? '').toLowerCase().includes('charge');
-      this.snackBar.open(
-        isImmediateCharge
-          ? 'Payment captured. Booking request sent to the business.'
-          : 'Booking request sent. The business can now accept or deny it.',
-        'OK',
-        { duration: 4200 }
-      );
+      await this.router.navigate(['/home']);
+      this.snackBar.open('Your Job Request was submitted successfully.', 'OK', {
+        duration: 4200,
+        panelClass: ['snack-success'],
+      });
     } catch (err: any) {
       this.paymentElementError = this.extractApiErrorMessage(err) ?? 'Payment was authorized, but the booking request could not be created.';
       this.snackBar.open(this.paymentElementError, 'OK', { duration: 4200 });

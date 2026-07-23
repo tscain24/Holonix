@@ -1,4 +1,6 @@
 using System;
+using Holonix.Server.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -7,6 +9,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Holonix.Server.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(ApplicationDbContext))]
+    [Migration("20260703150000_AddCustomerBookingWorkloadsAndBookingPayments")]
     public partial class AddCustomerBookingWorkloadsAndBookingPayments : Migration
     {
         /// <inheritdoc />

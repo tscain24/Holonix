@@ -28,7 +28,8 @@ public sealed record BusinessWorkspaceResponse(
     IReadOnlyList<BusinessWorkspaceEmployeeResponse> Employees,
     IReadOnlyList<BusinessWorkspaceJobResponse> Jobs,
     IReadOnlyList<BusinessWorkspaceJobRequestResponse> JobRequests,
-    bool CanManageJobRequests);
+    bool CanManageJobRequests,
+    bool CanViewJobRequestCostBreakdowns);
 
 public sealed record BusinessWorkspaceServiceResponse(
     int ServiceId,
@@ -83,4 +84,27 @@ public sealed record BusinessWorkspaceJobRequestResponse(
     DateTime EndDateTime,
     decimal Cost,
     string Status,
-    string PaymentStatus);
+    string PaymentStatus,
+    BusinessWorkspaceJobLocationResponse? ServiceLocation,
+    BusinessWorkspaceJobCostBreakdownResponse? CostBreakdown);
+
+public sealed record BusinessWorkspaceJobCostBreakdownResponse(
+    decimal Subtotal,
+    decimal CustomerServiceFee,
+    decimal Total,
+    IReadOnlyList<BusinessWorkspaceJobCostLineResponse> Lines);
+
+public sealed record BusinessWorkspaceJobCostLineResponse(
+    string ServiceName,
+    decimal Price,
+    int DurationMinutes);
+
+public sealed record BusinessWorkspaceJobLocationResponse(
+    string? Label,
+    string Address1,
+    string? Address2,
+    string City,
+    string State,
+    string ZipCode,
+    decimal? Latitude,
+    decimal? Longitude);

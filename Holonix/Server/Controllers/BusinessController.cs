@@ -164,10 +164,13 @@ public class BusinessController : ControllerBase
             .Select(group => new { BusinessId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(item => item.BusinessId, item => item.Count, cancellationToken);
 
-        var jobCounts = await _dbContext.Jobs
+        var jobCounts = await _dbContext.JobWorkloads
             .AsNoTracking()
-            .Where(job => businessIds.Contains(job.BusinessId))
-            .GroupBy(job => job.BusinessId)
+            .Where(item =>
+                businessIds.Contains(item.Job.BusinessId) &&
+                item.Workload.WorkloadType.Type == WorkloadTypeNames.CustomerBooking &&
+                item.Workload.WorkloadStatus.Status == WorkloadStatusNames.Completed)
+            .GroupBy(item => item.Job.BusinessId)
             .Select(group => new { BusinessId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(item => item.BusinessId, item => item.Count, cancellationToken);
 
@@ -482,6 +485,7 @@ public class BusinessController : ControllerBase
                     : null))
             .ToList();
 
+        var canViewJobRequestCostBreakdowns = CanViewJobRequestCostBreakdowns(currentMembership.RoleName);
         var jobRequestRows = await _dbContext.JobWorkloads
             .AsNoTracking()
             .Where(item =>
@@ -497,10 +501,19 @@ public class BusinessController : ControllerBase
                 item.Job.StartDateTime,
                 item.Job.EndDateTime,
                 item.Job.Cost,
+                item.Job.NetCost,
                 Status = item.Workload.WorkloadStatus.Status,
                 CustomerFirstName = item.Job.User != null ? item.Job.User.FirstName : null,
                 CustomerLastName = item.Job.User != null ? item.Job.User.LastName : null,
                 CustomerEmail = item.Job.User != null ? item.Job.User.Email : null,
+                item.Job.ServiceLocationLabel,
+                item.Job.ServiceAddress1,
+                item.Job.ServiceAddress2,
+                item.Job.ServiceCity,
+                item.Job.ServiceState,
+                item.Job.ServiceZipCode,
+                item.Job.ServiceLatitude,
+                item.Job.ServiceLongitude,
                 PaymentStatus = _dbContext.BookingPayments
                     .Where(payment => payment.WorkloadId == item.WorkloadId)
                     .Select(payment => payment.PaymentStatus)
@@ -508,6 +521,24 @@ public class BusinessController : ControllerBase
             })
             .Take(8)
             .ToListAsync(cancellationToken);
+
+        var requestJobIds = jobRequestRows.Select(item => item.JobId).ToArray();
+        var costLinesByJobId = canViewJobRequestCostBreakdowns && requestJobIds.Length > 0
+            ? (await _dbContext.JobServiceLines
+                .AsNoTracking()
+                .Where(line => requestJobIds.Contains(line.JobId))
+                .OrderBy(line => line.JobServiceLineId)
+                .Select(line => new
+                {
+                    line.JobId,
+                    line.ServiceName,
+                    line.Price,
+                    line.DurationMinutes,
+                })
+                .ToListAsync(cancellationToken))
+                .GroupBy(line => line.JobId)
+                .ToDictionary(group => group.Key, group => group.ToList())
+            : [];
 
         var jobRequests = jobRequestRows
             .Select(item => new BusinessWorkspaceJobRequestResponse(
@@ -519,7 +550,28 @@ public class BusinessController : ControllerBase
                 item.EndDateTime,
                 item.Cost,
                 item.Status,
-                item.PaymentStatus ?? BookingPaymentStatusNames.SetupPending))
+                item.PaymentStatus ?? BookingPaymentStatusNames.SetupPending,
+                BuildJobLocationResponse(
+                    item.ServiceLocationLabel,
+                    item.ServiceAddress1,
+                    item.ServiceAddress2,
+                    item.ServiceCity,
+                    item.ServiceState,
+                    item.ServiceZipCode,
+                    item.ServiceLatitude,
+                    item.ServiceLongitude),
+                canViewJobRequestCostBreakdowns
+                    ? new BusinessWorkspaceJobCostBreakdownResponse(
+                        item.NetCost,
+                        item.Cost - item.NetCost,
+                        item.Cost,
+                        costLinesByJobId.TryGetValue(item.JobId, out var costLines)
+                            ? costLines.Select(line => new BusinessWorkspaceJobCostLineResponse(
+                                line.ServiceName,
+                                line.Price,
+                                line.DurationMinutes)).ToList()
+                            : Array.Empty<BusinessWorkspaceJobCostLineResponse>())
+                    : null))
             .ToList();
 
         var totalRevenue = await _dbContext.Jobs
@@ -528,9 +580,15 @@ public class BusinessController : ControllerBase
             .Select(job => (decimal?)job.NetCost)
             .SumAsync(cancellationToken) ?? 0m;
 
-        var totalJobs = await _dbContext.Jobs
+        var totalJobs = await _dbContext.JobWorkloads
             .AsNoTracking()
-            .CountAsync(job => job.BusinessId == businessId.Value, cancellationToken);
+            .Where(item =>
+                item.Job.BusinessId == businessId.Value &&
+                item.Workload.WorkloadType.Type == WorkloadTypeNames.CustomerBooking &&
+                item.Workload.WorkloadStatus.Status == WorkloadStatusNames.Completed)
+            .Select(item => item.JobId)
+            .Distinct()
+            .CountAsync(cancellationToken);
 
         var activeEmployeeCount = orderedEmployees.Count(employee => employee.IsActive);
 
@@ -562,7 +620,8 @@ public class BusinessController : ControllerBase
             employees,
             jobResponses,
             jobRequests,
-            CanManageJobRequests(currentMembership.RoleName));
+            CanManageJobRequests(currentMembership.RoleName),
+            canViewJobRequestCostBreakdowns);
 
         return Ok(response);
     }
@@ -998,6 +1057,28 @@ public class BusinessController : ControllerBase
             return BadRequest(new { errors = new[] { "One or more selected services are no longer available." } });
         }
 
+        UserSavedLocation? serviceLocation = null;
+        if (selectedSubServices.Any(item => item.RequiresServiceLocation))
+        {
+            if (!metadata.TryGetValue("userSavedLocationId", out var savedLocationIdRaw)
+                || !long.TryParse(savedLocationIdRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var savedLocationId)
+                || savedLocationId <= 0)
+            {
+                return BadRequest(new { errors = new[] { "Booking service location metadata is invalid." } });
+            }
+
+            serviceLocation = await _dbContext.UserSavedLocations
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    item => item.UserSavedLocationId == savedLocationId && item.UserId == userId,
+                    cancellationToken);
+
+            if (serviceLocation is null)
+            {
+                return BadRequest(new { errors = new[] { "The selected booking service location is no longer available." } });
+            }
+        }
+
         var subtotal = selectedSubServices.Sum(item => item.Price);
         if (metadata.TryGetValue("subtotal", out var subtotalRaw)
             && decimal.TryParse(subtotalRaw, NumberStyles.Number, CultureInfo.InvariantCulture, out var metadataSubtotal))
@@ -1012,7 +1093,9 @@ public class BusinessController : ControllerBase
             total = metadataTotal;
         }
 
-        var startDateTime = selectedDate.ToDateTime(new TimeOnly(selectedStartMinutes.Value / 60, selectedStartMinutes.Value % 60));
+        var startDateTime = DateTime.SpecifyKind(
+            selectedDate.ToDateTime(new TimeOnly(selectedStartMinutes.Value / 60, selectedStartMinutes.Value % 60)),
+            DateTimeKind.Utc);
         var endDateTime = startDateTime.AddMinutes(selectedSubServices.Sum(item => item.DurationMinutes));
         var serviceNames = metadata.TryGetValue("serviceNames", out var metadataServiceNames) && !string.IsNullOrWhiteSpace(metadataServiceNames)
             ? metadataServiceNames.Trim()
@@ -1057,6 +1140,14 @@ public class BusinessController : ControllerBase
             BusinessId = business.BusinessId,
             BusinessUserId = null,
             IsContract = false,
+            ServiceLocationLabel = serviceLocation?.Label,
+            ServiceAddress1 = serviceLocation?.Address1,
+            ServiceAddress2 = serviceLocation?.Address2,
+            ServiceCity = serviceLocation?.City,
+            ServiceState = serviceLocation?.State,
+            ServiceZipCode = serviceLocation?.ZipCode,
+            ServiceLatitude = serviceLocation?.Latitude,
+            ServiceLongitude = serviceLocation?.Longitude,
         };
 
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
@@ -1072,6 +1163,14 @@ public class BusinessController : ControllerBase
                 JobId = job.JobId,
                 WorkloadId = workload.WorkloadId,
             });
+            _dbContext.JobServiceLines.AddRange(selectedSubServices.Select(subService => new JobServiceLine
+            {
+                JobId = job.JobId,
+                BusinessSubServiceId = subService.BusinessSubServiceId,
+                ServiceName = subService.Name,
+                Price = subService.Price,
+                DurationMinutes = subService.DurationMinutes,
+            }));
             _dbContext.BookingPayments.Add(new BookingPayment
             {
                 JobId = job.JobId,
@@ -1127,6 +1226,159 @@ public class BusinessController : ControllerBase
     [HttpPost("{businessCode}/job-requests/{workloadId:long}/deny")]
     public Task<IActionResult> DenyJobRequest(string businessCode, long workloadId, CancellationToken cancellationToken)
         => UpdateJobRequestStatusAsync(businessCode, workloadId, WorkloadStatusNames.Cancelled, "denied", cancellationToken);
+
+    [Authorize]
+    [HttpGet("{businessCode}/job-requests/{workloadId:long}/availability")]
+    public async Task<IActionResult> GetJobRequestAvailability(
+        string businessCode,
+        long workloadId,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        }
+
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue)
+        {
+            return NotFound(new { errors = new[] { "Business not found." } });
+        }
+
+        var currentRoleName = await GetActiveBusinessRoleNameAsync(businessId.Value, userId, cancellationToken);
+        if (!CanManageJobRequests(currentRoleName))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { errors = new[] { "Only managers, administrators, and owners can review job request availability." } });
+        }
+
+        var request = await _dbContext.JobWorkloads
+            .AsNoTracking()
+            .Where(item =>
+                item.WorkloadId == workloadId &&
+                item.Job.BusinessId == businessId.Value &&
+                item.Workload.WorkloadType.Type == WorkloadTypeNames.CustomerBooking &&
+                item.Workload.WorkloadStatus.Status == WorkloadStatusNames.AwaitingAcceptance)
+            .Select(item => new
+            {
+                item.WorkloadId,
+                item.JobId,
+                item.Job.Name,
+                item.Job.StartDateTime,
+                item.Job.EndDateTime,
+                item.Job.ServiceLocationLabel,
+                item.Job.ServiceAddress1,
+                item.Job.ServiceAddress2,
+                item.Job.ServiceCity,
+                item.Job.ServiceState,
+                item.Job.ServiceZipCode,
+                item.Job.ServiceLatitude,
+                item.Job.ServiceLongitude,
+                Status = item.Workload.WorkloadStatus.Status,
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (request is null)
+        {
+            return NotFound(new { errors = new[] { "Pending job request not found." } });
+        }
+
+        var dayStart = DateTime.SpecifyKind(request.StartDateTime.Date, DateTimeKind.Utc);
+        var dayEnd = dayStart.AddDays(1);
+
+        var existingRows = await _dbContext.Jobs
+            .AsNoTracking()
+            .Where(job =>
+                job.BusinessId == businessId.Value &&
+                job.JobId != request.JobId &&
+                job.StartDateTime < dayEnd &&
+                job.EndDateTime > dayStart &&
+                (!_dbContext.JobWorkloads.Any(link =>
+                    link.JobId == job.JobId &&
+                    link.Workload.WorkloadType.Type == WorkloadTypeNames.CustomerBooking) ||
+                 _dbContext.JobWorkloads.Any(link =>
+                    link.JobId == job.JobId &&
+                    link.Workload.WorkloadType.Type == WorkloadTypeNames.CustomerBooking &&
+                    link.Workload.WorkloadStatus.Status == WorkloadStatusNames.Accepted)))
+            .OrderBy(job => job.StartDateTime)
+            .Select(job => new
+            {
+                job.JobId,
+                job.Name,
+                job.StartDateTime,
+                job.EndDateTime,
+                job.BusinessUserId,
+                job.ServiceLocationLabel,
+                job.ServiceAddress1,
+                job.ServiceAddress2,
+                job.ServiceCity,
+                job.ServiceState,
+                job.ServiceZipCode,
+                job.ServiceLatitude,
+                job.ServiceLongitude,
+                AssignedFirstName = job.BusinessUser != null ? job.BusinessUser.User.FirstName : null,
+                AssignedLastName = job.BusinessUser != null ? job.BusinessUser.User.LastName : null,
+                AssignedEmail = job.BusinessUser != null ? job.BusinessUser.User.Email : null,
+                WorkloadId = _dbContext.JobWorkloads
+                    .Where(link => link.JobId == job.JobId && link.Workload.WorkloadType.Type == WorkloadTypeNames.CustomerBooking)
+                    .Select(link => (long?)link.WorkloadId)
+                    .FirstOrDefault(),
+                Status = _dbContext.JobWorkloads
+                    .Where(link => link.JobId == job.JobId && link.Workload.WorkloadType.Type == WorkloadTypeNames.CustomerBooking)
+                    .Select(link => link.Workload.WorkloadStatus.Status)
+                    .FirstOrDefault(),
+            })
+            .ToListAsync(cancellationToken);
+
+        var requestResponse = new JobRequestAvailabilityBookingResponse(
+            request.JobId,
+            request.WorkloadId,
+            string.IsNullOrWhiteSpace(request.Name) ? $"Job #{request.JobId}" : request.Name,
+            request.StartDateTime,
+            request.EndDateTime,
+            request.Status,
+            null,
+            true,
+            BuildJobLocationResponse(
+                request.ServiceLocationLabel,
+                request.ServiceAddress1,
+                request.ServiceAddress2,
+                request.ServiceCity,
+                request.ServiceState,
+                request.ServiceZipCode,
+                request.ServiceLatitude,
+                request.ServiceLongitude));
+
+        var existingJobs = existingRows
+            .Select(job => new JobRequestAvailabilityBookingResponse(
+                job.JobId,
+                job.WorkloadId,
+                string.IsNullOrWhiteSpace(job.Name) ? $"Job #{job.JobId}" : job.Name,
+                job.StartDateTime,
+                job.EndDateTime,
+                job.Status ?? "Scheduled",
+                job.BusinessUserId.HasValue
+                    ? BuildDisplayName(job.AssignedFirstName, job.AssignedLastName, job.AssignedEmail ?? "Assigned employee")
+                    : null,
+                false,
+                BuildJobLocationResponse(
+                    job.ServiceLocationLabel,
+                    job.ServiceAddress1,
+                    job.ServiceAddress2,
+                    job.ServiceCity,
+                    job.ServiceState,
+                    job.ServiceZipCode,
+                    job.ServiceLatitude,
+                    job.ServiceLongitude)))
+            .ToList();
+
+        return Ok(new JobRequestAvailabilityResponse(
+            DateOnly.FromDateTime(request.StartDateTime),
+            requestResponse,
+            existingJobs));
+    }
 
     [Authorize]
     [HttpGet("{businessCode}/my-availability")]
@@ -4246,7 +4498,7 @@ public class BusinessController : ControllerBase
                 return NotFound(new { errors = new[] { "Booking payment record not found." } });
             }
 
-            var startsWithinTwentyFourHours = jobWorkload.Job.StartDateTime <= DateTime.Now.AddHours(24);
+            var startsWithinTwentyFourHours = jobWorkload.Job.StartDateTime <= DateTime.UtcNow.AddHours(24);
             var needsImmediateCharge = startsWithinTwentyFourHours
                 && !string.Equals(bookingPayment.PaymentStatus, BookingPaymentStatusNames.ChargeSucceeded, StringComparison.OrdinalIgnoreCase);
 
@@ -4333,6 +4585,12 @@ public class BusinessController : ControllerBase
         return string.Equals(roleName, BusinessRoleNames.Owner, StringComparison.OrdinalIgnoreCase)
             || string.Equals(roleName, BusinessRoleNames.Administrator, StringComparison.OrdinalIgnoreCase)
             || string.Equals(roleName, BusinessRoleNames.Manager, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool CanViewJobRequestCostBreakdowns(string? roleName)
+    {
+        return string.Equals(roleName, BusinessRoleNames.Owner, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(roleName, BusinessRoleNames.Administrator, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsValidSubServiceDuration(int durationMinutes)
@@ -4807,6 +5065,35 @@ public class BusinessController : ControllerBase
     {
         var displayName = $"{firstName} {lastName}".Trim();
         return string.IsNullOrWhiteSpace(displayName) ? fallback : displayName;
+    }
+
+    private static BusinessWorkspaceJobLocationResponse? BuildJobLocationResponse(
+        string? label,
+        string? address1,
+        string? address2,
+        string? city,
+        string? state,
+        string? zipCode,
+        decimal? latitude,
+        decimal? longitude)
+    {
+        if (string.IsNullOrWhiteSpace(address1)
+            || string.IsNullOrWhiteSpace(city)
+            || string.IsNullOrWhiteSpace(state)
+            || string.IsNullOrWhiteSpace(zipCode))
+        {
+            return null;
+        }
+
+        return new BusinessWorkspaceJobLocationResponse(
+            label,
+            address1,
+            address2,
+            city,
+            state,
+            zipCode,
+            latitude,
+            longitude);
     }
 
     private sealed record EmployeeListItem(

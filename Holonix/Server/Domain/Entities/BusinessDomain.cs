@@ -194,6 +194,14 @@ public class Job
     public long? BusinessUserId { get; set; }
     public bool IsContract { get; set; }
     public long? JobRecurrenceId { get; set; }
+    public string? ServiceLocationLabel { get; set; }
+    public string? ServiceAddress1 { get; set; }
+    public string? ServiceAddress2 { get; set; }
+    public string? ServiceCity { get; set; }
+    public string? ServiceState { get; set; }
+    public string? ServiceZipCode { get; set; }
+    public decimal? ServiceLatitude { get; set; }
+    public decimal? ServiceLongitude { get; set; }
 
     public ApplicationUser? User { get; set; }
     public Business Business { get; set; } = null!;
@@ -209,6 +217,19 @@ public class JobWorkload
 
     public Job Job { get; set; } = null!;
     public Workload Workload { get; set; } = null!;
+}
+
+public class JobServiceLine
+{
+    public long JobServiceLineId { get; set; }
+    public long JobId { get; set; }
+    public long? BusinessSubServiceId { get; set; }
+    public string ServiceName { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public int DurationMinutes { get; set; }
+
+    public Job Job { get; set; } = null!;
+    public BusinessSubService? BusinessSubService { get; set; }
 }
 
 public class BookingPayment

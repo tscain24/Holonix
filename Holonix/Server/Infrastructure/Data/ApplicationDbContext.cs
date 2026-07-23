@@ -24,6 +24,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<BusinessUserTimeOff> BusinessUserTimeOffs => Set<BusinessUserTimeOff>();
     public DbSet<Job> Jobs => Set<Job>();
     public DbSet<JobWorkload> JobWorkloads => Set<JobWorkload>();
+    public DbSet<JobServiceLine> JobServiceLines => Set<JobServiceLine>();
     public DbSet<BookingPayment> BookingPayments => Set<BookingPayment>();
     public DbSet<JobRecurrence> JobRecurrences => Set<JobRecurrence>();
     public DbSet<JobRecurrenceException> JobRecurrenceExceptions => Set<JobRecurrenceException>();
@@ -334,6 +335,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(x => x.Cost).HasColumnType("decimal(18,2)");
             entity.Property(x => x.NetCost).HasColumnType("decimal(18,2)");
             entity.Property(x => x.UserId).HasMaxLength(450);
+            entity.Property(x => x.ServiceLocationLabel).HasMaxLength(120);
+            entity.Property(x => x.ServiceAddress1).HasMaxLength(200);
+            entity.Property(x => x.ServiceAddress2).HasMaxLength(200);
+            entity.Property(x => x.ServiceCity).HasMaxLength(120);
+            entity.Property(x => x.ServiceState).HasMaxLength(120);
+            entity.Property(x => x.ServiceZipCode).HasMaxLength(32);
+            entity.Property(x => x.ServiceLatitude).HasColumnType("decimal(9,6)");
+            entity.Property(x => x.ServiceLongitude).HasColumnType("decimal(9,6)");
             entity.HasOne(x => x.User)
                 .WithMany()
                 .HasForeignKey(x => x.UserId)
@@ -363,6 +372,23 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasOne(x => x.Workload)
                 .WithMany()
                 .HasForeignKey(x => x.WorkloadId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<JobServiceLine>(entity =>
+        {
+            entity.ToTable("JobServiceLine", "job");
+            entity.HasKey(x => x.JobServiceLineId);
+            entity.Property(x => x.ServiceName).IsRequired().HasMaxLength(200);
+            entity.Property(x => x.Price).HasColumnType("decimal(18,2)");
+            entity.HasIndex(x => new { x.JobId, x.BusinessSubServiceId }).IsUnique();
+            entity.HasOne(x => x.Job)
+                .WithMany()
+                .HasForeignKey(x => x.JobId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.BusinessSubService)
+                .WithMany()
+                .HasForeignKey(x => x.BusinessSubServiceId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

@@ -182,41 +182,103 @@
 
         <div class="job-list" *ngIf="business.jobRequests.length > 0">
           <article class="job-card job-request-card" *ngFor="let request of business.jobRequests">
-            <div class="job-card-main">
-              <div>
-                <h3>{{ request.name }}</h3>
-                <p>{{ formatJobWindow(request) }}</p>
+            <div class="job-request-content">
+              <div class="job-request-icon" aria-hidden="true">
+                <mat-icon>calendar_month</mat-icon>
               </div>
-              <div class="job-money">
-                <span>Total</span>
-                <strong>{{ formatMoney(request.cost) }}</strong>
+
+              <div class="job-request-details">
+                <div class="job-request-title-row">
+                  <div>
+                    <p class="job-request-eyebrow">New booking request</p>
+                    <h3>{{ request.name }}</h3>
+                  </div>
+                </div>
+
+                <div class="job-request-schedule">
+                  <mat-icon aria-hidden="true">schedule</mat-icon>
+                  <span>{{ formatJobWindow(request) }}</span>
+                </div>
+
+                <div class="job-request-facts">
+                  <div class="job-request-fact">
+                    <mat-icon aria-hidden="true">person</mat-icon>
+                    <span>
+                      <small>Customer</small>
+                      <strong>{{ request.customerName }}</strong>
+                    </span>
+                  </div>
+                  <div class="job-request-fact job-request-fact-location">
+                    <mat-icon aria-hidden="true">location_on</mat-icon>
+                    <span>
+                      <small>Service location</small>
+                      <strong>{{ formatServiceLocation(request.serviceLocation) }}</strong>
+                    </span>
+                  </div>
+                  <div class="job-request-fact job-request-fact-verified">
+                    <mat-icon aria-hidden="true">verified_user</mat-icon>
+                    <span>
+                      <small>Payment method</small>
+                      <strong>Authorized</strong>
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div class="job-meta">
-              <span>Customer: {{ request.customerName }}</span>
-              <span>Status: {{ request.status }}</span>
-              <span>Payment: {{ request.paymentStatus }}</span>
-            </div>
+            <aside class="job-request-decision">
+              <div class="job-request-decision-top">
+                <div class="job-request-total">
+                  <span>Booking total</span>
+                  <strong>{{ formatMoney(request.cost) }}</strong>
+                  <small>Payment method authorized</small>
+                </div>
+                <span class="job-request-status">
+                  <span class="job-request-status-dot"></span>
+                  {{ request.status }}
+                </span>
+              </div>
 
-            <div class="job-request-actions" *ngIf="canManageJobRequests">
+              <div class="job-request-actions" *ngIf="canManageJobRequests">
               <button
                 type="button"
-                class="hero-btn hero-btn-secondary"
+                class="job-request-btn job-request-btn-cost"
+                *ngIf="canViewJobRequestCostBreakdowns && request.costBreakdown"
+                [disabled]="isUpdatingJobRequest(request.workloadId)"
+                (click)="openCostBreakdown(request)"
+              >
+                <mat-icon aria-hidden="true">receipt_long</mat-icon>
+                View cost breakdown
+              </button>
+              <button
+                type="button"
+                class="job-request-btn job-request-btn-availability"
+                [disabled]="isUpdatingJobRequest(request.workloadId)"
+                (click)="openJobRequestAvailability(request)"
+              >
+                <mat-icon aria-hidden="true">calendar_month</mat-icon>
+                View availability
+              </button>
+              <button
+                type="button"
+                class="job-request-btn job-request-btn-deny"
                 [disabled]="isUpdatingJobRequest(request.workloadId)"
                 (click)="denyJobRequest(request.workloadId)"
               >
-                {{ isUpdatingJobRequest(request.workloadId) ? 'Updating...' : 'Deny' }}
+                <mat-icon aria-hidden="true">close</mat-icon>
+                {{ isUpdatingJobRequest(request.workloadId) ? 'Updating' : 'Decline' }}
               </button>
               <button
                 type="button"
-                class="hero-btn hero-btn-primary"
+                class="job-request-btn job-request-btn-accept"
                 [disabled]="isUpdatingJobRequest(request.workloadId)"
                 (click)="acceptJobRequest(request.workloadId)"
               >
-                {{ isUpdatingJobRequest(request.workloadId) ? 'Updating...' : 'Accept' }}
+                <mat-icon aria-hidden="true">check</mat-icon>
+                {{ isUpdatingJobRequest(request.workloadId) ? 'Updating' : 'Accept request' }}
               </button>
-            </div>
+              </div>
+            </aside>
           </article>
         </div>
       </section>
@@ -380,7 +442,7 @@
             <strong>{{ business.activeEmployeeCount }}</strong>
           </article>
           <article class="info-card">
-            <span class="info-label">Total Scheduled Jobs</span>
+            <span class="info-label">Total Jobs Completed</span>
             <strong>{{ business.totalJobs }}</strong>
           </article>
           <article class="info-card info-card-hours">
@@ -670,6 +732,145 @@
     </ng-container>
   </div>
 </section>
+
+<div class="workspace-modal-overlay" *ngIf="costBreakdownRequest as request" (click)="closeCostBreakdown()">
+  <section class="cost-breakdown-modal" role="dialog" aria-modal="true" aria-labelledby="cost-breakdown-title" (click)="$event.stopPropagation()">
+    <header class="cost-breakdown-header">
+      <div>
+        <p class="workspace-modal-kicker">Customer pricing</p>
+        <h2 id="cost-breakdown-title">Cost breakdown</h2>
+        <p>{{ request.name }}</p>
+      </div>
+      <button type="button" class="cost-breakdown-close" aria-label="Close cost breakdown" (click)="closeCostBreakdown()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </header>
+
+    <div class="cost-breakdown-body" *ngIf="request.costBreakdown as breakdown">
+      <div class="cost-breakdown-context">
+        <span><mat-icon>person</mat-icon>{{ request.customerName }}</span>
+        <span><mat-icon>schedule</mat-icon>{{ formatJobWindow(request) }}</span>
+      </div>
+
+      <div class="cost-line-list" *ngIf="breakdown.lines.length > 0; else legacyCostBreakdown">
+        <div class="cost-line" *ngFor="let line of breakdown.lines">
+          <div>
+            <strong>{{ line.serviceName }}</strong>
+            <span>{{ line.durationMinutes }} minutes</span>
+          </div>
+          <strong>{{ formatMoneyExact(line.price) }}</strong>
+        </div>
+      </div>
+
+      <ng-template #legacyCostBreakdown>
+        <div class="cost-breakdown-note">
+          <mat-icon>info</mat-icon>
+          <div><strong>Itemized services unavailable</strong><span>This request was created before individual service prices were recorded.</span></div>
+        </div>
+      </ng-template>
+
+      <div class="cost-summary">
+        <div><span>Services subtotal</span><strong>{{ formatMoneyExact(breakdown.subtotal) }}</strong></div>
+        <div><span>Customer service fee (5%)</span><strong>{{ formatMoneyExact(breakdown.customerServiceFee) }}</strong></div>
+        <div class="cost-summary-total"><span>Customer total</span><strong>{{ formatMoneyExact(breakdown.total) }}</strong></div>
+      </div>
+
+      <p class="cost-breakdown-disclaimer">The service fee is paid by the customer and is included in the authorized total.</p>
+    </div>
+  </section>
+</div>
+
+<div class="workspace-modal-overlay availability-modal-overlay" *ngIf="jobRequestAvailabilityModalOpen" (click)="closeJobRequestAvailability()">
+  <section class="availability-modal" role="dialog" aria-modal="true" aria-labelledby="availability-modal-title" (click)="$event.stopPropagation()">
+    <header class="availability-modal-header">
+      <div>
+        <p class="workspace-modal-kicker">Schedule review</p>
+        <h2 id="availability-modal-title">View availability</h2>
+        <p *ngIf="jobRequestAvailability">{{ formatAvailabilityDate(jobRequestAvailability.date) }}</p>
+      </div>
+      <button type="button" class="availability-modal-close" aria-label="Close availability" [disabled]="loadingJobRequestAvailability" (click)="closeJobRequestAvailability()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </header>
+
+    <div class="availability-modal-loading" *ngIf="loadingJobRequestAvailability">
+      <span class="availability-spinner"></span>
+      <strong>Building the day schedule…</strong>
+      <p>Comparing this request with jobs and team availability.</p>
+    </div>
+
+    <div class="availability-modal-error" *ngIf="!loadingJobRequestAvailability && jobRequestAvailabilityError">
+      <mat-icon>error_outline</mat-icon>
+      <div><strong>Availability could not be loaded</strong><p>{{ jobRequestAvailabilityError }}</p></div>
+    </div>
+
+    <ng-container *ngIf="!loadingJobRequestAvailability && jobRequestAvailability as schedule">
+      <div class="availability-request-summary">
+        <div class="availability-request-icon"><mat-icon>event</mat-icon></div>
+        <div>
+          <span>Pending request</span>
+          <strong>{{ schedule.request.name }}</strong>
+          <p>{{ formatAvailabilityTimeRange(schedule.request) }}</p>
+          <p>Service location: {{ formatServiceLocation(schedule.request.serviceLocation) }}</p>
+        </div>
+        <span class="availability-conflict-badge" [class.availability-conflict-badge-clear]="schedule.existingJobs.length === 0">
+          {{ schedule.existingJobs.length === 0 ? 'No jobs that day' : schedule.existingJobs.length + ' existing job' + (schedule.existingJobs.length === 1 ? '' : 's') }}
+        </span>
+      </div>
+      <div class="availability-legend">
+        <span><i class="legend-request"></i> Pending request</span>
+        <span><i class="legend-job"></i> Existing job</span>
+        <span><i class="legend-available"></i> Employee availability</span>
+      </div>
+
+      <div class="availability-day-calendar">
+        <div class="availability-time-ruler" [style.--hour-count]="availabilityTimelineHours.length - 1">
+          <span *ngFor="let hour of availabilityTimelineHours">{{ availabilityHourLabel(hour) }}</span>
+        </div>
+
+        <div class="availability-calendar-section">
+          <div class="availability-calendar-section-title"><span>Booking schedule</span><small>Potential conflicts are highlighted</small></div>
+          <div class="availability-timeline-row availability-request-row">
+            <div class="availability-row-label"><strong>New request</strong><span>{{ formatAvailabilityTimeRange(schedule.request) }}</span></div>
+            <div class="availability-track">
+              <i *ngFor="let hour of availabilityTimelineHours" class="availability-gridline"></i>
+              <div class="availability-block availability-block-request" [ngStyle]="availabilityBlockStyle(schedule.request.startDateTime, schedule.request.endDateTime)"><span>{{ schedule.request.name }}</span></div>
+            </div>
+          </div>
+          <div class="availability-timeline-row" *ngFor="let job of schedule.existingJobs">
+            <div class="availability-row-label"><strong>{{ job.name }}</strong><span>{{ job.assignedEmployeeName || 'Unassigned' }}</span></div>
+            <div class="availability-track">
+              <i *ngFor="let hour of availabilityTimelineHours" class="availability-gridline"></i>
+              <div class="availability-block availability-block-job" [class.availability-block-conflict]="requestConflictsWith(job)" [ngStyle]="availabilityBlockStyle(job.startDateTime, job.endDateTime)"><span>{{ formatAvailabilityTimeRange(job) }}</span></div>
+            </div>
+          </div>
+          <div class="availability-empty-row" *ngIf="schedule.existingJobs.length === 0"><mat-icon>check_circle</mat-icon>No existing jobs are scheduled on this date.</div>
+        </div>
+
+        <div class="availability-calendar-section">
+          <div class="availability-calendar-section-title"><span>Team availability</span><small>Working hours after time off</small></div>
+          <div class="availability-timeline-row" *ngFor="let member of availabilityTeamMembers">
+            <div class="availability-row-label"><strong>{{ member.firstName }} {{ member.lastName }}</strong><span>{{ teamMemberAvailabilityLabel(member) }}</span></div>
+            <div class="availability-track" [class.availability-track-unavailable]="!member.isAvailable">
+              <i *ngFor="let hour of availabilityTimelineHours" class="availability-gridline"></i>
+              <div *ngFor="let frame of member.timeFrames" class="availability-block availability-block-employee" [ngStyle]="availabilityBlockStyle(frame.startTime, frame.endTime, true)"></div>
+              <div class="availability-request-marker" [ngStyle]="availabilityBlockStyle(schedule.request.startDateTime, schedule.request.endDateTime)"></div>
+            </div>
+          </div>
+          <div class="availability-empty-row" *ngIf="availabilityTeamMembers.length === 0"><mat-icon>group_off</mat-icon>No team availability is visible for this date.</div>
+        </div>
+      </div>
+
+      <footer class="availability-modal-footer" *ngIf="availabilityRequest as request">
+        <div><strong>Ready to make a decision?</strong><span>Accepting adds this request to the business schedule.</span></div>
+        <div class="availability-modal-actions">
+          <button type="button" class="job-request-btn job-request-btn-deny" (click)="denyJobRequest(request.workloadId); closeJobRequestAvailability()">Decline</button>
+          <button type="button" class="job-request-btn job-request-btn-accept" (click)="acceptJobRequest(request.workloadId); closeJobRequestAvailability()"><mat-icon>check</mat-icon>Accept request</button>
+        </div>
+      </footer>
+    </ng-container>
+  </section>
+</div>
 
 <div class="workspace-modal-overlay" *ngIf="deleteBusinessModalOpen" (click)="closeDeleteBusinessModal()">
   <div

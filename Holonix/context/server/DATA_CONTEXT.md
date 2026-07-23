@@ -16,6 +16,7 @@ Use this when a task changes EF entities, model configuration, migrations, seede
 - `UserSavedLocation` has one filtered active-primary row per user and soft-deletes via `InactiveDate`.
 - Most domain relationships use `DeleteBehavior.Restrict`.
 - Startup runs `Database.MigrateAsync()` in `Program.cs`.
+- Every migration must include EF's `DbContext` and `Migration` metadata, either in its generated designer file or directly on the migration class, so startup migration discovery can apply it. The customer-booking migration carries this metadata directly because it has no designer file.
 
 ## Active/Soft Delete Patterns
 
@@ -37,6 +38,8 @@ Use this when a task changes EF entities, model configuration, migrations, seede
 - `EmployeeInviteWorkload` has unique indexes on both `WorkloadId` and `EmployeeInviteId`.
 - `BookingPayment` has unique indexes on both `JobId` and `WorkloadId`, plus a filtered unique index on non-null `StripeCheckoutSessionId`.
 - `BookingPayment` links a single booking workload to a single job and stores Stripe setup/payment identifiers, setup completion timing, immediate acceptance-time charge timing, and later charge state for customer-booking flows.
+- Location-required customer bookings snapshot the selected `UserSavedLocation` label, address fields, and coordinates into nullable `Job.Service*` columns so later profile edits do not rewrite historical job locations.
+- `JobServiceLine` stores the selected business sub-service id plus immutable service name, price, and duration for each newly finalized customer booking. Older jobs have no line rows but retain aggregate `NetCost` and `Cost` values.
 
 ## Seeders
 

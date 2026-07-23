@@ -1,16 +1,20 @@
 import { Component, ElementRef, HostListener, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, of, switchMap } from 'rxjs';
+import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, forkJoin, of, switchMap } from 'rxjs';
 import {
+  BusinessDailyTeamAvailabilityMember,
   BusinessHoursDay,
   BusinessService,
   BusinessServiceOption,
   BusinessWorkspace,
   BusinessWorkspaceJob,
+  BusinessWorkspaceJobLocation,
   BusinessWorkspaceJobRequest,
   BusinessWorkspaceService,
   BusinessWorkspaceSubService,
+  JobRequestAvailabilityBooking,
+  JobRequestAvailabilityResponse,
 } from '../../../core/services/business.service';
 import { AuthSessionService } from '../../../core/services/auth-session.service';
 import { AddressSuggestion, GeocodingService } from '../../../core/services/geocoding.service';
@@ -48,6 +52,16 @@ export class BusinessWorkspaceComponent implements OnInit {
   leavingBusiness = false;
   deleteBusinessModalOpen = false;
   leaveBusinessModalOpen = false;
+  jobRequestAvailabilityModalOpen = false;
+  costBreakdownRequest: BusinessWorkspaceJobRequest | null = null;
+  loadingJobRequestAvailability = false;
+  jobRequestAvailabilityError = '';
+  availabilityRequest: BusinessWorkspaceJobRequest | null = null;
+  jobRequestAvailability: JobRequestAvailabilityResponse | null = null;
+  availabilityTeamMembers: BusinessDailyTeamAvailabilityMember[] = [];
+  availabilityTimelineHours: number[] = [];
+  private availabilityTimelineStartMinutes = 6 * 60;
+  private availabilityTimelineEndMinutes = 20 * 60;
   servicesExpanded = false;
   serviceSearch = '';
   serviceDropdownOpen = false;
@@ -324,6 +338,10 @@ export class BusinessWorkspaceComponent implements OnInit {
     return this.businessWorkspace?.canManageJobRequests ?? false;
   }
 
+  get canViewJobRequestCostBreakdowns(): boolean {
+    return this.businessWorkspace?.canViewJobRequestCostBreakdowns ?? false;
+  }
+
   get canConfirmDeleteBusiness(): boolean {
     return this.deleteBusinessConfirmation.trim().toUpperCase() === BusinessWorkspaceComponent.DeleteBusinessConfirmation;
   }
@@ -406,6 +424,128 @@ export class BusinessWorkspaceComponent implements OnInit {
 
   denyJobRequest(workloadId: number): void {
     this.updateJobRequest(workloadId, 'deny');
+  }
+
+  openCostBreakdown(request: BusinessWorkspaceJobRequest): void {
+    if (!this.canViewJobRequestCostBreakdowns || !request.costBreakdown) {
+      return;
+    }
+    this.costBreakdownRequest = request;
+  }
+
+  closeCostBreakdown(): void {
+    this.costBreakdownRequest = null;
+  }
+
+  formatMoneyExact(value: number): string {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value || 0);
+  }
+
+  openJobRequestAvailability(request: BusinessWorkspaceJobRequest): void {
+    const businessCode = (this.businessWorkspace?.businessCode ?? '').trim();
+    if (!businessCode || !request?.workloadId) {
+      return;
+    }
+
+    this.availabilityRequest = request;
+    this.jobRequestAvailabilityModalOpen = true;
+    this.loadingJobRequestAvailability = true;
+    this.jobRequestAvailabilityError = '';
+    this.jobRequestAvailability = null;
+    this.availabilityTeamMembers = [];
+
+    const dateIso = this.toLocalIsoDate(this.parseBusinessScheduleDate(request.startDateTime));
+    forkJoin({
+      schedule: this.businessService.getJobRequestAvailability(businessCode, request.workloadId),
+      team: this.businessService.getBusinessTeamDailyAvailability(businessCode, dateIso),
+    }).subscribe({
+      next: ({ schedule, team }) => {
+        this.loadingJobRequestAvailability = false;
+        this.jobRequestAvailability = schedule;
+        this.availabilityTeamMembers = (team?.members ?? []).slice().sort((a, b) =>
+          `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`)
+        );
+        this.configureAvailabilityTimeline();
+      },
+      error: (err) => {
+        this.loadingJobRequestAvailability = false;
+        const errors = err?.error?.errors as string[] | undefined;
+        this.jobRequestAvailabilityError = errors?.[0] ?? 'Could not load availability for this request.';
+      },
+    });
+  }
+
+  closeJobRequestAvailability(): void {
+    if (this.loadingJobRequestAvailability) {
+      return;
+    }
+
+    this.jobRequestAvailabilityModalOpen = false;
+    this.availabilityRequest = null;
+    this.jobRequestAvailability = null;
+    this.availabilityTeamMembers = [];
+    this.jobRequestAvailabilityError = '';
+  }
+
+  availabilityBlockStyle(start: string, end: string, timeOnly = false): Record<string, string> {
+    const startMinutes = timeOnly ? this.timeOnlyToMinutes(start) : this.dateTimeToMinutes(start);
+    const endMinutes = timeOnly ? this.timeOnlyToMinutes(end) : this.dateTimeToMinutes(end);
+    const total = Math.max(1, this.availabilityTimelineEndMinutes - this.availabilityTimelineStartMinutes);
+    const left = Math.max(0, Math.min(100, ((startMinutes - this.availabilityTimelineStartMinutes) / total) * 100));
+    const right = Math.max(left, Math.min(100, ((endMinutes - this.availabilityTimelineStartMinutes) / total) * 100));
+    return { left: `${left}%`, width: `${Math.max(1.5, right - left)}%` };
+  }
+
+  availabilityHourLabel(hour: number): string {
+    const suffix = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour} ${suffix}`;
+  }
+
+  formatAvailabilityDate(value: string): string {
+    const date = new Date(`${value}T12:00:00`);
+    return new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(date);
+  }
+
+  formatAvailabilityTimeRange(item: Pick<JobRequestAvailabilityBooking, 'startDateTime' | 'endDateTime'>): string {
+    const formatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
+    return `${formatter.format(this.parseBusinessScheduleDate(item.startDateTime))} – ${formatter.format(this.parseBusinessScheduleDate(item.endDateTime))}`;
+  }
+
+  requestConflictsWith(job: JobRequestAvailabilityBooking): boolean {
+    const request = this.jobRequestAvailability?.request;
+    if (!request) {
+      return false;
+    }
+
+    return new Date(job.startDateTime).getTime() < new Date(request.endDateTime).getTime()
+      && new Date(job.endDateTime).getTime() > new Date(request.startDateTime).getTime();
+  }
+
+  teamMemberAvailabilityLabel(member: BusinessDailyTeamAvailabilityMember): string {
+    if (member.isDayOff) {
+      return 'Day off';
+    }
+    if (!member.isAvailable || member.timeFrames.length === 0) {
+      return 'Not available';
+    }
+    return member.timeFrames.map((frame) => `${this.formatTimeOnly(frame.startTime)}–${this.formatTimeOnly(frame.endTime)}`).join(', ');
+  }
+
+  formatServiceLocation(location?: BusinessWorkspaceJobLocation | null): string {
+    if (!location) {
+      return 'Location unavailable';
+    }
+
+    return [location.address1, location.address2, `${location.city}, ${location.state} ${location.zipCode}`]
+      .map((part) => (part ?? '').trim())
+      .filter((part) => part.length > 0)
+      .join(', ');
   }
 
   onServiceSearchInput(event: Event): void {
@@ -1168,8 +1308,8 @@ export class BusinessWorkspaceComponent implements OnInit {
   }
 
   formatJobWindow(job: Pick<BusinessWorkspaceJob | BusinessWorkspaceJobRequest, 'startDateTime' | 'endDateTime'>): string {
-    const start = new Date(job.startDateTime);
-    const end = new Date(job.endDateTime);
+    const start = this.parseBusinessScheduleDate(job.startDateTime);
+    const end = this.parseBusinessScheduleDate(job.endDateTime);
 
     const dayLabel = new Intl.DateTimeFormat('en-US', {
       month: 'short',
@@ -1344,8 +1484,78 @@ export class BusinessWorkspaceComponent implements OnInit {
       });
   }
 
+  private configureAvailabilityTimeline(): void {
+    const schedule = this.jobRequestAvailability;
+    const points: number[] = [];
+    if (schedule) {
+      [schedule.request, ...(schedule.existingJobs ?? [])].forEach((item) => {
+        points.push(this.dateTimeToMinutes(item.startDateTime), this.dateTimeToMinutes(item.endDateTime));
+      });
+    }
+    this.availabilityTeamMembers.forEach((member) => member.timeFrames.forEach((frame) => {
+      points.push(this.timeOnlyToMinutes(frame.startTime), this.timeOnlyToMinutes(frame.endTime));
+    }));
+
+    const min = points.length > 0 ? Math.min(...points) : 8 * 60;
+    const max = points.length > 0 ? Math.max(...points) : 18 * 60;
+    this.availabilityTimelineStartMinutes = Math.max(0, Math.floor((min - 60) / 60) * 60);
+    this.availabilityTimelineEndMinutes = Math.min(24 * 60, Math.ceil((max + 60) / 60) * 60);
+    const startHour = this.availabilityTimelineStartMinutes / 60;
+    const endHour = this.availabilityTimelineEndMinutes / 60;
+    this.availabilityTimelineHours = Array.from({ length: endHour - startHour + 1 }, (_, index) => startHour + index);
+  }
+
+  private dateTimeToMinutes(value: string): number {
+    const date = this.parseBusinessScheduleDate(value);
+    return date.getHours() * 60 + date.getMinutes();
+  }
+
+  private parseBusinessScheduleDate(value: string): Date {
+    const match = (value ?? '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (!match) {
+      return new Date(value);
+    }
+
+    return new Date(
+      Number(match[1]),
+      Number(match[2]) - 1,
+      Number(match[3]),
+      Number(match[4]),
+      Number(match[5]),
+      Number(match[6] ?? 0)
+    );
+  }
+
+  private timeOnlyToMinutes(value: string): number {
+    const [hours, minutes] = (value ?? '').split(':').map((part) => Number(part));
+    return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0);
+  }
+
+  private formatTimeOnly(value: string): string {
+    const minutes = this.timeOnlyToMinutes(value);
+    const date = new Date(2000, 0, 1, Math.floor(minutes / 60), minutes % 60);
+    return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date);
+  }
+
+  private toLocalIsoDate(value: Date): string {
+    const year = value.getFullYear();
+    const month = `${value.getMonth() + 1}`.padStart(2, '0');
+    const day = `${value.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {
+    if (this.costBreakdownRequest) {
+      this.closeCostBreakdown();
+      return;
+    }
+
+    if (this.jobRequestAvailabilityModalOpen && !this.loadingJobRequestAvailability) {
+      this.closeJobRequestAvailability();
+      return;
+    }
+
     if (this.deleteBusinessModalOpen && !this.deletingBusiness) {
       this.closeDeleteBusinessModal();
     }
