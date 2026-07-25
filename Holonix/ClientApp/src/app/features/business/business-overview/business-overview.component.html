@@ -72,6 +72,25 @@
       No businesses yet. Create a business to get started.
     </div>
 
+    <section *ngIf="!loadingBusinesses && businesses.length > 0" style="margin: 0 0 28px; padding: 22px; border: 1px solid #d8e4f2; border-radius: 18px; background: rgba(255, 255, 255, 0.88); box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);">
+      <h2 style="margin: 0; color: #173057; font-size: 20px;">My Schedule</h2>
+      <p style="margin: 6px 0 16px; color: #647a9b; font-size: 13px;">Your availability for the current week at every business you belong to.</p>
+      <div *ngIf="loadingEmployeeSchedule" class="business-state">Loading your schedule...</div>
+      <div *ngIf="!loadingEmployeeSchedule" style="overflow-x: auto; border: 1px solid #e0e9f4; border-radius: 12px;">
+        <div style="min-width: 820px; display: grid; grid-template-columns: 180px repeat(7, minmax(90px, 1fr));">
+          <div style="padding: 12px; background: #f6f9fd; border-bottom: 1px solid #e0e9f4; color: #173057; font-size: 12px; font-weight: 800;">Business</div>
+          <div *ngFor="let day of employeeScheduleDays" style="padding: 12px 8px; background: #f6f9fd; border-bottom: 1px solid #e0e9f4; border-left: 1px solid #e8eef6; color: #173057; font-size: 11px; font-weight: 800; text-align: center;">{{ day }}</div>
+          <ng-container *ngFor="let row of employeeScheduleRows">
+            <div style="padding: 13px 12px; border-bottom: 1px solid #edf2f7; color: #23446d; font-size: 12px; font-weight: 700;">{{ row.businessName }}</div>
+            <div *ngFor="let hours of row.hours; let dayIndex = index" style="padding: 10px 7px; border-bottom: 1px solid #edf2f7; border-left: 1px solid #edf2f7; color: #47698f; font-size: 10px; line-height: 1.35; text-align: center;" [style.background]="hours === 'Unavailable' || hours === 'Time off' ? '#fafbfc' : '#ecfdf5'">
+              <div>{{ hours }}</div>
+              <button type="button" *ngFor="let job of employeeScheduleJobs(row.businessCode, dayIndex)" (click)="openAssignedJob(job)" style="width: 100%; margin-top: 6px; padding: 5px; border: 0; border-radius: 6px; background: #dbeafe; color: #1d4ed8; font: inherit; font-weight: 700; text-align: left; cursor: pointer;">{{ formatAssignedJob(job) }}</button>
+            </div>
+          </ng-container>
+        </div>
+      </div>
+    </section>
+
     <div class="business-grid" *ngIf="!loadingBusinesses && businesses.length > 0">
       <button type="button" class="business-card business-card-button" *ngFor="let business of businesses" (click)="openBusinessWorkspace(business)">
         <div class="business-card-top">
@@ -110,3 +129,17 @@
     </div>
   </div>
 </section>
+
+<div *ngIf="selectedAssignedJob as job" (click)="closeAssignedJob()" style="position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px; background: rgba(15, 23, 42, 0.48);">
+  <section role="dialog" aria-modal="true" aria-labelledby="assigned-job-title" (click)="$event.stopPropagation()" style="width: min(460px, 100%); border-radius: 18px; background: #fff; box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28); overflow: hidden;">
+    <header style="padding: 20px 22px; border-bottom: 1px solid #e5edf6; display: flex; align-items: start; justify-content: space-between; gap: 16px;">
+      <div><p style="margin: 0 0 5px; color: #2563eb; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;">{{ job.businessName }}</p><h2 id="assigned-job-title" style="margin: 0; color: #173057; font-size: 21px;">{{ job.jobName }}</h2></div>
+      <button type="button" (click)="closeAssignedJob()" aria-label="Close job details" style="width: 34px; height: 34px; border: 1px solid #d7e3f4; border-radius: 10px; background: #fff; color: #47698f; cursor: pointer;"><mat-icon>close</mat-icon></button>
+    </header>
+    <div style="padding: 22px; display: grid; gap: 18px; color: #365878; font-size: 14px;">
+      <div><strong style="display: block; margin-bottom: 4px; color: #173057;">Schedule</strong>{{ formatAssignedJobWindow(job) }}</div>
+      <div><strong style="display: block; margin-bottom: 4px; color: #173057;">Customer</strong>{{ job.customerName }}</div>
+      <div><strong style="display: block; margin-bottom: 4px; color: #173057;">Service location</strong>{{ formatServiceLocation(job) }}</div>
+    </div>
+  </section>
+</div>

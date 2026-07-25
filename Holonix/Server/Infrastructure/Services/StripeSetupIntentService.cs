@@ -173,9 +173,13 @@ public sealed class StripeSetupIntentService : IStripeSetupIntentService
             PaymentMethod = request.PaymentMethodId,
             Confirm = true,
             OffSession = true,
-            ErrorOnRequiresAction = true,
             Metadata = metadata,
             Description = "Holonix accepted booking charge",
+        }, new RequestOptions
+        {
+            IdempotencyKey = request.Metadata.TryGetValue("workloadId", out var workloadId)
+                ? $"holonix-accepted-booking-{workloadId}"
+                : null,
         }, cancellationToken: cancellationToken);
 
         return new StripeRetrievedPaymentIntentResult(

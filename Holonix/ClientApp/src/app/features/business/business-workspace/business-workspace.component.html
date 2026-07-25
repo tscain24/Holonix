@@ -272,10 +272,10 @@
                 type="button"
                 class="job-request-btn job-request-btn-accept"
                 [disabled]="isUpdatingJobRequest(request.workloadId)"
-                (click)="acceptJobRequest(request.workloadId)"
+                (click)="openJobRequestAvailability(request)"
               >
-                <mat-icon aria-hidden="true">check</mat-icon>
-                {{ isUpdatingJobRequest(request.workloadId) ? 'Updating' : 'Accept request' }}
+                <mat-icon aria-hidden="true">group_add</mat-icon>
+                {{ isUpdatingJobRequest(request.workloadId) ? 'Updating' : 'Assign & accept' }}
               </button>
               </div>
             </aside>
@@ -784,8 +784,8 @@
   <section class="availability-modal" role="dialog" aria-modal="true" aria-labelledby="availability-modal-title" (click)="$event.stopPropagation()">
     <header class="availability-modal-header">
       <div>
-        <p class="workspace-modal-kicker">Schedule review</p>
-        <h2 id="availability-modal-title">View availability</h2>
+        <p class="workspace-modal-kicker">Job assignment</p>
+        <h2 id="availability-modal-title">Assign team & accept</h2>
         <p *ngIf="jobRequestAvailability">{{ formatAvailabilityDate(jobRequestAvailability.date) }}</p>
       </div>
       <button type="button" class="availability-modal-close" aria-label="Close availability" [disabled]="loadingJobRequestAvailability" (click)="closeJobRequestAvailability()">
@@ -816,6 +816,16 @@
         <span class="availability-conflict-badge" [class.availability-conflict-badge-clear]="schedule.existingJobs.length === 0">
           {{ schedule.existingJobs.length === 0 ? 'No jobs that day' : schedule.existingJobs.length + ' existing job' + (schedule.existingJobs.length === 1 ? '' : 's') }}
         </span>
+      </div>
+      <div class="availability-legend" style="display: grid; gap: 8px;">
+        <div *ngFor="let requirement of schedule.serviceRequirements" style="display: flex; flex-wrap: wrap; align-items: center; gap: 7px;">
+          <strong>{{ requirement.serviceName }}:</strong>
+          <span>{{ requirement.expectedEmployeeCount }} expected</span>
+          <span style="color: #7185a2;">Can do this service:</span>
+          <span *ngFor="let employee of requirement.eligibleEmployees" style="padding: 3px 7px; border-radius: 999px; background: #e0f2fe; color: #075985; font-weight: 700;">{{ employee.displayName }}</span>
+          <span *ngIf="requirement.eligibleEmployees.length === 0" style="color: #b45309;">No active employees assigned to this service</span>
+        </div>
+        <span><strong>{{ availableTeamMemberCountForRequest() }} available</strong> for this request</span>
       </div>
       <div class="availability-legend">
         <span><i class="legend-request"></i> Pending request</span>
@@ -848,24 +858,51 @@
         </div>
 
         <div class="availability-calendar-section">
-          <div class="availability-calendar-section-title"><span>Team availability</span><small>Working hours after time off</small></div>
-          <div class="availability-timeline-row" *ngFor="let member of availabilityTeamMembers">
-            <div class="availability-row-label"><strong>{{ member.firstName }} {{ member.lastName }}</strong><span>{{ teamMemberAvailabilityLabel(member) }}</span></div>
+          <div class="availability-calendar-section-title"><span>Team availability</span><small>Expected employees: {{ schedule.expectedEmployeeCount }}</small></div>
+          <label
+            class="availability-timeline-row availability-employee-row"
+            [class.availability-employee-row-selected]="isJobRequestEmployeeSelected(member.businessUserId)"
+            style="cursor: pointer;"
+            *ngFor="let member of availabilityTeamMembers"
+          >
+            <div class="availability-row-label availability-employee-label" style="flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px;">
+              <input
+                type="checkbox"
+                style="width: 17px; height: 17px; margin: 0; accent-color: #2563eb; flex: 0 0 auto;"
+                [checked]="isJobRequestEmployeeSelected(member.businessUserId)"
+                (change)="toggleJobRequestEmployee(member.businessUserId)"
+              />
+              <span class="availability-employee-copy" style="min-width: 0; display: grid; gap: 4px;">
+                <strong>{{ member.firstName }} {{ member.lastName }}</strong>
+                <span>{{ teamMemberAvailabilityLabel(member) }}</span>
+              </span>
+            </div>
             <div class="availability-track" [class.availability-track-unavailable]="!member.isAvailable">
               <i *ngFor="let hour of availabilityTimelineHours" class="availability-gridline"></i>
               <div *ngFor="let frame of member.timeFrames" class="availability-block availability-block-employee" [ngStyle]="availabilityBlockStyle(frame.startTime, frame.endTime, true)"></div>
               <div class="availability-request-marker" [ngStyle]="availabilityBlockStyle(schedule.request.startDateTime, schedule.request.endDateTime)"></div>
             </div>
-          </div>
+          </label>
           <div class="availability-empty-row" *ngIf="availabilityTeamMembers.length === 0"><mat-icon>group_off</mat-icon>No team availability is visible for this date.</div>
         </div>
       </div>
 
       <footer class="availability-modal-footer" *ngIf="availabilityRequest as request">
-        <div><strong>Ready to make a decision?</strong><span>Accepting adds this request to the business schedule.</span></div>
+        <div>
+          <strong>{{ selectedJobRequestEmployeeIds.size }} of {{ schedule.expectedEmployeeCount }} expected employee{{ schedule.expectedEmployeeCount === 1 ? '' : 's' }} selected</strong>
+          <span>Expected staffing is {{ schedule.expectedEmployeeCount }}. Select at least one employee to assign the job.</span>
+        </div>
         <div class="availability-modal-actions">
-          <button type="button" class="job-request-btn job-request-btn-deny" (click)="denyJobRequest(request.workloadId); closeJobRequestAvailability()">Decline</button>
-          <button type="button" class="job-request-btn job-request-btn-accept" (click)="acceptJobRequest(request.workloadId); closeJobRequestAvailability()"><mat-icon>check</mat-icon>Accept request</button>
+          <button type="button" class="job-request-btn job-request-btn-deny" [disabled]="isUpdatingJobRequest(request.workloadId)" (click)="denyJobRequest(request.workloadId)">Decline</button>
+          <button
+            type="button"
+            class="job-request-btn job-request-btn-accept"
+            [disabled]="selectedJobRequestEmployeeIds.size === 0 || isUpdatingJobRequest(request.workloadId)"
+            (click)="acceptJobRequest(request.workloadId)"
+          >
+            <mat-icon>group_add</mat-icon>
+            {{ isUpdatingJobRequest(request.workloadId) ? 'Accepting…' : 'Assign & accept' }}
+          </button>
         </div>
       </footer>
     </ng-container>

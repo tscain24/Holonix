@@ -114,6 +114,17 @@ export interface BusinessWorkspaceEmployee {
   canUpdateRole: boolean;
 }
 
+export interface MyAssignedJob {
+  businessCode: string;
+  businessName: string;
+  jobId: number;
+  jobName: string;
+  startDateTime: string;
+  endDateTime: string;
+  customerName: string;
+  serviceLocation?: BusinessWorkspaceJobLocation | null;
+}
+
 export interface BusinessWorkspaceService {
   serviceId: number;
   name: string;
@@ -285,8 +296,30 @@ export interface JobRequestAvailabilityBooking {
 
 export interface JobRequestAvailabilityResponse {
   date: string;
+  expectedEmployeeCount: number;
+  serviceRequirements: JobRequestServiceRequirement[];
   request: JobRequestAvailabilityBooking;
   existingJobs: JobRequestAvailabilityBooking[];
+}
+
+export interface JobRequestServiceRequirement {
+  serviceName: string;
+  expectedEmployeeCount: number;
+  eligibleEmployees: JobRequestServiceEligibleEmployee[];
+}
+
+export interface JobRequestServiceEligibleEmployee {
+  businessUserId: number;
+  displayName: string;
+}
+
+export interface AcceptJobRequestRequest {
+  businessUserIds: number[];
+}
+
+export interface JobRequestActionResponse {
+  outcome: string;
+  message: string;
 }
 
 export interface BusinessWorkspace {
@@ -438,6 +471,19 @@ export class BusinessService {
     );
   }
 
+  getMyAssignedJobs(startDate: string, endDate: string): Observable<MyAssignedJob[]> {
+    const url = `${this.businessEndpoint}/my-schedule/jobs?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+    return this.http.get<MyAssignedJob[]>(url).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryGetMyAssignedJobsFallback(startDate, endDate, 0);
+      })
+    );
+  }
+
   getBusinessTeamDailyAvailability(businessCode: string, dateIso: string): Observable<BusinessDailyTeamAvailabilityResponse> {
     const url = `${this.businessEndpoint}/${businessCode}/availability/team/daily?date=${encodeURIComponent(dateIso)}`;
     return this.http.get<BusinessDailyTeamAvailabilityResponse>(url).pipe(
@@ -538,14 +584,15 @@ export class BusinessService {
     );
   }
 
-  acceptJobRequest(businessCode: string, workloadId: number): Observable<void> {
-    return this.http.post<void>(`${this.businessEndpoint}/${businessCode}/job-requests/${workloadId}/accept`, {}).pipe(
+  acceptJobRequest(businessCode: string, workloadId: number, businessUserIds: number[]): Observable<JobRequestActionResponse> {
+    const request: AcceptJobRequestRequest = { businessUserIds };
+    return this.http.post<JobRequestActionResponse>(`${this.businessEndpoint}/${businessCode}/job-requests/${workloadId}/accept`, request).pipe(
       catchError((err) => {
         if (!this.shouldTryNextOrigin(err)) {
           return throwError(() => err);
         }
 
-        return this.tryAcceptJobRequestFallback(businessCode, workloadId, 0);
+        return this.tryAcceptJobRequestFallback(businessCode, workloadId, businessUserIds, 0);
       })
     );
   }
@@ -801,6 +848,23 @@ export class BusinessService {
     );
   }
 
+  private tryGetMyAssignedJobsFallback(startDate: string, endDate: string, index: number): Observable<MyAssignedJob[]> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Assigned jobs endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/my-schedule/jobs?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+    return this.http.get<MyAssignedJob[]>(url).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryGetMyAssignedJobsFallback(startDate, endDate, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
   private tryGetBusinessTeamDailyAvailabilityFallback(
     businessCode: string,
     dateIso: string,
@@ -940,16 +1004,21 @@ export class BusinessService {
     );
   }
 
-  private tryAcceptJobRequestFallback(businessCode: string, workloadId: number, index: number): Observable<void> {
+  private tryAcceptJobRequestFallback(
+    businessCode: string,
+    workloadId: number,
+    businessUserIds: number[],
+    index: number
+  ): Observable<JobRequestActionResponse> {
     if (index >= this.fallbackOrigins.length) {
       return throwError(() => new Error('Job request accept endpoint not found on configured local origins.'));
     }
 
     const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/job-requests/${workloadId}/accept`;
-    return this.http.post<void>(url, {}).pipe(
+    return this.http.post<JobRequestActionResponse>(url, { businessUserIds }).pipe(
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
-          return this.tryAcceptJobRequestFallback(businessCode, workloadId, index + 1);
+          return this.tryAcceptJobRequestFallback(businessCode, workloadId, businessUserIds, index + 1);
         }
 
         return throwError(() => err);

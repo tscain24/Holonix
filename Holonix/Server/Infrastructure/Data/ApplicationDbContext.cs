@@ -24,6 +24,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<BusinessUserTimeOff> BusinessUserTimeOffs => Set<BusinessUserTimeOff>();
     public DbSet<Job> Jobs => Set<Job>();
     public DbSet<JobWorkload> JobWorkloads => Set<JobWorkload>();
+    public DbSet<JobAssignment> JobAssignments => Set<JobAssignment>();
     public DbSet<JobServiceLine> JobServiceLines => Set<JobServiceLine>();
     public DbSet<BookingPayment> BookingPayments => Set<BookingPayment>();
     public DbSet<JobRecurrence> JobRecurrences => Set<JobRecurrence>();
@@ -372,6 +373,21 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasOne(x => x.Workload)
                 .WithMany()
                 .HasForeignKey(x => x.WorkloadId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<JobAssignment>(entity =>
+        {
+            entity.ToTable("JobAssignment", "job");
+            entity.HasKey(x => x.JobAssignmentId);
+            entity.HasIndex(x => new { x.JobId, x.BusinessUserId }).IsUnique();
+            entity.HasOne(x => x.Job)
+                .WithMany()
+                .HasForeignKey(x => x.JobId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.BusinessUser)
+                .WithMany()
+                .HasForeignKey(x => x.BusinessUserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

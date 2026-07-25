@@ -25,6 +25,7 @@ Use this when a task changes request/response shapes, API routes, frontend servi
   - `PUT /profile-image`
   - `DELETE /profile`
 - `BusinessController`: `/api/business`; see `context/BUSINESS_CONTEXT.md` and `context/server/BUSINESS_CONTEXT.md`.
+  - Includes authenticated `GET /my-schedule/jobs?startDate=...&endDate=...`, which returns jobs assigned to the signed-in employee across active business memberships. It includes both multi-employee `JobAssignment` records and legacy primary `Job.BusinessUserId` assignments, plus customer and service-location details for the employee job-detail view.
   - Business summary and workspace `totalJobs` values count only jobs linked to `Customer Booking` workloads in `Completed` status.
   - Includes `GET /public/{businessCode}` for the public business profile.
   - Includes `GET /public/{businessCode}/availability/daily` for public date-specific booking availability. That route accepts optional repeated `businessSubServiceIds` query values to make public slots service-aware.
@@ -32,7 +33,9 @@ Use this when a task changes request/response shapes, API routes, frontend servi
   - Includes authenticated `POST /public/{businessCode}/checkout/complete` to finalize a confirmed Stripe `SetupIntent` into a persisted `Customer Booking` workload, linked `Job`, and `BookingPayment` row in `Awaiting Acceptance`.
   - Checkout completion resolves the authorized booking's saved-location metadata and snapshots the service address onto the job when any selected service requires a customer location; workspace job-request and availability responses expose that snapshot as `serviceLocation`.
   - Business workspace job requests include `costBreakdown` only for owners and administrators. New requests contain immutable per-service lines plus subtotal, the 5% customer service fee, and total; older requests retain aggregate values with an empty line list.
-  - Includes authenticated `GET /{businessCode}/job-requests/{workloadId}/availability` for managers, administrators, and owners to compare a pending booking with accepted/legacy jobs on the same date before deciding it.
+  - Includes authenticated `GET /{businessCode}/job-requests/{workloadId}/availability` for managers, administrators, and owners to compare a pending booking with accepted/legacy jobs on the same date before deciding it. It returns `serviceRequirements` with expected employee counts and active service-assigned employees per selected service, plus their summed `expectedEmployeeCount`.
+  - `POST /{businessCode}/job-requests/{workloadId}/accept` requires `{ businessUserIds: number[] }`, validates active business membership, assigns the selected employees, and immediately charges the saved payment method. If the scheduled start is less than two hours away, it cancels the booking without charging instead.
+  - Accepted-booking charges use a deterministic Stripe idempotency key per workload. A failed or customer-action-required charge does not accept the job; a `Payment Failed` request may be retried after the payment issue is resolved.
   - Includes `GET /{businessCode}/my-availability/daily` and `GET /{businessCode}/availability/team/daily`.
   - The daily availability routes now share a backend availability calculator so public and workspace surfaces stay aligned, including all-day time off exclusion and partial-day time off subtraction.
   - Business sub-service create/update and workspace/public profile payloads now include `requiresServiceLocation` so customer booking flows can tell when a selected service needs a user location on a later step.

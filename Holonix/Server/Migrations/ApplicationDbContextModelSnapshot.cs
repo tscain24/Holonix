@@ -795,6 +795,30 @@ namespace Holonix.Server.Migrations
                     b.ToTable("Job", "job");
                 });
 
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.JobAssignment", b =>
+                {
+                    b.Property<long>("JobAssignmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("JobAssignmentId"));
+
+                    b.Property<long>("BusinessUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("JobId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("JobAssignmentId");
+
+                    b.HasIndex("BusinessUserId");
+
+                    b.HasIndex("JobId", "BusinessUserId")
+                        .IsUnique();
+
+                    b.ToTable("JobAssignment", "job");
+                });
+
             modelBuilder.Entity("Holonix.Server.Domain.Entities.JobRecurrence", b =>
                 {
                     b.Property<long>("JobRecurrenceId")
@@ -1514,6 +1538,25 @@ namespace Holonix.Server.Migrations
                     b.Navigation("JobRecurrence");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.JobAssignment", b =>
+                {
+                    b.HasOne("Holonix.Server.Domain.Entities.BusinessUser", "BusinessUser")
+                        .WithMany()
+                        .HasForeignKey("BusinessUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Holonix.Server.Domain.Entities.Job", "Job")
+                        .WithMany()
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BusinessUser");
+
+                    b.Navigation("Job");
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.JobRecurrenceException", b =>

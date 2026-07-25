@@ -125,6 +125,8 @@
     </div>
   </section>
 
+  <app-home-summary *ngIf="isLoggedIn" [firstName]="firstName"></app-home-summary>
+
   <section class="booking-marketing" aria-label="Why customers book with Holonix">
     <div class="booking-marketing-panel">
       <div class="booking-marketing-copy">
@@ -168,8 +170,6 @@
       </div>
     </div>
   </section>
-
-  <app-home-summary *ngIf="isLoggedIn" [firstName]="firstName"></app-home-summary>
 
   <main class="hero-shell" aria-label="Home layout">
     <!--

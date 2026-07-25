@@ -1,8 +1,15 @@
 import { Component, ElementRef, HostListener, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
-import { BusinessService, UserBusinessSummary } from '../../../core/services/business.service';
+import { BusinessService, MyAssignedJob, UserBusinessSummary } from '../../../core/services/business.service';
 import { AuthSessionService } from '../../../core/services/auth-session.service';
+import { catchError, forkJoin, of } from 'rxjs';
+
+type EmployeeScheduleRow = {
+  businessName: string;
+  businessCode: string;
+  hours: string[];
+};
 
 @Component({
   selector: 'app-business-overview',
@@ -16,7 +23,13 @@ export class BusinessOverviewComponent implements OnInit {
   isUserMenuOpen = false;
   isMobileMenuOpen = false;
   loadingBusinesses = true;
+  loadingEmployeeSchedule = false;
   businesses: UserBusinessSummary[] = [];
+  employeeScheduleDays: string[] = [];
+  private employeeScheduleDateIsos: string[] = [];
+  employeeScheduleRows: EmployeeScheduleRow[] = [];
+  selectedAssignedJob: MyAssignedJob | null = null;
+  private employeeScheduleJobsByBusinessDate = new Map<string, MyAssignedJob[]>();
 
   constructor(
     private readonly router: Router,
@@ -51,6 +64,7 @@ export class BusinessOverviewComponent implements OnInit {
       next: (businesses) => {
         this.businesses = businesses;
         this.loadingBusinesses = false;
+        this.loadEmployeeSchedule(businesses);
       },
       error: () => {
         this.loadingBusinesses = false;
@@ -122,6 +136,140 @@ export class BusinessOverviewComponent implements OnInit {
 
   getBusinessSummary(business: UserBusinessSummary): string {
     return business.description?.trim() || 'No business description yet.';
+  }
+
+  private loadEmployeeSchedule(businesses: UserBusinessSummary[]): void {
+    const weekStart = new Date();
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    const days = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + index);
+      return date;
+    });
+
+    this.employeeScheduleDays = days.map(day => new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' }).format(day));
+    this.employeeScheduleDateIsos = days.map(day => this.toIsoDate(day));
+    this.loadingEmployeeSchedule = businesses.length > 0;
+    this.employeeScheduleRows = [];
+
+    if (businesses.length === 0) {
+      return;
+    }
+
+    forkJoin({
+      availability: forkJoin(businesses.map(business => this.businessService.getMyBusinessAvailability(business.businessCode).pipe(catchError(() => of(null))))),
+      jobs: this.businessService.getMyAssignedJobs(this.employeeScheduleDateIsos[0], this.employeeScheduleDateIsos[6]).pipe(catchError(() => of([]))),
+    })
+      .subscribe(({ availability: responses, jobs }) => {
+        this.employeeScheduleJobsByBusinessDate.clear();
+        jobs.forEach(job => {
+          const key = `${job.businessCode}:${this.getJobWallClockDateIso(job.startDateTime)}`;
+          const existing = this.employeeScheduleJobsByBusinessDate.get(key) ?? [];
+          this.employeeScheduleJobsByBusinessDate.set(key, [...existing, job]);
+        });
+        this.employeeScheduleRows = businesses.map((business, index) => ({
+          businessName: business.name,
+          businessCode: business.businessCode,
+          hours: days.map(day => this.getAvailabilityLabel(responses[index], day)),
+        }));
+        this.loadingEmployeeSchedule = false;
+      });
+  }
+
+  employeeScheduleJobs(businessCode: string, dayIndex: number): MyAssignedJob[] {
+    return this.employeeScheduleJobsByBusinessDate.get(`${businessCode}:${this.employeeScheduleDateIsos[dayIndex]}`) ?? [];
+  }
+
+  formatAssignedJob(job: MyAssignedJob): string {
+    const start = this.parseJobWallClock(job.startDateTime);
+    const time = Number.isNaN(start.getTime()) ? '' : new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(start);
+    return time ? `${time} ${job.jobName}` : job.jobName;
+  }
+
+  openAssignedJob(job: MyAssignedJob): void {
+    this.selectedAssignedJob = job;
+  }
+
+  closeAssignedJob(): void {
+    this.selectedAssignedJob = null;
+  }
+
+  formatAssignedJobWindow(job: MyAssignedJob): string {
+    const formatter = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const start = this.parseJobWallClock(job.startDateTime);
+    const end = this.parseJobWallClock(job.endDateTime);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return 'Schedule unavailable';
+    }
+    return `${formatter.format(start)} – ${new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(end)}`;
+  }
+
+  formatServiceLocation(job: MyAssignedJob): string {
+    const location = job.serviceLocation;
+    if (!location) {
+      return 'Location unavailable';
+    }
+    return [location.address1, location.address2, `${location.city}, ${location.state} ${location.zipCode}`]
+      .filter((part): part is string => !!part && part.trim().length > 0)
+      .join(', ');
+  }
+
+  private getAvailabilityLabel(availability: import('../../../core/services/business.service').MyBusinessAvailability | null, date: Date): string {
+    if (!availability) {
+      return 'Unavailable';
+    }
+
+    const isoDate = this.toIsoDate(date);
+    const dayOff = (availability.daysOff ?? []).some(item =>
+      item.effectiveStartDate <= isoDate && item.effectiveEndDate >= isoDate && item.startTime === item.endTime
+    );
+    if (dayOff) {
+      return 'Time off';
+    }
+
+    const frames = (availability.availability ?? []).filter(item => item.dayOfWeek === date.getDay());
+    if (frames.length === 0) {
+      return 'Unavailable';
+    }
+
+    return frames.map(frame => `${this.formatTime(frame.startTime)}–${this.formatTime(frame.endTime)}`).join(', ');
+  }
+
+  private toIsoDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private getJobWallClockDateIso(value: string): string {
+    const match = (value ?? '').match(/^(\d{4}-\d{2}-\d{2})T/);
+    return match?.[1] ?? this.toIsoDate(this.parseJobWallClock(value));
+  }
+
+  private parseJobWallClock(value: string): Date {
+    const match = (value ?? '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (!match) {
+      return new Date(value);
+    }
+
+    return new Date(
+      Number(match[1]),
+      Number(match[2]) - 1,
+      Number(match[3]),
+      Number(match[4]),
+      Number(match[5]),
+      Number(match[6] ?? 0)
+    );
+  }
+
+  private formatTime(value: string | null | undefined): string {
+    const [hours, minutes] = (value ?? '').split(':').map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+      return value ?? '';
+    }
+    return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(2000, 0, 1, hours, minutes));
   }
 
   @HostListener('document:click', ['$event'])

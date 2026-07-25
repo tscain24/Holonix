@@ -40,6 +40,7 @@ Use this when a task changes EF entities, model configuration, migrations, seede
 - `BookingPayment` links a single booking workload to a single job and stores Stripe setup/payment identifiers, setup completion timing, immediate acceptance-time charge timing, and later charge state for customer-booking flows.
 - Location-required customer bookings snapshot the selected `UserSavedLocation` label, address fields, and coordinates into nullable `Job.Service*` columns so later profile edits do not rewrite historical job locations.
 - `JobServiceLine` stores the selected business sub-service id plus immutable service name, price, and duration for each newly finalized customer booking. Older jobs have no line rows but retain aggregate `NetCost` and `Cost` values.
+- `JobAssignment` stores multiple employee assignments per job and has a unique `(JobId, BusinessUserId)` index. `Job.BusinessUserId` remains populated with the first selected employee for legacy consumers.
 
 ## Seeders
 

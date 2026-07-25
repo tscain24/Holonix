@@ -20,7 +20,8 @@ The business workspace is centered on `Business.BusinessCode`, a generated 10-ch
 - `BusinessUserRole`: dated role assignment for a business member.
 - `BusinessRole`: seeded roles with hierarchy numbers.
 - `BusinessUserAvailability` and `BusinessUserTimeOff`: employee schedule data.
-- `Job`: business job summary with timing, cost, net cost, optional assigned `BusinessUser`, optional recurrence, an immutable customer service-location snapshot for location-required bookings, and immutable `JobServiceLine` pricing snapshots for customer-booking cost breakdowns.
+- `Job`: business job summary with timing, cost, net cost, optional legacy primary `BusinessUser`, optional recurrence, an immutable customer service-location snapshot for location-required bookings, and immutable `JobServiceLine` pricing snapshots for customer-booking cost breakdowns.
+- `JobAssignment`: many-to-many assignment from an accepted job to one or more active business employees.
 - `Workload`, `EmployeeInvite`, `EmployeeInviteWorkload`: invite workflow records and statuses.
 
 ## Roles And Permissions
@@ -37,7 +38,8 @@ Backend permission checks live mostly in `Server/Controllers/BusinessController.
 ## Important Workflows
 
 - Create business: creates `Business`, `BusinessDetails`, selected `BusinessService` rows, active `BusinessUser`, owner `BusinessUserRole`, and returns a refreshed auth token. The create-business wizard now uses one shared location flow instead of separate full-address vs general-location modes. `Address 1` and `Address 2` are optional, `City` and `State` remain required, and the submit flow resolves coordinates either from the typed street address or, when the street fields are blank, from the entered city/state/ZIP location. The business-model picker is currently hidden in the UI and new businesses default to service-based while the backend payload still includes `IsProductBased = false`.
-- Business overview/workspace: loads business profile, services/sub-services, role-specific employee metadata, top employees, recent jobs, available role filters, and aggregates. The `Total Jobs Completed` aggregate counts only customer-booking workloads whose status is `Completed`. Pending customer bookings include a `View Availability` decision aid that compares the requested time with existing jobs and role-visible team working windows in a calendar-style day schedule before acceptance or denial.
+- Business overview/workspace: loads business profile, services/sub-services, role-specific employee metadata, top employees, recent jobs, available role filters, and aggregates. The `Total Jobs Completed` aggregate counts only customer-booking workloads whose status is `Completed`. Pending customer bookings open a team-assignment modal that compares the requested time with existing jobs and role-visible team working windows, displays expected staffing as a recommendation, and requires at least one employee to be selected. Acceptance immediately charges the saved customer payment method; an acceptance attempt less than two hours before the job cancels the booking without charging.
+- Personal cross-business schedule: the business overview requests the signed-in member's assigned jobs for the current week and renders them alongside availability for every active business membership. Both multi-employee assignments and legacy primary assignments appear.
 - Employees: paginated employee list with filters/sort; admins/owners can invite, close invites, deactivate employees, and update eligible roles.
 - Services: owners can update selected parent services. Owners/admins can create, edit, assign, flag whether a customer service location is required, and soft-delete business sub-services.
 - Availability: signed-in business member edits their own weekly availability for the business.

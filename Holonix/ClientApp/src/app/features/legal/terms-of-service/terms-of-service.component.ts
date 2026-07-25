@@ -81,14 +81,15 @@ export class TermsOfServiceComponent {
       bullets: [
         'Pricing is displayed before checkout.',
         'Customers authorize payment processing through Stripe.',
-        'Payment may be authorized immediately and captured up to 24 hours before service.',
+        'A payment method is authorized during booking. When a provider accepts a booking, Holonix charges the authorized payment method immediately.',
+        'If a provider attempts to accept a booking less than two hours before its scheduled start time, Holonix cancels the booking and does not charge the customer.',
         'Holonix may collect and remit funds while deducting agreed platform fees.',
       ],
     },
     {
       title: '6. Cancellations and Refunds',
       bullets: [
-        'Cancellation policies are displayed during booking.',
+        'Cancellation policies are displayed during booking. Bookings accepted less than two hours before their scheduled start time are automatically cancelled without a customer charge.',
         'Refund eligibility depends on the applicable cancellation policy.',
         'Holonix may facilitate refunds but is not obligated to resolve workmanship disputes.',
       ],

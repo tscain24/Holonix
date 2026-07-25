@@ -1,7 +1,7 @@
 import { Component, ElementRef, HostListener, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, forkJoin, of, switchMap } from 'rxjs';
+import { Observable, Subject, catchError, debounceTime, distinctUntilChanged, finalize, forkJoin, of, switchMap } from 'rxjs';
 import {
   BusinessDailyTeamAvailabilityMember,
   BusinessHoursDay,
@@ -59,6 +59,7 @@ export class BusinessWorkspaceComponent implements OnInit {
   availabilityRequest: BusinessWorkspaceJobRequest | null = null;
   jobRequestAvailability: JobRequestAvailabilityResponse | null = null;
   availabilityTeamMembers: BusinessDailyTeamAvailabilityMember[] = [];
+  selectedJobRequestEmployeeIds = new Set<number>();
   availabilityTimelineHours: number[] = [];
   private availabilityTimelineStartMinutes = 6 * 60;
   private availabilityTimelineEndMinutes = 20 * 60;
@@ -419,7 +420,7 @@ export class BusinessWorkspaceComponent implements OnInit {
   }
 
   acceptJobRequest(workloadId: number): void {
-    this.updateJobRequest(workloadId, 'accept');
+    this.updateJobRequest(workloadId, 'accept', Array.from(this.selectedJobRequestEmployeeIds));
   }
 
   denyJobRequest(workloadId: number): void {
@@ -458,6 +459,7 @@ export class BusinessWorkspaceComponent implements OnInit {
     this.jobRequestAvailabilityError = '';
     this.jobRequestAvailability = null;
     this.availabilityTeamMembers = [];
+    this.selectedJobRequestEmployeeIds.clear();
 
     const dateIso = this.toLocalIsoDate(this.parseBusinessScheduleDate(request.startDateTime));
     forkJoin({
@@ -489,7 +491,21 @@ export class BusinessWorkspaceComponent implements OnInit {
     this.availabilityRequest = null;
     this.jobRequestAvailability = null;
     this.availabilityTeamMembers = [];
+    this.selectedJobRequestEmployeeIds.clear();
     this.jobRequestAvailabilityError = '';
+  }
+
+  isJobRequestEmployeeSelected(businessUserId: number): boolean {
+    return this.selectedJobRequestEmployeeIds.has(businessUserId);
+  }
+
+  toggleJobRequestEmployee(businessUserId: number): void {
+    if (this.selectedJobRequestEmployeeIds.has(businessUserId)) {
+      this.selectedJobRequestEmployeeIds.delete(businessUserId);
+      return;
+    }
+
+    this.selectedJobRequestEmployeeIds.add(businessUserId);
   }
 
   availabilityBlockStyle(start: string, end: string, timeOnly = false): Record<string, string> {
@@ -535,6 +551,19 @@ export class BusinessWorkspaceComponent implements OnInit {
       return 'Not available';
     }
     return member.timeFrames.map((frame) => `${this.formatTimeOnly(frame.startTime)}–${this.formatTimeOnly(frame.endTime)}`).join(', ');
+  }
+
+  availableTeamMemberCountForRequest(): number {
+    const request = this.jobRequestAvailability?.request;
+    if (!request) {
+      return 0;
+    }
+
+    const requestStart = this.dateTimeToMinutes(request.startDateTime);
+    const requestEnd = this.dateTimeToMinutes(request.endDateTime);
+    return this.availabilityTeamMembers.filter(member => member.timeFrames.some(frame =>
+      this.timeOnlyToMinutes(frame.startTime) <= requestStart && this.timeOnlyToMinutes(frame.endTime) >= requestEnd
+    )).length;
   }
 
   formatServiceLocation(location?: BusinessWorkspaceJobLocation | null): string {
@@ -1453,25 +1482,31 @@ export class BusinessWorkspaceComponent implements OnInit {
     });
   }
 
-  private updateJobRequest(workloadId: number, action: 'accept' | 'deny'): void {
+  private updateJobRequest(workloadId: number, action: 'accept' | 'deny', businessUserIds: number[] = []): void {
     const businessCode = this.businessWorkspace?.businessCode?.trim();
     if (!businessCode || !this.canManageJobRequests || this.isUpdatingJobRequest(workloadId)) {
       return;
     }
 
     this.updatingJobRequestIds.add(workloadId);
-    const request$ = action === 'accept'
-      ? this.businessService.acceptJobRequest(businessCode, workloadId)
+    const request$: Observable<{ message: string } | void> = action === 'accept'
+      ? this.businessService.acceptJobRequest(businessCode, workloadId, businessUserIds)
       : this.businessService.denyJobRequest(businessCode, workloadId);
 
     request$
       .pipe(finalize(() => this.updatingJobRequestIds.delete(workloadId)))
       .subscribe({
-        next: () => {
-          this.snackBar.open(action === 'accept' ? 'Job request accepted.' : 'Job request denied.', 'Close', {
+        next: (result) => {
+          const message = action === 'accept' && result && 'message' in result
+            ? result.message
+            : 'Job request denied.';
+          this.snackBar.open(message, 'Close', {
             duration: 3200,
             panelClass: ['snack-success'],
           });
+          if (this.availabilityRequest?.workloadId === workloadId) {
+            this.closeJobRequestAvailability();
+          }
           this.loadWorkspace(businessCode);
         },
         error: (err) => {

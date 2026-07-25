@@ -29,6 +29,7 @@ This is the ASP.NET Core backend for Holonix.
 - Default schema is `authentication` for Identity tables.
 - Domain schemas include `business`, `service`, `job`, `work`, and `reference`.
 - `Business.BusinessCode` is required, unique, and the preferred route identifier.
+- Accepted customer-booking jobs can have multiple active employee assignments through `JobAssignment`; `Job.BusinessUserId` remains the legacy primary-assignee field.
 - `BusinessDetails` is a one-to-one row keyed by `BusinessId`.
 - `BusinessDetails` is a one-to-one row keyed by `BusinessId`; business coordinates now belong on the primary `BusinessAddress` row rather than duplicating latitude/longitude in `BusinessDetails`.
 - The EF `Service` entity maps to `service.Category`; `BusinessService` maps to `business.BusinessCategory`; `BusinessSubService` maps to `business.BusinessService`.

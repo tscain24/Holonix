@@ -33,6 +33,7 @@ Base route: `api/business`
 - `GET /{businessCode}/my-availability/daily`: current user's day-by-day availability projection for a date range.
 - `PUT /{businessCode}/my-availability`: replace current user's weekly availability.
 - `GET /{businessCode}/availability/team/daily`: role-filtered daily availability for visible team members.
+- `GET /my-schedule/jobs`: authenticated current-user schedule endpoint. It returns assignments across the user's active business memberships for a supplied date range, honoring both `JobAssignment` and legacy `Job.BusinessUserId` records.
 
 ## Entity Mapping
 
@@ -79,7 +80,8 @@ When changing an API shape, update the Angular interfaces in `ClientApp/src/app/
 - For services requiring a customer location, checkout completion resolves the saved-location id from trusted SetupIntent metadata against the signed-in customer and copies its label, address, and coordinates onto the new `Job`. Job-request workspace and availability responses expose this immutable snapshot; older jobs without one return no service location.
 - Checkout completion also creates one `JobServiceLine` snapshot per selected sub-service. Workspace responses expose line items, subtotal, 5% customer fee, and total only to owners and administrators; managers retain request-management permissions without receiving the cost breakdown.
 - Public booking finalization writes scheduled job start/end values with UTC `DateTimeKind`, matching PostgreSQL `timestamp with time zone` requirements; the 24-hour acceptance-time charge check also compares against `DateTime.UtcNow`.
-- Workspace overview now returns a `JobRequests` collection for `Customer Booking` workloads in `Awaiting Acceptance`, plus a `CanManageJobRequests` flag. Managers, administrators, and owners can update those requests through `POST /{businessCode}/job-requests/{workloadId}/accept` and `POST /{businessCode}/job-requests/{workloadId}/deny`.
+- Workspace overview now returns a `JobRequests` collection for `Customer Booking` workloads in `Awaiting Acceptance`, plus a `CanManageJobRequests` flag. Managers, administrators, and owners can deny requests or accept them with a required list of active business-user ids. Expected staffing is advisory and acceptance requires one or more active employees. Acceptance immediately creates an off-session PaymentIntent from the saved payment method; requests starting in less than two hours are instead cancelled without charging. Acceptance creates unique `JobAssignment` rows for every selected employee and also sets the first selection as the legacy `Job.BusinessUserId` primary assignee.
+- The acceptance charge does not set Stripe's incompatible `error_on_requires_action` flag for dashboard-managed payment methods. Charge failures leave the job unaccepted and retryable, and the request's workload id is the Stripe idempotency key basis.
 
 ## Seeded Reference Data
 

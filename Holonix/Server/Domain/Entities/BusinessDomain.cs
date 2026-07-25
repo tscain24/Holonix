@@ -219,6 +219,16 @@ public class JobWorkload
     public Workload Workload { get; set; } = null!;
 }
 
+public class JobAssignment
+{
+    public long JobAssignmentId { get; set; }
+    public long JobId { get; set; }
+    public long BusinessUserId { get; set; }
+
+    public Job Job { get; set; } = null!;
+    public BusinessUser BusinessUser { get; set; } = null!;
+}
+
 public class JobServiceLine
 {
     public long JobServiceLineId { get; set; }
