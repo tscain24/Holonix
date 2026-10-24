@@ -36,12 +36,8 @@
     <div class="page-state" *ngIf="loadingWorkspace">Loading employees...</div>
 
     <ng-container *ngIf="!loadingWorkspace && businessWorkspace as business">
+      <app-workspace-breadcrumb [businessCode]="business.businessCode" currentLabel="Employees"></app-workspace-breadcrumb>
       <div class="employees-back-row">
-        <button type="button" class="back-btn" (click)="goToWorkspace()" aria-label="Go back">
-          <span aria-hidden="true">&larr;</span>
-          Back
-        </button>
-
         <div class="workspace-mobile-menu" *ngIf="isMobileNav; else desktopWorkspaceTabs">
           <button type="button" class="workspace-menu-trigger" (click)="toggleWorkspaceMenu($event)" aria-label="Open workspace menu">
             <mat-icon aria-hidden="true">menu</mat-icon>

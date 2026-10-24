@@ -141,7 +141,6 @@ export class BusinessOverviewComponent implements OnInit {
   private loadEmployeeSchedule(businesses: UserBusinessSummary[]): void {
     const weekStart = new Date();
     weekStart.setHours(0, 0, 0, 0);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
     const days = Array.from({ length: 7 }, (_, index) => {
       const date = new Date(weekStart);
       date.setDate(weekStart.getDate() + index);

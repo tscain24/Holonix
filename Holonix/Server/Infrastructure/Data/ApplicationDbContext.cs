@@ -336,6 +336,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(x => x.Cost).HasColumnType("decimal(18,2)");
             entity.Property(x => x.NetCost).HasColumnType("decimal(18,2)");
             entity.Property(x => x.UserId).HasMaxLength(450);
+            entity.Property(x => x.CompletedByUserId).HasMaxLength(450);
             entity.Property(x => x.ServiceLocationLabel).HasMaxLength(120);
             entity.Property(x => x.ServiceAddress1).HasMaxLength(200);
             entity.Property(x => x.ServiceAddress2).HasMaxLength(200);
@@ -347,6 +348,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasOne(x => x.User)
                 .WithMany()
                 .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.CompletedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.CompletedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Business)
                 .WithMany()

@@ -36,12 +36,8 @@
     <div class="workspace-state" *ngIf="loadingWorkspace">Loading business workspace...</div>
 
     <ng-container *ngIf="!loadingWorkspace && businessWorkspace as business">
+      <app-workspace-breadcrumb [businessCode]="business.businessCode" currentLabel="Overview"></app-workspace-breadcrumb>
       <div class="workspace-back-row">
-        <button type="button" class="back-btn" (click)="goToBusinesses()" aria-label="Go back">
-          <span aria-hidden="true">&larr;</span>
-          Back
-        </button>
-
         <div class="workspace-mobile-menu" *ngIf="isMobileNav; else desktopWorkspaceTabs">
           <button type="button" class="workspace-menu-trigger" (click)="toggleWorkspaceMenu($event)" aria-label="Open workspace menu">
             <mat-icon aria-hidden="true">menu</mat-icon>
@@ -172,7 +168,7 @@
               <h2>Job Requests</h2>
               <span class="section-count-chip">{{ business.jobRequests.length }}</span>
             </div>
-            <p>Authorized customer bookings waiting for a business decision.</p>
+            <p>Customer bookings awaiting a business decision or payment recovery.</p>
           </div>
         </div>
 
@@ -216,10 +212,12 @@
                     </span>
                   </div>
                   <div class="job-request-fact job-request-fact-verified">
-                    <mat-icon aria-hidden="true">verified_user</mat-icon>
+                    <mat-icon [style.color]="request.paymentStatus === 'Charge Failed' ? '#b42318' : null" aria-hidden="true">{{ request.paymentStatus === 'Charge Failed' ? 'close' : 'verified_user' }}</mat-icon>
                     <span>
                       <small>Payment method</small>
-                      <strong>Authorized</strong>
+                      <strong [style.color]="request.paymentStatus === 'Charge Failed' ? '#b42318' : null">
+                        {{ request.paymentStatus === 'Charge Failed' ? 'Payment Failed' : 'Authorized' }}
+                      </strong>
                     </span>
                   </div>
                 </div>
@@ -231,15 +229,16 @@
                 <div class="job-request-total">
                   <span>Booking total</span>
                   <strong>{{ formatMoney(request.cost) }}</strong>
-                  <small>Payment method authorized</small>
+                  <small>{{ request.paymentStatus === 'Charge Failed' ? 'Payment failed' : 'Payment method authorized' }}</small>
                 </div>
-                <span class="job-request-status">
-                  <span class="job-request-status-dot"></span>
-                  {{ request.status }}
+                <span class="job-request-status" [class.job-request-status--failed]="request.paymentStatus === 'Charge Failed'">
+                  <mat-icon *ngIf="request.paymentStatus === 'Charge Failed'" aria-hidden="true">close</mat-icon>
+                  <span class="job-request-status-dot" *ngIf="request.paymentStatus !== 'Charge Failed'"></span>
+                  {{ request.paymentStatus === 'Charge Failed' ? 'Payment Failed' : request.status }}
                 </span>
               </div>
 
-              <div class="job-request-actions" *ngIf="canManageJobRequests">
+              <div class="job-request-actions" *ngIf="canManageJobRequests && (request.status === 'Awaiting Acceptance' || request.paymentStatus === 'Charge Failed')">
               <button
                 type="button"
                 class="job-request-btn job-request-btn-cost"
@@ -272,10 +271,10 @@
                 type="button"
                 class="job-request-btn job-request-btn-accept"
                 [disabled]="isUpdatingJobRequest(request.workloadId)"
-                (click)="openJobRequestAvailability(request)"
+                (click)="request.paymentStatus === 'Charge Failed' ? retryPayment(request.workloadId) : openJobRequestAvailability(request)"
               >
                 <mat-icon aria-hidden="true">group_add</mat-icon>
-                {{ isUpdatingJobRequest(request.workloadId) ? 'Updating' : 'Assign & accept' }}
+                {{ isUpdatingJobRequest(request.workloadId) ? 'Updating' : (request.paymentStatus === 'Charge Failed' ? 'Retry Payment' : 'Assign & accept') }}
               </button>
               </div>
             </aside>
@@ -704,7 +703,13 @@
       <section class="workspace-section" id="jobs">
         <div class="section-heading">
           <h2>Jobs</h2>
-          <p>Recent jobs for this business with timing, assignee, and revenue impact.</p>
+          <p>Track the operating lifecycle, assignment, and completion history for every job.</p>
+        </div>
+
+        <div class="jobs-summary" *ngIf="business.jobs.length > 0">
+          <div><strong>{{ upcomingJobs.length }}</strong><span>Upcoming</span></div>
+          <div><strong>{{ business.jobs.length - upcomingJobs.length - completedJobs.length }}</strong><span>In progress</span></div>
+          <div><strong>{{ completedJobs.length }}</strong><span>Completed</span></div>
         </div>
 
         <div class="section-state" *ngIf="business.jobs.length === 0">No jobs have been created for this business yet.</div>
@@ -716,6 +721,7 @@
                 <h3>{{ job.name }}</h3>
                 <p>{{ formatJobWindow(job) }}</p>
               </div>
+              <span class="job-status-chip" [class.job-status-chip-completed]="job.status === 'Completed'">{{ job.status }}</span>
               <div class="job-money">
                 <span>Net Revenue</span>
                 <strong>{{ formatMoney(job.netCost) }}</strong>
@@ -725,6 +731,15 @@
             <div class="job-meta">
               <span>Assigned To: {{ job.assignedEmployeeName || 'Unassigned' }}</span>
               <span>Total Price: {{ formatMoney(job.cost) }}</span>
+              <span *ngIf="job.completedByName">Completed by {{ job.completedByName }} · {{ job.completedDateTime | date:'medium' }}</span>
+            </div>
+            <div class="job-actions" *ngIf="job.status !== 'Completed'">
+              <button type="button" class="hero-btn hero-btn-secondary" (click)="completeJob(job)" [disabled]="isUpdatingJobRequest(job.jobId)">Mark complete</button>
+              <select *ngIf="canManageJobRequests" [(ngModel)]="selectedJobAssignee[job.jobId]" aria-label="Select employee to assign">
+                <option [ngValue]="0">Reassign to...</option>
+                <option *ngFor="let employee of activeWorkspaceEmployees" [ngValue]="employee.businessUserId">{{ employee.displayName }}</option>
+              </select>
+              <button *ngIf="canManageJobRequests" type="button" class="hero-btn hero-btn-secondary" (click)="reassignJob(job)" [disabled]="!selectedJobAssignee[job.jobId] || isUpdatingJobRequest(job.jobId)">Reassign</button>
             </div>
           </article>
         </div>
@@ -785,7 +800,7 @@
     <header class="availability-modal-header">
       <div>
         <p class="workspace-modal-kicker">Job assignment</p>
-        <h2 id="availability-modal-title">Assign team & accept</h2>
+        <h2 id="availability-modal-title">{{ availabilityRequest?.paymentStatus === 'Charge Failed' ? 'Retry payment' : 'Assign team & accept' }}</h2>
         <p *ngIf="jobRequestAvailability">{{ formatAvailabilityDate(jobRequestAvailability.date) }}</p>
       </div>
       <button type="button" class="availability-modal-close" aria-label="Close availability" [disabled]="loadingJobRequestAvailability" (click)="closeJobRequestAvailability()">
@@ -900,8 +915,8 @@
             [disabled]="selectedJobRequestEmployeeIds.size === 0 || isUpdatingJobRequest(request.workloadId)"
             (click)="acceptJobRequest(request.workloadId)"
           >
-            <mat-icon>group_add</mat-icon>
-            {{ isUpdatingJobRequest(request.workloadId) ? 'Accepting…' : 'Assign & accept' }}
+            <mat-icon>{{ request.paymentStatus === 'Charge Failed' ? 'refresh' : 'group_add' }}</mat-icon>
+            {{ isUpdatingJobRequest(request.workloadId) ? 'Processing…' : (request.paymentStatus === 'Charge Failed' ? 'Retry Payment' : 'Assign & accept') }}
           </button>
         </div>
       </footer>

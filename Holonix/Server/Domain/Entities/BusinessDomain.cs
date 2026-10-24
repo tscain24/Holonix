@@ -192,6 +192,8 @@ public class Job
     public string? UserId { get; set; }
     public int BusinessId { get; set; }
     public long? BusinessUserId { get; set; }
+    public string? CompletedByUserId { get; set; }
+    public DateTime? CompletedDateTime { get; set; }
     public bool IsContract { get; set; }
     public long? JobRecurrenceId { get; set; }
     public string? ServiceLocationLabel { get; set; }
@@ -204,6 +206,7 @@ public class Job
     public decimal? ServiceLongitude { get; set; }
 
     public ApplicationUser? User { get; set; }
+    public ApplicationUser? CompletedByUser { get; set; }
     public Business Business { get; set; } = null!;
     public BusinessUser? BusinessUser { get; set; }
     public JobRecurrence? JobRecurrence { get; set; }

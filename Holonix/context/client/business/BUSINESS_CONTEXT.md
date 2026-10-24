@@ -88,3 +88,25 @@ The service manager table/cards now show whether each sub-service requires a cus
 - The assignment modal lists the expected employee count for every requested service and counts visible team members whose availability covers the complete request window. Expected staffing is advisory; acceptance requires at least one selected employee.
 - Each requested service also lists its active assigned employees under `Can do this service`; this indicates qualification, while the timeline still indicates availability for the selected time.
 - The accept result reports whether the job was accepted and charged or automatically cancelled because it was less than two hours from its scheduled start.
+
+## Stripe Payment Loading
+
+- The public cart keeps an animated loading state visible until Stripe reports that the embedded Payment Element is ready. After 10 seconds, the loader explains that startup is taking longer than usual; Stripe load failures replace it with an error message.
+- A declined authorization keeps the current checkout details intact and offers `Try another card`, which returns the customer to the mounted Stripe Payment Element. Payment-form initialization failures offer `Try again` and reload the secure form.
+- If acceptance-time charging fails, the workspace request immediately changes to `Payment Failed`, shows a failure toast, and keeps the card action labeled `Retry Payment`; successful requests retain `Assign & accept`.
+- `Retry Payment` calls the charge-only payment-retry endpoint. If payment succeeds, the workspace opens the team-assignment modal; if it fails, the request stays on `Retry Payment`.
+- Employee selections made before a failed charge are preserved when payment succeeds and the assignment modal reopens, so the previously selected team remains selected for final acceptance.
+- `Decline` remains available for payment-failed requests so the business can close an unrecoverable request instead of retrying it.
+
+- The dedicated `/workspace/jobs/:businessCode` Jobs tab is the dashboard surface with lifecycle status, upcoming/completed counts, completion history, employee reassignment controls, and a mark-complete action. Completion and reassignment refresh the workspace from the server so the display remains authoritative.
+- Its visual structure is an operations dashboard: compact KPI cards, a searchable/filterable work-queue table, a responsive Today/Attention rail, and an anchored searchable people-picker for assignment changes.
+- Opening the Jobs assignment picker loads daily team availability for that job date. Each employee is labeled Available, Busy, Day off, Outside working hours, or Unavailable; overlapping assigned jobs are treated as Busy, and only available employees can be selected.
+- Product typography uses Geist Sans through the global `--holonix-font-sans` token, including Angular Material and business workspace screens.
+- Workspace navigation uses the shared `app-workspace-breadcrumb`: Overview displays `Businesses / Workspace`; Employees, Services, Availability, and Jobs display `Workspace / [current page]`. The linked parent segment replaces duplicated Back controls.
+- The primary workspace-section navigation is an understated underline tab strip beneath the breadcrumb; do not reintroduce pill-shaped navigation buttons beside it.
+- The Availability screen follows the Jobs dashboard visual system: operational header, summary metrics, and compact white work surfaces on the shared neutral workspace background.
+- Employees and Services use the same full-width dashboard canvas and direct breadcrumb-to-page-header flow as Jobs and Availability; their former secondary workspace tab rows are intentionally hidden.
+- Jobs dashboard schedule labels preserve the booking's wall-clock date and time rather than applying the browser timezone conversion to the API timestamp. Use the Jobs component's wall-clock parser for schedule display, filtering, and availability conflict checks.
+- Jobs assignment is team-based: the people picker supports selecting multiple available employees and saves the complete team together. The dashboard shows the returned `assignedEmployees` collection rather than only the legacy primary assignee.
+- Workspace employee and job-assignment responses include profile-image base64 data. Jobs uses each member's photo in the assigned-team pill and picker, with initials as the fallback.
+- The Business Overview "My Schedule" is a rolling seven-day view beginning today, rather than a Sunday–Saturday calendar week.

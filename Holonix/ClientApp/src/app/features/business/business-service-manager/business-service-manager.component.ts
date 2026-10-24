@@ -194,7 +194,7 @@ export class BusinessServiceManagerComponent implements OnInit {
   goToJobsTab(): void {
     const businessCode = this.businessWorkspace?.businessCode?.trim();
     if (businessCode) {
-      this.router.navigate(['/workspace', 'overview', businessCode], { fragment: 'jobs' });
+      this.router.navigate(['/workspace', 'jobs', businessCode]);
     }
   }
 

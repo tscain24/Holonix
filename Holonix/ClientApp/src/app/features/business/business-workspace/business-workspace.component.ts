@@ -60,6 +60,8 @@ export class BusinessWorkspaceComponent implements OnInit {
   jobRequestAvailability: JobRequestAvailabilityResponse | null = null;
   availabilityTeamMembers: BusinessDailyTeamAvailabilityMember[] = [];
   selectedJobRequestEmployeeIds = new Set<number>();
+  selectedJobAssignee: Record<number, number> = {};
+  private readonly retryEmployeeSelections = new Map<number, number[]>();
   availabilityTimelineHours: number[] = [];
   private availabilityTimelineStartMinutes = 6 * 60;
   private availabilityTimelineEndMinutes = 20 * 60;
@@ -241,7 +243,7 @@ export class BusinessWorkspaceComponent implements OnInit {
       return;
     }
 
-    this.router.navigate(['/workspace', 'overview', businessCode], { fragment: 'jobs' });
+    this.router.navigate(['/workspace', 'jobs', businessCode]);
   }
 
   goToPublicPage(): void {
@@ -415,12 +417,75 @@ export class BusinessWorkspaceComponent implements OnInit {
     return this.activeWorkspaceEmployees.length > 0;
   }
 
+  get upcomingJobs(): BusinessWorkspaceJob[] {
+    const now = Date.now();
+    return (this.businessWorkspace?.jobs ?? []).filter(job => new Date(job.endDateTime).getTime() >= now && job.status !== 'Completed');
+  }
+
+  get completedJobs(): BusinessWorkspaceJob[] {
+    return (this.businessWorkspace?.jobs ?? []).filter(job => job.status === 'Completed');
+  }
+
+  completeJob(job: BusinessWorkspaceJob): void {
+    const code = this.businessWorkspace?.businessCode?.trim();
+    if (!code || this.isUpdatingJobRequest(job.jobId)) return;
+    this.updatingJobRequestIds.add(job.jobId);
+    this.businessService.completeJob(code, job.jobId).pipe(finalize(() => this.updatingJobRequestIds.delete(job.jobId))).subscribe({
+      next: result => { this.snackBar.open(result.message || 'Job marked complete.', 'Close', { duration: 3200, panelClass: ['snack-success'] }); this.loadWorkspace(code); },
+      error: err => this.snackBar.open(err?.error?.errors?.[0] ?? 'Could not complete this job.', 'Close', { duration: 3500, panelClass: ['snack-error'] }),
+    });
+  }
+
+  reassignJob(job: BusinessWorkspaceJob): void {
+    const code = this.businessWorkspace?.businessCode?.trim();
+    const employeeId = Number(this.selectedJobAssignee[job.jobId]);
+    if (!code || !employeeId || this.isUpdatingJobRequest(job.jobId)) return;
+    this.updatingJobRequestIds.add(job.jobId);
+    this.businessService.reassignJob(code, job.jobId, [employeeId]).pipe(finalize(() => this.updatingJobRequestIds.delete(job.jobId))).subscribe({
+      next: result => { this.snackBar.open(result.message || 'Job assignment updated.', 'Close', { duration: 3200, panelClass: ['snack-success'] }); this.loadWorkspace(code); },
+      error: err => this.snackBar.open(err?.error?.errors?.[0] ?? 'Could not reassign this job.', 'Close', { duration: 3500, panelClass: ['snack-error'] }),
+    });
+  }
+
   isUpdatingJobRequest(workloadId: number): boolean {
     return this.updatingJobRequestIds.has(workloadId);
   }
 
   acceptJobRequest(workloadId: number): void {
-    this.updateJobRequest(workloadId, 'accept', Array.from(this.selectedJobRequestEmployeeIds));
+    const selectedEmployeeIds = Array.from(this.selectedJobRequestEmployeeIds);
+    this.retryEmployeeSelections.set(workloadId, selectedEmployeeIds);
+    this.updateJobRequest(workloadId, 'accept', selectedEmployeeIds);
+  }
+
+  retryPayment(workloadId: number): void {
+    const businessCode = this.businessWorkspace?.businessCode?.trim();
+    const request = this.businessWorkspace?.jobRequests.find((item) => item.workloadId === workloadId);
+    if (!businessCode || !request || !this.canManageJobRequests || this.isUpdatingJobRequest(workloadId)) {
+      return;
+    }
+
+    this.updatingJobRequestIds.add(workloadId);
+    this.businessService.retryJobRequestPayment(businessCode, workloadId)
+      .pipe(finalize(() => this.updatingJobRequestIds.delete(workloadId)))
+      .subscribe({
+        next: () => {
+          request.paymentStatus = 'Charge Succeeded';
+          this.snackBar.open('Payment succeeded. Assign the team to finish accepting this request.', 'Close', {
+            duration: 3200,
+            panelClass: ['snack-success'],
+          });
+          const selectedEmployeeIds = this.retryEmployeeSelections.get(workloadId) ?? [];
+          this.openJobRequestAvailability(request);
+          selectedEmployeeIds.forEach((businessUserId) => this.selectedJobRequestEmployeeIds.add(businessUserId));
+        },
+        error: (err) => {
+          const errors = err?.error?.errors as string[] | undefined;
+          this.snackBar.open(errors?.[0] ?? 'Payment Failed. Try again or decline the request.', 'Close', {
+            duration: 3600,
+            panelClass: ['snack-error'],
+          });
+        },
+      });
   }
 
   denyJobRequest(workloadId: number): void {
@@ -1511,10 +1576,33 @@ export class BusinessWorkspaceComponent implements OnInit {
         },
         error: (err) => {
           const errors = err?.error?.errors as string[] | undefined;
-          this.snackBar.open(errors?.[0] ?? 'Could not update the job request.', 'Close', {
+          const paymentFailed = action === 'accept' && err?.status === 502;
+          const needsAssignmentForRetry = action === 'accept'
+            && err?.status === 400
+            && (errors?.[0] ?? '').toLowerCase().includes('select at least one employee');
+          let failedRequest: BusinessWorkspaceJobRequest | undefined;
+          if (paymentFailed) {
+            failedRequest = this.businessWorkspace?.jobRequests.find((request) => request.workloadId === workloadId);
+            if (failedRequest) {
+              failedRequest.paymentStatus = 'Charge Failed';
+            }
+          }
+          this.snackBar.open(
+            paymentFailed
+              ? 'Payment Failed. Resolve the payment issue, then choose Retry Payment.'
+              : (errors?.[0] ?? 'Could not update the job request.'),
+            'Close',
+            {
             duration: 3600,
             panelClass: ['snack-error'],
-          });
+            }
+          );
+          if (needsAssignmentForRetry) {
+            failedRequest ??= this.businessWorkspace?.jobRequests.find((request) => request.workloadId === workloadId);
+            if (failedRequest) {
+              this.openJobRequestAvailability(failedRequest);
+            }
+          }
         },
       });
   }

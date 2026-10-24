@@ -59,6 +59,7 @@ public sealed record BusinessWorkspaceEmployeeResponse(
     string? Email,
     string? PhoneNumber,
     DateOnly? DateOfBirth,
+    string? ProfileImageBase64,
     string? RoleName,
     DateTime HiredDate,
     bool IsActive,
@@ -73,7 +74,17 @@ public sealed record BusinessWorkspaceJobResponse(
     DateTime EndDateTime,
     decimal Cost,
     decimal NetCost,
-    string? AssignedEmployeeName);
+    string? AssignedEmployeeName,
+    IReadOnlyList<BusinessWorkspaceJobAssignmentResponse> AssignedEmployees,
+    string Status,
+    string? CustomerName,
+    string? CompletedByName,
+    DateTime? CompletedDateTime);
+
+public sealed record BusinessWorkspaceJobAssignmentResponse(
+    long BusinessUserId,
+    string DisplayName,
+    string? ProfileImageBase64);
 
 public sealed record BusinessWorkspaceJobRequestResponse(
     long WorkloadId,

@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, catchError, combineLatest, finalize, firstValueFrom, map, of, switchMap, takeUntil } from 'rxjs';
+import { Subject, catchError, combineLatest, firstValueFrom, map, of, switchMap, takeUntil } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Stripe, StripeElements, StripePaymentElement, loadStripe } from '@stripe/stripe-js';
 import { AuthService, UserSavedLocation } from '../../../core/services/auth.service';
@@ -46,6 +46,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   loadingSelectedDateAvailability = false;
   startingCheckout = false;
   initializingPaymentElement = false;
+  paymentElementLoadingSlowly = false;
   paymentElementError: string | null = null;
   paymentElementReady = false;
   finalizingAuthorizedBooking = false;
@@ -64,6 +65,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   private paymentSetupSignature: string | null = null;
   private currentPaymentFlowType: 'setup' | 'payment' = 'setup';
   private readonly finalizedSetupIntentIds = new Set<string>();
+  private paymentElementSlowTimer: ReturnType<typeof setTimeout> | null = null;
 
   private readonly destroyed$ = new Subject<void>();
 
@@ -356,6 +358,18 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     this.acceptedLegalPolicies = value;
   }
 
+  retryPayment(): void {
+    this.paymentElementError = null;
+
+    if (this.stripeInstance && this.stripeElements && this.stripePaymentElement) {
+      this.paymentElementReady = true;
+      return;
+    }
+
+    this.paymentElementReady = false;
+    void this.ensurePaymentElementReady();
+  }
+
   async startCheckout(): Promise<void> {
     if (!this.canContinueFromDetails || this.startingCheckout) {
       return;
@@ -481,6 +495,12 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
 
     this.destroyPaymentElement();
     this.initializingPaymentElement = true;
+    this.paymentElementLoadingSlowly = false;
+    this.paymentElementSlowTimer = setTimeout(() => {
+      if (this.initializingPaymentElement) {
+        this.paymentElementLoadingSlowly = true;
+      }
+    }, 10000);
     this.paymentElementError = null;
 
     this.api.createSetupIntent(businessCode, {
@@ -490,17 +510,19 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
       userSavedLocationId: this.selectedSavedLocationId,
       acceptedLegalPolicies: this.acceptedLegalPolicies,
     })
-      .pipe(
-        takeUntil(this.destroyed$),
-        finalize(() => {
-          this.initializingPaymentElement = false;
-        })
-      )
+      .pipe(takeUntil(this.destroyed$))
       .subscribe({
         next: async (response) => {
-          await this.mountPaymentElement(response, signature);
+          try {
+            await this.mountPaymentElement(response, signature);
+          } catch {
+            this.finishPaymentElementLoading();
+            this.paymentElementError = 'Stripe could not be initialized.';
+            this.paymentElementReady = false;
+          }
         },
         error: (err) => {
+          this.finishPaymentElementLoading();
           const errors = err?.error?.errors as string[] | undefined;
           this.paymentElementError = errors?.[0] ?? 'Could not start Stripe payment setup.';
           this.paymentElementReady = false;
@@ -519,6 +541,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
 
     const stripe = await loadStripe(response.publishableKey);
     if (!stripe) {
+      this.finishPaymentElementLoading();
       this.paymentElementError = 'Stripe could not be initialized.';
       this.paymentElementReady = false;
       return;
@@ -550,13 +573,22 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
         link: 'never',
       },
     });
+    this.stripePaymentElement.on('ready', () => {
+      this.paymentSetupSignature = signature;
+      this.paymentElementReady = true;
+      this.paymentElementError = null;
+      this.finishPaymentElementLoading();
+    });
+    this.stripePaymentElement.on('loaderror', (event) => {
+      this.finishPaymentElementLoading();
+      this.paymentElementReady = false;
+      this.paymentElementError = event.error?.message || 'The secure payment form could not be loaded.';
+    });
     this.stripePaymentElement.mount(host);
-    this.paymentSetupSignature = signature;
-    this.paymentElementReady = true;
-    this.paymentElementError = null;
   }
 
   private destroyPaymentElement(): void {
+    this.finishPaymentElementLoading();
     this.stripePaymentElement?.destroy();
     this.stripePaymentElement = null;
     this.stripeElements = null;
@@ -564,6 +596,15 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     this.paymentElementReady = false;
     this.paymentSetupSignature = null;
     this.currentPaymentFlowType = 'setup';
+  }
+
+  private finishPaymentElementLoading(): void {
+    if (this.paymentElementSlowTimer !== null) {
+      clearTimeout(this.paymentElementSlowTimer);
+      this.paymentElementSlowTimer = null;
+    }
+    this.initializingPaymentElement = false;
+    this.paymentElementLoadingSlowly = false;
   }
 
   private buildPaymentSetupSignature(): string {
@@ -710,6 +751,12 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   get canContinueFromDetails(): boolean {
     const hasRequiredLocation = !this.selectedServicesRequireLocation || this.selectedSavedLocationId !== null;
     return hasRequiredLocation && this.acceptedLegalPolicies;
+  }
+
+  get paymentRetryLabel(): string {
+    return this.stripeInstance && this.stripeElements && this.stripePaymentElement
+      ? 'Try another card'
+      : 'Try again';
   }
 
   get locationLabel(): string {

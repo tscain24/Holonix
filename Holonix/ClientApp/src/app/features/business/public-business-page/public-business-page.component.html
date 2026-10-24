@@ -546,8 +546,19 @@
             </div>
 
             <div class="payment-element-shell">
-              <div class="payment-element-loading" *ngIf="initializingPaymentElement">Loading secure payment form...</div>
-              <div class="payment-element-error" *ngIf="!initializingPaymentElement && paymentElementError">{{ paymentElementError }}</div>
+              <div class="payment-element-loading" *ngIf="initializingPaymentElement" role="status" aria-live="polite">
+                <span class="payment-element-spinner" aria-hidden="true"></span>
+                <span>Loading secure payment form...</span>
+                <span class="payment-element-loading-note" *ngIf="paymentElementLoadingSlowly">
+                  This is taking longer than usual. Please keep this page open.
+                </span>
+              </div>
+              <div class="payment-element-error" *ngIf="!initializingPaymentElement && paymentElementError" role="alert">
+                <span>{{ paymentElementError }}</span>
+                <button type="button" class="payment-element-retry-btn" (click)="retryPayment()">
+                  {{ paymentRetryLabel }}
+                </button>
+              </div>
               <div
                 #stripePaymentElementHost
                 class="payment-element-host"

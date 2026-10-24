@@ -325,6 +325,7 @@ public class BusinessController : ControllerBase
                     user.Email,
                     user.PhoneNumber,
                     user.DateOfBirth,
+                    user.ProfileImageBase64,
                 })
             .GroupJoin(
                 _dbContext.BusinessUserRoles.AsNoTracking().Where(role => role.EndDate == null),
@@ -343,6 +344,7 @@ public class BusinessController : ControllerBase
                     joined.businessUser.Email,
                     joined.businessUser.PhoneNumber,
                     joined.businessUser.DateOfBirth,
+                    joined.businessUser.ProfileImageBase64,
                     BusinessRoleId = businessUserRole != null ? businessUserRole.BusinessRoleId : (long?)null,
                 })
             .GroupJoin(
@@ -362,6 +364,7 @@ public class BusinessController : ControllerBase
                     joined.joined.Email,
                     joined.joined.PhoneNumber,
                     joined.joined.DateOfBirth,
+                    joined.joined.ProfileImageBase64,
                     RoleName = businessRole != null ? businessRole.Name : null,
                     RoleHierarchyNumber = businessRole != null ? businessRole.HierarchyNumber : (long?)null,
                 })
@@ -423,6 +426,7 @@ public class BusinessController : ControllerBase
                         first.Email,
                         first.PhoneNumber,
                         first.DateOfBirth,
+                        first.ProfileImageBase64,
                         roleName,
                         first.StartDate,
                         first.IsActive,
@@ -447,9 +451,7 @@ public class BusinessController : ControllerBase
             .ThenBy(roleName => roleName)
             .ToList();
 
-        var employees = orderedEmployees
-            .Take(5)
-            .ToList();
+        var employees = orderedEmployees.ToList();
 
         var jobs = await _dbContext.Jobs
             .AsNoTracking()
@@ -464,13 +466,44 @@ public class BusinessController : ControllerBase
                 job.Cost,
                 job.NetCost,
                 job.BusinessUserId,
+                Status = _dbContext.JobWorkloads
+                    .Where(item => item.JobId == job.JobId)
+                    .Select(item => item.Workload.WorkloadStatus.Status)
+                    .FirstOrDefault() ?? WorkloadStatusNames.Scheduled,
+                CustomerFirstName = job.User != null ? job.User.FirstName : null,
+                CustomerLastName = job.User != null ? job.User.LastName : null,
+                CustomerEmail = job.User != null ? job.User.Email : null,
+                CompletedByFirstName = job.CompletedByUser != null ? job.CompletedByUser.FirstName : null,
+                CompletedByLastName = job.CompletedByUser != null ? job.CompletedByUser.LastName : null,
+                CompletedByEmail = job.CompletedByUser != null ? job.CompletedByUser.Email : null,
+                job.CompletedDateTime,
             })
             .Take(8)
             .ToListAsync(cancellationToken);
 
-        var employeeNameByBusinessUserId = orderedEmployees.ToDictionary(
+        var employeeByBusinessUserId = orderedEmployees.ToDictionary(
             employee => employee.BusinessUserId,
-            employee => employee.DisplayName);
+            employee => employee);
+
+        var jobIds = jobs.Select(job => job.JobId).ToList();
+        var jobAssignmentIds = await _dbContext.JobAssignments
+            .AsNoTracking()
+            .Where(assignment => jobIds.Contains(assignment.JobId))
+            .Select(assignment => new { assignment.JobId, assignment.BusinessUserId })
+            .ToListAsync(cancellationToken);
+
+        var assignedEmployeesByJobId = jobAssignmentIds
+            .GroupBy(assignment => assignment.JobId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<BusinessWorkspaceJobAssignmentResponse>)group
+                    .Where(assignment => employeeByBusinessUserId.ContainsKey(assignment.BusinessUserId))
+                    .Select(assignment => new BusinessWorkspaceJobAssignmentResponse(
+                        assignment.BusinessUserId,
+                        employeeByBusinessUserId[assignment.BusinessUserId].DisplayName,
+                        employeeByBusinessUserId[assignment.BusinessUserId].ProfileImageBase64))
+                    .OrderBy(assignment => assignment.DisplayName)
+                    .ToList());
 
         var jobResponses = jobs
             .Select(job => new BusinessWorkspaceJobResponse(
@@ -480,9 +513,18 @@ public class BusinessController : ControllerBase
                 job.EndDateTime,
                 job.Cost,
                 job.NetCost,
-                job.BusinessUserId.HasValue && employeeNameByBusinessUserId.TryGetValue(job.BusinessUserId.Value, out var employeeName)
-                    ? employeeName
-                    : null))
+                job.BusinessUserId.HasValue && employeeByBusinessUserId.TryGetValue(job.BusinessUserId.Value, out var employee)
+                    ? employee.DisplayName
+                    : null,
+                assignedEmployeesByJobId.TryGetValue(job.JobId, out var assignedEmployees)
+                    ? assignedEmployees
+                    : Array.Empty<BusinessWorkspaceJobAssignmentResponse>(),
+                job.Status,
+                BuildDisplayName(job.CustomerFirstName, job.CustomerLastName, job.CustomerEmail ?? "Customer unavailable"),
+                string.IsNullOrWhiteSpace(job.CompletedByFirstName) && string.IsNullOrWhiteSpace(job.CompletedByLastName) && string.IsNullOrWhiteSpace(job.CompletedByEmail)
+                    ? null
+                    : BuildDisplayName(job.CompletedByFirstName, job.CompletedByLastName, job.CompletedByEmail ?? ""),
+                job.CompletedDateTime))
             .ToList();
 
         var canViewJobRequestCostBreakdowns = CanViewJobRequestCostBreakdowns(currentMembership.RoleName);
@@ -491,7 +533,8 @@ public class BusinessController : ControllerBase
             .Where(item =>
                 item.Job.BusinessId == businessId.Value &&
                 item.Workload.WorkloadType.Type == WorkloadTypeNames.CustomerBooking &&
-                item.Workload.WorkloadStatus.Status == WorkloadStatusNames.AwaitingAcceptance)
+                (item.Workload.WorkloadStatus.Status == WorkloadStatusNames.AwaitingAcceptance ||
+                 item.Workload.WorkloadStatus.Status == WorkloadStatusNames.PaymentFailed))
             .OrderBy(item => item.Job.StartDateTime)
             .Select(item => new
             {
@@ -519,7 +562,7 @@ public class BusinessController : ControllerBase
                     .Select(payment => payment.PaymentStatus)
                     .FirstOrDefault(),
             })
-            .Take(8)
+            .Take(100)
             .ToListAsync(cancellationToken);
 
         var requestJobIds = jobRequestRows.Select(item => item.JobId).ToArray();
@@ -1233,6 +1276,21 @@ public class BusinessController : ControllerBase
             cancellationToken);
 
     [Authorize]
+    [HttpPost("{businessCode}/job-requests/{workloadId:long}/retry-payment")]
+    public Task<IActionResult> RetryJobRequestPayment(
+        string businessCode,
+        long workloadId,
+        CancellationToken cancellationToken)
+        => UpdateJobRequestStatusAsync(
+            businessCode,
+            workloadId,
+            WorkloadStatusNames.Accepted,
+            "payment retry",
+            [],
+            cancellationToken,
+            chargeOnly: true);
+
+    [Authorize]
     [HttpPost("{businessCode}/job-requests/{workloadId:long}/deny")]
     public Task<IActionResult> DenyJobRequest(string businessCode, long workloadId, CancellationToken cancellationToken)
         => UpdateJobRequestStatusAsync(businessCode, workloadId, WorkloadStatusNames.Cancelled, "denied", null, cancellationToken);
@@ -1270,7 +1328,8 @@ public class BusinessController : ControllerBase
                 item.WorkloadId == workloadId &&
                 item.Job.BusinessId == businessId.Value &&
                 item.Workload.WorkloadType.Type == WorkloadTypeNames.CustomerBooking &&
-                item.Workload.WorkloadStatus.Status == WorkloadStatusNames.AwaitingAcceptance)
+                (item.Workload.WorkloadStatus.Status == WorkloadStatusNames.AwaitingAcceptance ||
+                 item.Workload.WorkloadStatus.Status == WorkloadStatusNames.PaymentFailed))
             .Select(item => new
             {
                 item.WorkloadId,
@@ -1587,6 +1646,78 @@ public class BusinessController : ControllerBase
         }
 
         return Ok(response);
+    }
+
+    [Authorize]
+    [HttpPost("{businessCode}/jobs/{jobId:long}/complete")]
+    public async Task<IActionResult> CompleteJob(string businessCode, long jobId, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(userId)) return Unauthorized(new { errors = new[] { "Invalid user context." } });
+
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue) return NotFound(new { errors = new[] { "Business not found." } });
+        var membership = await GetCurrentBusinessMembershipAsync(businessId.Value, userId, cancellationToken);
+        if (membership is null) return Forbid();
+
+        var job = await _dbContext.Jobs.SingleOrDefaultAsync(item => item.JobId == jobId && item.BusinessId == businessId.Value, cancellationToken);
+        if (job is null) return NotFound(new { errors = new[] { "Job not found." } });
+
+        var isManager = CanManageJobRequests(membership.RoleName);
+        var isAssigned = await _dbContext.JobAssignments.AnyAsync(item => item.JobId == jobId && item.BusinessUserId == membership.BusinessUserId, cancellationToken)
+            || job.BusinessUserId == membership.BusinessUserId;
+        if (!isManager && !isAssigned)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { errors = new[] { "Only an assigned employee or manager can complete this job." } });
+        }
+
+        var completedStatusId = await _dbContext.WorkloadStatuses
+            .Where(item => item.WorkloadType.Type == WorkloadTypeNames.CustomerBooking && item.Status == WorkloadStatusNames.Completed)
+            .Select(item => (long?)item.WorkloadStatusId)
+            .SingleOrDefaultAsync(cancellationToken);
+        var jobWorkload = await _dbContext.JobWorkloads
+            .Where(item => item.JobId == jobId)
+            .Select(item => new { item.WorkloadId, item.Workload.WorkloadStatusId })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (!completedStatusId.HasValue || jobWorkload is null)
+            return BadRequest(new { errors = new[] { "This job is not configured for completion." } });
+
+        if (jobWorkload.WorkloadStatusId == completedStatusId.Value)
+            return Ok(new JobRequestActionResponse(WorkloadStatusNames.Completed, "This job was already marked complete."));
+
+        job.CompletedByUserId = userId;
+        job.CompletedDateTime = DateTime.UtcNow;
+        var workload = await _dbContext.Workloads.SingleAsync(item => item.WorkloadId == jobWorkload.WorkloadId, cancellationToken);
+        workload.WorkloadStatusId = completedStatusId.Value;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return Ok(new JobRequestActionResponse(WorkloadStatusNames.Completed, "Job marked complete."));
+    }
+
+    [Authorize]
+    [HttpPost("{businessCode}/jobs/{jobId:long}/reassign")]
+    public async Task<IActionResult> ReassignJob(string businessCode, long jobId, [FromBody] ReassignJobRequest request, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(userId)) return Unauthorized(new { errors = new[] { "Invalid user context." } });
+        var businessId = await GetActiveBusinessIdByCodeAsync(businessCode, cancellationToken);
+        if (!businessId.HasValue) return NotFound(new { errors = new[] { "Business not found." } });
+        var membership = await GetCurrentBusinessMembershipAsync(businessId.Value, userId, cancellationToken);
+        if (membership is null) return Forbid();
+        if (!CanManageJobRequests(membership.RoleName))
+            return StatusCode(StatusCodes.Status403Forbidden, new { errors = new[] { "Only managers, administrators, and owners can reassign jobs." } });
+
+        var ids = (request.BusinessUserIds ?? Array.Empty<long>()).Where(id => id > 0).Distinct().ToArray();
+        if (ids.Length == 0) return BadRequest(new { errors = new[] { "Select at least one active employee." } });
+        var job = await _dbContext.Jobs.SingleOrDefaultAsync(item => item.JobId == jobId && item.BusinessId == businessId.Value, cancellationToken);
+        if (job is null) return NotFound(new { errors = new[] { "Job not found." } });
+        var activeIds = await _dbContext.BusinessUsers.Where(item => ids.Contains(item.BusinessUserId) && item.BusinessId == businessId.Value && item.IsActive && item.EndDate == null && item.User.InactiveDate == null).Select(item => item.BusinessUserId).ToListAsync(cancellationToken);
+        if (activeIds.Count != ids.Length) return BadRequest(new { errors = new[] { "One or more selected employees are not active members of this business." } });
+        var oldAssignments = await _dbContext.JobAssignments.Where(item => item.JobId == jobId).ToListAsync(cancellationToken);
+        _dbContext.JobAssignments.RemoveRange(oldAssignments);
+        _dbContext.JobAssignments.AddRange(ids.Select(id => new JobAssignment { JobId = jobId, BusinessUserId = id }));
+        job.BusinessUserId = ids[0];
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return Ok(new JobRequestActionResponse("Reassigned", "Job assignment updated."));
     }
 
     [Authorize]
@@ -2237,6 +2368,7 @@ public class BusinessController : ControllerBase
                         first.Email,
                         first.PhoneNumber,
                         first.DateOfBirth,
+                        null,
                         roleName,
                         first.StartDate,
                         first.IsActive,
@@ -4526,7 +4658,8 @@ public class BusinessController : ControllerBase
         string targetStatus,
         string actionVerb,
         IReadOnlyList<long>? assignedBusinessUserIds,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool chargeOnly = false)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? User.FindFirstValue("sub");
@@ -4578,7 +4711,11 @@ public class BusinessController : ControllerBase
 
         var canRetryFailedPayment = string.Equals(targetStatus, WorkloadStatusNames.Accepted, StringComparison.OrdinalIgnoreCase)
             && string.Equals(workload.WorkloadStatus.Status, WorkloadStatusNames.PaymentFailed, StringComparison.OrdinalIgnoreCase);
-        if (!string.Equals(workload.WorkloadStatus.Status, WorkloadStatusNames.AwaitingAcceptance, StringComparison.OrdinalIgnoreCase) && !canRetryFailedPayment)
+        var canDenyFailedPayment = string.Equals(targetStatus, WorkloadStatusNames.Denied, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(workload.WorkloadStatus.Status, WorkloadStatusNames.PaymentFailed, StringComparison.OrdinalIgnoreCase);
+        if (!string.Equals(workload.WorkloadStatus.Status, WorkloadStatusNames.AwaitingAcceptance, StringComparison.OrdinalIgnoreCase)
+            && !canRetryFailedPayment
+            && !canDenyFailedPayment)
         {
             return BadRequest(new { errors = new[] { $"This job request can no longer be {actionVerb}." } });
         }
@@ -4599,17 +4736,21 @@ public class BusinessController : ControllerBase
         BookingPayment? bookingPayment = null;
         if (string.Equals(targetStatus, WorkloadStatusNames.Accepted, StringComparison.OrdinalIgnoreCase))
         {
-            var distinctAssignedBusinessUserIds = (assignedBusinessUserIds ?? [])
+            var requestedBusinessUserIds = (assignedBusinessUserIds ?? [])
                 .Where(id => id > 0)
                 .Distinct()
                 .ToArray();
 
-            if (distinctAssignedBusinessUserIds.Length == 0)
+            var distinctAssignedBusinessUserIds = requestedBusinessUserIds;
+
+            if (!chargeOnly && distinctAssignedBusinessUserIds.Length == 0)
             {
                 return BadRequest(new { errors = new[] { "Select at least one employee before accepting the job request." } });
             }
 
-            var activeAssignedBusinessUserIds = await _dbContext.BusinessUsers
+            var activeAssignedBusinessUserIds = chargeOnly
+                ? new List<long>()
+                : await _dbContext.BusinessUsers
                 .AsNoTracking()
                 .Where(item =>
                     distinctAssignedBusinessUserIds.Contains(item.BusinessUserId) &&
@@ -4677,7 +4818,8 @@ public class BusinessController : ControllerBase
                                 ["businessCode"] = businessCode,
                                 ["jobId"] = jobWorkload.JobId.ToString(CultureInfo.InvariantCulture),
                                 ["workloadId"] = workloadId.ToString(CultureInfo.InvariantCulture),
-                                ["chargeReason"] = "accepted_booking",
+                            ["chargeReason"] = chargeOnly ? "accepted_booking_payment_retry" : "accepted_booking",
+                            ["chargeAttempt"] = chargeOnly ? DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture) : "initial",
                             }),
                         cancellationToken);
 
@@ -4712,19 +4854,20 @@ public class BusinessController : ControllerBase
                 }
             }
 
-            var existingAssignmentIds = await _dbContext.JobAssignments
-                .Where(item => item.JobId == jobWorkload.JobId)
-                .Select(item => item.BusinessUserId)
-                .ToListAsync(cancellationToken);
+            if (chargeOnly)
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return Ok(new JobRequestActionResponse(
+                    WorkloadStatusNames.AwaitingAcceptance,
+                    "Payment succeeded. Assign the team to finish accepting this job request."));
+            }
 
             _dbContext.JobAssignments.AddRange(distinctAssignedBusinessUserIds
-                .Except(existingAssignmentIds)
                 .Select(businessUserId => new JobAssignment
                 {
                     JobId = jobWorkload.JobId,
                     BusinessUserId = businessUserId,
                 }));
-
             jobWorkload.Job.BusinessUserId = distinctAssignedBusinessUserIds[0];
         }
 

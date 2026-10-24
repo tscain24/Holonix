@@ -106,6 +106,7 @@ export interface BusinessWorkspaceEmployee {
   email?: string | null;
   phoneNumber?: string | null;
   dateOfBirth?: string | null;
+  profileImageBase64?: string | null;
   roleName?: string | null;
   hiredDate: string;
   isActive: boolean;
@@ -174,6 +175,11 @@ export interface BusinessWorkspaceJob {
   cost: number;
   netCost: number;
   assignedEmployeeName?: string | null;
+  assignedEmployees: Array<{ businessUserId: number; displayName: string; profileImageBase64?: string | null }>;
+  status: string;
+  customerName?: string | null;
+  completedByName?: string | null;
+  completedDateTime?: string | null;
 }
 
 export interface BusinessWorkspaceJobRequest {
@@ -595,6 +601,26 @@ export class BusinessService {
         return this.tryAcceptJobRequestFallback(businessCode, workloadId, businessUserIds, 0);
       })
     );
+  }
+
+  retryJobRequestPayment(businessCode: string, workloadId: number): Observable<JobRequestActionResponse> {
+    return this.http.post<JobRequestActionResponse>(`${this.businessEndpoint}/${businessCode}/job-requests/${workloadId}/retry-payment`, {}).pipe(
+      catchError((err) => {
+        if (!this.shouldTryNextOrigin(err)) {
+          return throwError(() => err);
+        }
+
+        return this.tryRetryJobRequestPaymentFallback(businessCode, workloadId, 0);
+      })
+    );
+  }
+
+  completeJob(businessCode: string, jobId: number): Observable<JobRequestActionResponse> {
+    return this.http.post<JobRequestActionResponse>(`${this.businessEndpoint}/${businessCode}/jobs/${jobId}/complete`, {});
+  }
+
+  reassignJob(businessCode: string, jobId: number, businessUserIds: number[]): Observable<JobRequestActionResponse> {
+    return this.http.post<JobRequestActionResponse>(`${this.businessEndpoint}/${businessCode}/jobs/${jobId}/reassign`, { businessUserIds });
   }
 
   denyJobRequest(businessCode: string, workloadId: number): Observable<void> {
@@ -1019,6 +1045,27 @@ export class BusinessService {
       catchError((err) => {
         if (this.shouldTryNextOrigin(err)) {
           return this.tryAcceptJobRequestFallback(businessCode, workloadId, businessUserIds, index + 1);
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private tryRetryJobRequestPaymentFallback(
+    businessCode: string,
+    workloadId: number,
+    index: number
+  ): Observable<JobRequestActionResponse> {
+    if (index >= this.fallbackOrigins.length) {
+      return throwError(() => new Error('Job request payment retry endpoint not found on configured local origins.'));
+    }
+
+    const url = `${this.fallbackOrigins[index]}${this.businessEndpoint}/${businessCode}/job-requests/${workloadId}/retry-payment`;
+    return this.http.post<JobRequestActionResponse>(url, {}).pipe(
+      catchError((err) => {
+        if (this.shouldTryNextOrigin(err)) {
+          return this.tryRetryJobRequestPaymentFallback(businessCode, workloadId, index + 1);
         }
 
         return throwError(() => err);

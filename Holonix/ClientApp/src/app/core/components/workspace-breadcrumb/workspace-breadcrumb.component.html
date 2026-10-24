@@ -1,0 +1,14 @@
+<nav class="workspace-breadcrumb" aria-label="Breadcrumb">
+  <a *ngIf="isOverview; else workspaceParent" routerLink="/business" class="workspace-breadcrumb-back">
+    <mat-icon aria-hidden="true">arrow_back</mat-icon>
+    All businesses
+  </a>
+  <ng-template #workspaceParent>
+    <a [routerLink]="['/workspace', 'overview', businessCode]" class="workspace-breadcrumb-back">
+      <mat-icon aria-hidden="true">arrow_back</mat-icon>
+      Workspace
+    </a>
+  </ng-template>
+  <span class="workspace-breadcrumb-divider" aria-hidden="true"></span>
+  <span class="workspace-breadcrumb-current" aria-current="page">{{ isOverview ? 'Workspace' : currentLabel }}</span>
+</nav>

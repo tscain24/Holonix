@@ -5,7 +5,7 @@
   --field-bg-focus: #232734;
   display: block;
   min-height: 100vh;
-  font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+  font-family: var(--holonix-font-sans);
   background: radial-gradient(circle at 20% 20%, #0d1b3d 0%, #0a1430 35%, #061024 100%);
   color: #e6e8ed;
   overflow: hidden;

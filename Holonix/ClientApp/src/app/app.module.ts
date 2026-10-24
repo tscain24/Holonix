@@ -22,11 +22,13 @@ import { RecentActivityComponent } from './features/profile/components/recent-ac
 import { CreateBusinessComponent } from './features/business/create-business/create-business.component';
 import { BusinessOverviewComponent } from './features/business/business-overview/business-overview.component';
 import { BusinessWorkspaceComponent } from './features/business/business-workspace/business-workspace.component';
+import { BusinessJobsComponent } from './features/business/business-jobs/business-jobs.component';
 import { BusinessEmployeesComponent } from './features/business/business-employees/business-employees.component';
 import { BusinessServiceManagerComponent } from './features/business/business-service-manager/business-service-manager.component';
 import { BusinessAvailabilityComponent } from './features/business/business-availability/business-availability.component';
 import { AuthInterceptor } from './core/services/auth.interceptor';
 import { AppHeaderComponent } from './core/components/app-header/app-header.component';
+import { WorkspaceBreadcrumbComponent } from './core/components/workspace-breadcrumb/workspace-breadcrumb.component';
 import { ServiceSearchResultsComponent } from './features/search/service-search-results/service-search-results.component';
 import { AppBottomNavComponent } from './core/components/app-bottom-nav/app-bottom-nav.component';
 import { PublicBusinessPageComponent } from './features/business/public-business-page/public-business-page.component';
@@ -35,8 +37,10 @@ import { PrivacyPolicyComponent } from './features/legal/privacy-policy/privacy-
 
 @NgModule({
   declarations: [
+    BusinessJobsComponent,
     AppComponent,
     AppHeaderComponent,
+    WorkspaceBreadcrumbComponent,
     AppBottomNavComponent,
     LoginComponent,
     RegisterComponent,

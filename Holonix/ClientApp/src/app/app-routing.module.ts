@@ -7,6 +7,7 @@ import { ProfileComponent } from './features/profile/profile.component';
 import { CreateBusinessComponent } from './features/business/create-business/create-business.component';
 import { BusinessOverviewComponent } from './features/business/business-overview/business-overview.component';
 import { BusinessWorkspaceComponent } from './features/business/business-workspace/business-workspace.component';
+import { BusinessJobsComponent } from './features/business/business-jobs/business-jobs.component';
 import { BusinessEmployeesComponent } from './features/business/business-employees/business-employees.component';
 import { BusinessServiceManagerComponent } from './features/business/business-service-manager/business-service-manager.component';
 import { BusinessAvailabilityComponent } from './features/business/business-availability/business-availability.component';
@@ -57,6 +58,7 @@ const routes: Routes = [
 
   // New workspace URLs
   { path: 'workspace/overview/:businessCode', component: BusinessWorkspaceComponent },
+  { path: 'workspace/jobs/:businessCode', component: BusinessJobsComponent },
   { path: 'workspace/employees/:businessCode', component: BusinessEmployeesComponent },
   { path: 'workspace/services/:businessCode', component: BusinessServiceManagerComponent },
   { path: 'workspace/availability/:businessCode', component: BusinessAvailabilityComponent },

@@ -218,7 +218,7 @@
   --holonix-blue-light: #60a5fa;
   --holonix-blue-rgb: 37, 99, 235;
   --date-accent: var(--holonix-blue);
-  --holonix-font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --holonix-font-sans: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --holonix-font-weight-regular: 400;
   --holonix-font-weight-medium: 500;
   --holonix-font-weight-semibold: 600;
@@ -267,6 +267,7 @@ body {
   margin: 0;
   font-family: var(--holonix-font-sans);
   font-weight: var(--holonix-font-weight-regular);
+  font-feature-settings: "kern" 1, "liga" 1, "tnum" 1;
 }
 body.mat-typography,
 .mat-typography,
@@ -1343,4 +1344,3 @@ app-home .guest-search-trust-item mat-icon {
 .app-main .top-nav {
   display: none !important;
 }
-

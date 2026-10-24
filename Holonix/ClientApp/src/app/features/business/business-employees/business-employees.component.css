@@ -167,11 +167,21 @@
 }
 
 .employees-shell {
-  width: min(1440px, calc(100% - 40px));
-  margin: 0 auto;
-  padding: 24px clamp(16px, 2.6vw, 34px) 34px;
+  width: auto;
+  margin: 0;
+  padding: 36px clamp(22px, 5vw, 76px) 80px;
   display: grid;
   gap: 20px;
+}
+
+.employees-back-row { display: none; }
+
+.employees-hero {
+  padding: 0 0 22px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .employees-back-row {
@@ -315,6 +325,13 @@
   border-color: #93c5fd;
   color: #1d4ed8;
 }
+
+.workspace-back-row { min-height: 48px; margin-bottom: 20px; border-bottom: 1px solid #dfe7f1; }
+.workspace-tabs { height: 48px; gap: 2px; flex-wrap: nowrap; }
+.workspace-tab { position: relative; min-height: 48px; padding: 0 14px; border: 0; border-radius: 0; background: transparent; color: #607794; font-size: 13px; font-weight: 650; }
+.workspace-tab:hover { color: #1d4ed8; background: #f6f9fd; }
+.workspace-tab-active { background: transparent; border: 0; color: #1d4ed8; font-weight: 750; }
+.workspace-tab-active::after { content: ''; position: absolute; right: 14px; bottom: -1px; left: 14px; height: 2px; border-radius: 2px 2px 0 0; background: #2563eb; }
 
 .employees-kicker {
   margin: 0 0 8px;
@@ -987,9 +1004,8 @@
   }
 
   .employees-shell {
-    width: min(100%, calc(100% - 20px));
-    padding-left: 0;
-    padding-right: 0;
+    width: auto;
+    padding: 24px 20px 48px;
   }
 
   .employees-hero,
@@ -1038,6 +1054,9 @@
     margin-top: 8px;
   }
 }
+
+.employees-hero { padding: 0 0 22px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.employees-back-row { display: none; }
 
 @media (max-width: 900px) {
   .employees-back-row {
@@ -1090,3 +1109,5 @@
     font-size: 15px;
   }
 }
+
+.employees-hero { padding: 0 0 22px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }

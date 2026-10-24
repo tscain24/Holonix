@@ -74,7 +74,7 @@
 
     <section *ngIf="!loadingBusinesses && businesses.length > 0" style="margin: 0 0 28px; padding: 22px; border: 1px solid #d8e4f2; border-radius: 18px; background: rgba(255, 255, 255, 0.88); box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);">
       <h2 style="margin: 0; color: #173057; font-size: 20px;">My Schedule</h2>
-      <p style="margin: 6px 0 16px; color: #647a9b; font-size: 13px;">Your availability for the current week at every business you belong to.</p>
+      <p style="margin: 6px 0 16px; color: #647a9b; font-size: 13px;">Your availability for the next seven days at every business you belong to.</p>
       <div *ngIf="loadingEmployeeSchedule" class="business-state">Loading your schedule...</div>
       <div *ngIf="!loadingEmployeeSchedule" style="overflow-x: auto; border: 1px solid #e0e9f4; border-radius: 12px;">
         <div style="min-width: 820px; display: grid; grid-template-columns: 180px repeat(7, minmax(90px, 1fr));">

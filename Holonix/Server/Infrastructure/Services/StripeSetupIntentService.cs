@@ -178,7 +178,7 @@ public sealed class StripeSetupIntentService : IStripeSetupIntentService
         }, new RequestOptions
         {
             IdempotencyKey = request.Metadata.TryGetValue("workloadId", out var workloadId)
-                ? $"holonix-accepted-booking-{workloadId}"
+                ? $"holonix-accepted-booking-{workloadId}-{(request.Metadata.TryGetValue("chargeAttempt", out var attempt) ? attempt : "initial")}"
                 : null,
         }, cancellationToken: cancellationToken);
 

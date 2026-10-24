@@ -1199,6 +1199,56 @@
 .payment-element-error {
   color: #b91c1c;
   background: #fff5f5;
+  align-content: center;
+  gap: 12px;
+}
+
+.payment-element-retry-btn {
+  border: 1px solid #b91c1c;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #991b1b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 9px 14px;
+}
+
+.payment-element-retry-btn:hover,
+.payment-element-retry-btn:focus-visible {
+  background: #fee2e2;
+}
+
+.payment-element-loading {
+  align-content: center;
+  gap: 10px;
+}
+
+.payment-element-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #bfdbfe;
+  border-top-color: #2563eb;
+  border-radius: 999px;
+  animation: payment-element-spin 0.8s linear infinite;
+}
+
+.payment-element-loading-note {
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+@keyframes payment-element-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .payment-element-spinner {
+    animation-duration: 1.8s;
+  }
 }
 
 .details-check-row {

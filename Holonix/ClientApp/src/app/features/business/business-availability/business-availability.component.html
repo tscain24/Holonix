@@ -36,12 +36,8 @@
     <div class="page-state" *ngIf="loadingWorkspace || loadingAvailability">Loading availability...</div>
 
     <ng-container *ngIf="!loadingWorkspace && !loadingAvailability && businessWorkspace as business">
+      <app-workspace-breadcrumb [businessCode]="business.businessCode" currentLabel="Availability"></app-workspace-breadcrumb>
       <div class="availability-back-row">
-        <button type="button" class="back-btn" (click)="goToWorkspace()" aria-label="Go back">
-          <span aria-hidden="true">&larr;</span>
-          Back
-        </button>
-
         <div class="workspace-mobile-menu" *ngIf="isMobileNav; else desktopWorkspaceTabs">
           <button type="button" class="workspace-menu-trigger" (click)="toggleWorkspaceMenu($event)" aria-label="Open workspace menu">
             <mat-icon aria-hidden="true">menu</mat-icon>
@@ -83,10 +79,41 @@
         </ng-template>
       </div>
 
-      <section class="availability-hero">
-        <p class="availability-kicker text-blue-600">Business Workspace</p>
-        <h1>{{ business.name }} Availability</h1>
-        <p>Set the hours you are available to work for this business.</p>
+      <header class="availability-dashboard-header">
+        <div>
+          <span class="availability-section-kicker">TEAM CAPACITY</span>
+          <h1>Availability</h1>
+          <p>Set your working hours, review coverage, and plan time away.</p>
+        </div>
+        <button
+          *ngIf="!isEditingAvailability"
+          type="button"
+          class="availability-header-action"
+          (click)="startEditingAvailability()"
+          [disabled]="savingAvailability || loadingAvailability"
+        >
+          <mat-icon aria-hidden="true">edit_calendar</mat-icon>
+          Edit availability
+        </button>
+      </header>
+
+      <section class="availability-metric-grid" aria-label="Availability summary">
+        <article class="availability-metric-card metric-blue">
+          <div class="availability-metric-icon"><mat-icon aria-hidden="true">event_available</mat-icon></div>
+          <div><span>Working days</span><strong>{{ enabledDayCount }}</strong><small>In your weekly schedule</small></div>
+        </article>
+        <article class="availability-metric-card metric-amber">
+          <div class="availability-metric-icon"><mat-icon aria-hidden="true">schedule</mat-icon></div>
+          <div><span>Working windows</span><strong>{{ workingWindowCount }}</strong><small>Across the week</small></div>
+        </article>
+        <article class="availability-metric-card metric-red">
+          <div class="availability-metric-icon"><mat-icon aria-hidden="true">event_busy</mat-icon></div>
+          <div><span>Time off</span><strong>{{ daysOff.length }}</strong><small>Upcoming entries</small></div>
+        </article>
+        <article class="availability-metric-card metric-green">
+          <div class="availability-metric-icon"><mat-icon aria-hidden="true">groups</mat-icon></div>
+          <div><span>Team coverage</span><strong>{{ teamAvailabilityMembers.length }}</strong><small>Shown for selected day</small></div>
+        </article>
       </section>
 
       <section class="availability-section">

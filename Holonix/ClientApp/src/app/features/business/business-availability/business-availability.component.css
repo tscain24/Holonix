@@ -1,10 +1,7 @@
 :host {
   display: block;
   min-height: 100vh;
-  background:
-    radial-gradient(1200px 700px at -5% -20%, #bfdbfe 0%, rgba(191, 219, 254, 0) 62%),
-    radial-gradient(1000px 620px at 105% 110%, #fde68a 0%, rgba(253, 230, 138, 0) 58%),
-    linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+  background: #f4f7fb;
   font-family: var(--holonix-font-sans);
 }
 
@@ -167,12 +164,102 @@
 }
 
 .availability-shell {
-  width: min(1440px, calc(100% - 40px));
-  margin: 0 auto;
-  padding: 24px clamp(16px, 2.6vw, 34px) 34px;
+  width: auto;
+  margin: 0;
+  padding: 36px clamp(22px, 5vw, 76px) 80px;
   display: grid;
-  gap: 20px;
+  gap: 0;
 }
+
+.availability-dashboard-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 22px;
+}
+
+.availability-section-kicker {
+  display: block;
+  margin-bottom: 7px;
+  color: #2563df;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .15em;
+}
+
+.availability-dashboard-header h1 {
+  margin: 0;
+  color: #102a43;
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: -.035em;
+}
+
+.availability-dashboard-header p {
+  margin: 5px 0 0;
+  color: #71859f;
+  font-size: 14px;
+}
+
+.availability-header-action {
+  min-height: 40px;
+  padding: 0 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #1e58d4;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #3272ee, #245fd9);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  box-shadow: 0 6px 14px #2563eb25;
+}
+
+.availability-header-action mat-icon { width: 17px; height: 17px; font-size: 17px; }
+.availability-header-action:disabled { cursor: not-allowed; opacity: .6; box-shadow: none; }
+
+.availability-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.availability-metric-card {
+  min-height: 92px;
+  padding: 17px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #dce6f1;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 5px #17385e08;
+}
+
+.availability-metric-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  border-radius: 11px;
+}
+
+.availability-metric-icon mat-icon { width: 20px; height: 20px; font-size: 20px; }
+.availability-metric-card span, .availability-metric-card small { display: block; }
+.availability-metric-card span { color: #7186a0; font-size: 11px; font-weight: 750; }
+.availability-metric-card strong { display: block; margin: 2px 0; color: #102a43; font-size: 23px; letter-spacing: -.025em; }
+.availability-metric-card small { color: #93a2b5; font-size: 10px; }
+.metric-blue .availability-metric-icon { background: #e8f0ff; color: #2563df; }
+.metric-amber .availability-metric-icon { background: #fff1d6; color: #aa6800; }
+.metric-red .availability-metric-icon { background: #ffebeb; color: #c44545; }
+.metric-green .availability-metric-icon { background: #e2f7ed; color: #118157; }
 
 .availability-back-row {
   display: flex;
@@ -294,18 +381,28 @@
   color: #1d4ed8;
 }
 
+.workspace-back-row { min-height: 48px; margin-bottom: 20px; border-bottom: 1px solid #dfe7f1; }
+.workspace-tabs { height: 48px; gap: 2px; flex-wrap: nowrap; }
+.workspace-tab { position: relative; min-height: 48px; padding: 0 14px; border: 0; border-radius: 0; background: transparent; color: #607794; font-size: 13px; font-weight: 650; }
+.workspace-tab:hover { color: #1d4ed8; background: #f6f9fd; }
+.workspace-tab-active { background: transparent; border: 0; color: #1d4ed8; font-weight: 750; }
+.workspace-tab-active::after { content: ''; position: absolute; right: 14px; bottom: -1px; left: 14px; height: 2px; border-radius: 2px 2px 0 0; background: #2563eb; }
+
+/* Jobs is the operational dashboard reference: page context lives in the header, not in a second navigation band. */
+.availability-back-row { display: none; }
+
 .availability-hero,
 .availability-section,
 .page-state {
-  border-radius: 24px;
-  border: 1px solid #d6e2f2;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.07);
+  border-radius: 15px;
+  border: 1px solid #dce6f1;
+  background: #ffffff;
+  box-shadow: 0 3px 10px #17385e08;
 }
 
 .availability-hero,
 .availability-section {
-  padding: 22px;
+  padding: 20px 22px;
 }
 
 .page-state {
@@ -1137,9 +1234,17 @@
   }
 
   .availability-shell {
-    width: min(100%, calc(100% - 20px));
-    padding-left: 0;
-    padding-right: 0;
+    width: auto;
+    padding: 24px 20px 48px;
+  }
+
+  .availability-dashboard-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .availability-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .availability-hero,
@@ -1185,6 +1290,13 @@
   .calendar-pill {
     display: none;
   }
+}
+
+@media (max-width: 560px) {
+  .availability-dashboard-header h1 { font-size: 29px; }
+  .availability-header-action { width: 100%; }
+  .availability-metric-grid { grid-template-columns: 1fr; gap: 10px; }
+  .availability-metric-card { min-height: 76px; }
 }
 @media (max-width: 900px) {
   .availability-back-row {

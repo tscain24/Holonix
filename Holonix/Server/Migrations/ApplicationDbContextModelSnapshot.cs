@@ -726,6 +726,13 @@ namespace Holonix.Server.Migrations
                     b.Property<long?>("BusinessUserId")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("CompletedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime?>("CompletedDateTime")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<decimal>("Cost")
                         .HasColumnType("decimal(18,2)");
 
@@ -787,6 +794,8 @@ namespace Holonix.Server.Migrations
                     b.HasIndex("BusinessId");
 
                     b.HasIndex("BusinessUserId");
+
+                    b.HasIndex("CompletedByUserId");
 
                     b.HasIndex("JobRecurrenceId");
 
@@ -1521,6 +1530,11 @@ namespace Holonix.Server.Migrations
                         .HasForeignKey("BusinessUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Holonix.Server.Domain.Entities.ApplicationUser", "CompletedByUser")
+                        .WithMany()
+                        .HasForeignKey("CompletedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Holonix.Server.Domain.Entities.JobRecurrence", "JobRecurrence")
                         .WithMany()
                         .HasForeignKey("JobRecurrenceId")
@@ -1534,6 +1548,8 @@ namespace Holonix.Server.Migrations
                     b.Navigation("Business");
 
                     b.Navigation("BusinessUser");
+
+                    b.Navigation("CompletedByUser");
 
                     b.Navigation("JobRecurrence");
 
