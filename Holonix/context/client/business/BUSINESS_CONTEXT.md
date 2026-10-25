@@ -110,3 +110,33 @@ The service manager table/cards now show whether each sub-service requires a cus
 - Jobs assignment is team-based: the people picker supports selecting multiple available employees and saves the complete team together. The dashboard shows the returned `assignedEmployees` collection rather than only the legacy primary assignee.
 - Workspace employee and job-assignment responses include profile-image base64 data. Jobs uses each member's photo in the assigned-team pill and picker, with initials as the fallback.
 - The Business Overview "My Schedule" is a rolling seven-day view beginning today, rather than a Sunday–Saturday calendar week.
+
+- Overview KPIs derive from returned workspace jobs: future starts, incomplete jobs within their scheduled window, incomplete jobs without team or legacy assignee, and total booking cost across all jobs (not revenue). In Progress is schedule-based because no live start status exists. Dates use the existing wall-clock parser. Attention retains request actions and links unassigned work to Jobs. Upcoming Work shows five earliest future starts. Native details retain secondary information and all job controls; all five navigation tabs remain.
+
+- The services workspace tab, mobile navigation item, Overview section, and page heading are labeled Services; existing component names and routes are unchanged.
+
+- Services uses a standalone Services h1 rather than appending Services to the business name.
+
+- Jobs and Employees h1 headings are simply Jobs and Employees; the employee heading does not prepend the business name.
+
+## Financial Insights
+- /workspace/insights/:businessCode uses BusinessInsightsComponent and a dedicated API service. Owner/Admin Overview link uses existing financial permission visibility; backend authorization remains authoritative for direct navigation, every query, detail page and CSV export.
+- Default current-month report uses scheduled-start date. Six selectable KPI definitions distinguish booked/complete/upcoming values and counts; bar/table report metrics and day/month/year/status/customer grouping are local view choices. Date/status/customer/service/value filters and 25-row pagination query the server. Group selection narrows filters to contributing jobs. Exact customer matching prevents substring drill-down expansion.
+- Unsupported cash/refund/balance/time data and deferred employee/service allocations are explicitly explained. Report results and exports always use the last applied filters. Metric visibility is visit-only; saved reports/layouts are later phases.
+
+- Month-over-month chart reuses the authorized report endpoint with month grouping and a 12-calendar-month window ending at the applied end date, independently of the report start date. Existing non-date filters are retained. Missing months are zero-filled; percent change has no baseline for the first month or a zero prior value. Partial final months are clearly labeled; accessible bars support month drill-down and horizontal scrolling on mobile.
+
+- Monthly chart uses a custom viewport-clamped hover/focus tooltip positioned beside the month (right by default, left near the viewport edge) with month, booked value, change, and drill-down hint. Native title tooltips are removed. Escape, blur, mouse leave, chart scroll, and report reload dismiss it; reduced-motion preferences are respected.
+
+- Financial Insights has an always-visible Employee breakdown table and an Employee group-by option. Clicking a membership row filters report/trend/jobs and exports; Show all employees clears that filter. Employee ID 0 selects unassigned jobs. The API's employees allocation rows also appear in CSV with an explicit allocation description. Labels distinguish whole-job dashboard values from equal-share employee allocations, and job counts are participation rather than additive headcounts.
+
+- Employee selection now lives in the top report filter row (All employees, Unassigned, and employees returned by the report/12-month trend). Options are retained for the page visit so narrowing to an employee does not remove prior choices. Run report applies the selection. The standalone employee section is removed; Employee group-by and CSV allocations remain available.
+
+- Existing Overview/Employees/Services/Availability workspace navigation templates include a Financial Insights tab/mobile item gated by business.canViewJobRequestCostBreakdowns (Owner or Administrator only). Existing secondary-tab visibility conventions remain unchanged; no duplicate hero link. Insights backend membership/role authorization remains authoritative.
+
+## Jobs workflow implementation
+- BusinessJobsComponent uses JobsService and JobsPage rather than BusinessWorkspace's preview array. It provides server-side pagination, debounced full-data search, status/date/member filters, scoped KPIs, a chronological active Today rail, and working details/manual-create/next-seven-days actions.
+- Row/detail actions follow API capability flags and are disabled during requests. Details expose saved customer/location/service/completion data; financial amounts are Owner/Admin-only. Teams use an accessible CDK focus-trapped modal with Escape/backdrop dismissal, loading/error/retry states, stable IDs and latest-request cancellation. Existing unavailable/inactive team members can be deselected; clearing the entire team is supported. Save requires a successful availability response and a changed valid team.
+- Start/ready/complete are explicit. Reschedule/team changes reset readiness. Completion/cancellation prompt before writing; paid cancellation restrictions are explained. Mutations carry revision and a stale 409 refreshes the page. Persistent errors have retry controls; pagination recovers from emptied last pages. CSS is encapsulated; the responsive table scrolls independently and dialogs fit desktop/mobile viewports. Today uses UTC; schedule strings preserve booked wall-clock values. Overview's duplicate complete/reassign controls link to Jobs so they cannot bypass the lifecycle.
+
+- Manual job creation supports required service addresses and optional linking to an existing business customer. Service choices exclude consultation pricing, but location-required fixed-price services are available. Address entry is required for those services. No payment is collected. The queue prioritizes active work ahead of terminal history.

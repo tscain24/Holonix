@@ -55,7 +55,7 @@
             </button>
             <button type="button" class="workspace-menu-item" (click)="goToServiceManagerTab(); closeWorkspaceMenu()" role="menuitem">
               <mat-icon aria-hidden="true">tune</mat-icon>
-              Service Manager
+              Services
             </button>
             <button type="button" class="workspace-menu-item" (click)="goToMyAvailabilityTab(); closeWorkspaceMenu()" role="menuitem">
               <mat-icon aria-hidden="true">event_available</mat-icon>
@@ -65,6 +65,10 @@
               <mat-icon aria-hidden="true">work</mat-icon>
               Jobs
             </button>
+            <button type="button" class="workspace-menu-item" *ngIf="business.canViewJobRequestCostBreakdowns" [routerLink]="['/workspace', 'insights', business.businessCode]" (click)="closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">insights</mat-icon>
+              Financial Insights
+            </button>
           </div>
         </div>
 
@@ -73,10 +77,11 @@
             <button type="button" class="workspace-tab" (click)="goToOverviewTab()">Overview</button>
             <button type="button" class="workspace-tab" (click)="goToEmployeesTab()">Employees</button>
             <button type="button" class="workspace-tab workspace-tab-active" aria-current="page" (click)="goToServiceManagerTab()">
-              Service Manager
+              Services
             </button>
             <button type="button" class="workspace-tab" (click)="goToMyAvailabilityTab()">Availability</button>
             <button type="button" class="workspace-tab" (click)="goToJobsTab()">Jobs</button>
+            <button type="button" class="workspace-tab" *ngIf="business.canViewJobRequestCostBreakdowns" [routerLink]="['/workspace', 'insights', business.businessCode]">Financial Insights</button>
           </nav>
         </ng-template>
       </div>
@@ -85,7 +90,7 @@
         <div class="service-manager-hero-row">
           <div class="service-manager-hero-copy">
             <p class="service-manager-kicker text-blue-600">Business Workspace</p>
-            <h1>{{ business.name }} Service Manager</h1>
+            <h1>Services</h1>
             <p>Create services your customers can buy and decide which employees can perform them.</p>
           </div>
           <div class="service-manager-hero-actions" *ngIf="canManageSubServices">

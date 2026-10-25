@@ -62,3 +62,5 @@ When changing reference data behavior, check the related seeder before adding ad
 - Build from repo root: `dotnet build .\Holonix.sln`
 - Swagger after `.\start-dev.ps1`: `http://localhost:5237/swagger`
 - Avoid creating temp directories under `Server/`; use repo-level `.dev-runtime` or an external temp location for verification artifacts.
+
+- Jobs operations: Controllers/BusinessJobsController.cs and Application/Services/JobTeamValidator.cs. WorkloadReferenceSeeder includes Manual Job lifecycle references; no new schema is required.

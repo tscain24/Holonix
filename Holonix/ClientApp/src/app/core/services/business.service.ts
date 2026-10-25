@@ -172,8 +172,8 @@ export interface BusinessWorkspaceJob {
   name: string;
   startDateTime: string;
   endDateTime: string;
-  cost: number;
-  netCost: number;
+  cost: number | null;
+  netCost: number | null;
   assignedEmployeeName?: string | null;
   assignedEmployees: Array<{ businessUserId: number; displayName: string; profileImageBase64?: string | null }>;
   status: string;
@@ -189,7 +189,7 @@ export interface BusinessWorkspaceJobRequest {
   customerName: string;
   startDateTime: string;
   endDateTime: string;
-  cost: number;
+  cost: number | null;
   status: string;
   paymentStatus: string;
   serviceLocation?: BusinessWorkspaceJobLocation | null;
@@ -352,7 +352,7 @@ export interface BusinessWorkspace {
   services: BusinessWorkspaceService[];
   activeEmployeeCount: number;
   totalJobs: number;
-  totalRevenue: number;
+  totalRevenue: number | null;
   employees: BusinessWorkspaceEmployee[];
   jobs: BusinessWorkspaceJob[];
   jobRequests: BusinessWorkspaceJobRequest[];

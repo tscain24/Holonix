@@ -1,3 +1,5 @@
+import { A11yModule } from '@angular/cdk/a11y';
+import { BusinessInsightsComponent } from './features/business/business-insights/business-insights.component';
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
@@ -37,6 +39,7 @@ import { PrivacyPolicyComponent } from './features/legal/privacy-policy/privacy-
 
 @NgModule({
   declarations: [
+    BusinessInsightsComponent,
     BusinessJobsComponent,
     AppComponent,
     AppHeaderComponent,
@@ -60,6 +63,7 @@ import { PrivacyPolicyComponent } from './features/legal/privacy-policy/privacy-
     PrivacyPolicyComponent
   ],
   imports: [
+    A11yModule,
     BrowserModule,
     BrowserAnimationsModule,
     FormsModule,

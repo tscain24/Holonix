@@ -27,7 +27,7 @@ interface VisibleBusinessSubService extends BusinessWorkspaceSubService {
 @Component({
   selector: 'app-business-workspace',
   templateUrl: './business-workspace.component.html',
-  styleUrls: ['./business-workspace.component.css'],
+  styleUrls: ['./business-workspace.component.css', './business-workspace-overview.css'],
 })
 export class BusinessWorkspaceComponent implements OnInit {
   private static readonly MaxVisibleServiceChips = 4;
@@ -418,9 +418,17 @@ export class BusinessWorkspaceComponent implements OnInit {
   }
 
   get upcomingJobs(): BusinessWorkspaceJob[] {
-    const now = Date.now();
-    return (this.businessWorkspace?.jobs ?? []).filter(job => new Date(job.endDateTime).getTime() >= now && job.status !== 'Completed');
+    return (this.businessWorkspace?.jobs ?? []).filter(j => j.status !== 'Completed' && this.parseBusinessScheduleDate(j.startDateTime).getTime() > Date.now()).sort((a,b) => this.parseBusinessScheduleDate(a.startDateTime).getTime() - this.parseBusinessScheduleDate(b.startDateTime).getTime());
   }
+  get inProgressJobs(): BusinessWorkspaceJob[] {
+    const now = Date.now();
+    return (this.businessWorkspace?.jobs ?? []).filter(j => j.status !== 'Completed' && this.parseBusinessScheduleDate(j.startDateTime).getTime() <= now && this.parseBusinessScheduleDate(j.endDateTime).getTime() > now);
+  }
+  get unassignedJobs(): BusinessWorkspaceJob[] {
+    return (this.businessWorkspace?.jobs ?? []).filter(j => j.status !== 'Completed' && !j.assignedEmployees?.length && !j.assignedEmployeeName);
+  }
+  get totalJobValue(): number { return (this.businessWorkspace?.jobs ?? []).reduce((sum,j) => sum + (j.cost ?? 0), 0); }
+  jobTeamLabel(job: BusinessWorkspaceJob): string { return job.assignedEmployees?.map(e => e.displayName).join(', ') || job.assignedEmployeeName || 'Unassigned'; }
 
   get completedJobs(): BusinessWorkspaceJob[] {
     return (this.businessWorkspace?.jobs ?? []).filter(job => job.status === 'Completed');
@@ -1393,7 +1401,8 @@ export class BusinessWorkspaceComponent implements OnInit {
     });
   }
 
-  formatMoney(value: number): string {
+  formatMoney(value: number | null): string {
+    if (value === null) return 'Restricted';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',

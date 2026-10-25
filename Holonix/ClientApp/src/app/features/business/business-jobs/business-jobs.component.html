@@ -1,84 +1,45 @@
-<main class="jobs-dashboard" *ngIf="workspace as business">
+<main class="jobs-dashboard" [attr.aria-busy]="loading || mutating">
+  <app-workspace-breadcrumb [businessCode]="code" currentLabel="Jobs"></app-workspace-breadcrumb>
   <header class="dashboard-header">
-    <div>
-      <app-workspace-breadcrumb [businessCode]="business.businessCode" currentLabel="Jobs"></app-workspace-breadcrumb>
-      <h1>Job operations</h1>
-      <p>Schedule work, coordinate your team, and keep every job moving.</p>
-    </div>
-    <div class="header-actions">
-      <button class="button button-primary" type="button"><mat-icon>add</mat-icon>New job</button>
-    </div>
+    <div><h1>Jobs</h1><p>Schedule work, coordinate your team, and keep every job moving.</p></div>
+    <div class="header-actions"><button type="button" class="button" (click)="load(page)" [disabled]="loading || mutating">Refresh</button><button type="button" class="button primary" *ngIf="data?.canCreate" (click)="newJob()" [disabled]="loading || mutating || !!optionsError">New job</button></div>
   </header>
-
-  <section class="metric-grid" aria-label="Job summary">
-    <article class="metric-card metric-card-blue">
-      <div class="metric-icon"><mat-icon>calendar_today</mat-icon></div>
-      <div><span>Upcoming jobs</span><strong>{{ upcomingCount }}</strong><small>Scheduled and ready</small></div>
-    </article>
-    <article class="metric-card metric-card-amber">
-      <div class="metric-icon"><mat-icon>pending_actions</mat-icon></div>
-      <div><span>In progress</span><strong>{{ inProgressCount }}</strong><small>Active work orders</small></div>
-    </article>
-    <article class="metric-card metric-card-red">
-      <div class="metric-icon"><mat-icon>person_off</mat-icon></div>
-      <div><span>Needs assignment</span><strong>{{ unassignedCount }}</strong><small>Requires attention</small></div>
-    </article>
-    <article class="metric-card metric-card-green">
-      <div class="metric-icon"><mat-icon>payments</mat-icon></div>
-      <div><span>Total job value</span><strong>{{ business.totalRevenue | currency }}</strong><small>{{ completedCount }} jobs completed</small></div>
-    </article>
-  </section>
-
-  <section class="dashboard-layout">
-    <div class="work-queue">
-      <div class="queue-header">
-        <div><span class="section-kicker">WORK QUEUE</span><h2>All jobs</h2><p>{{ jobs.length }} visible of {{ business.jobs.length }} total</p></div>
-        <label class="queue-search"><mat-icon>search</mat-icon><input [(ngModel)]="searchTerm" placeholder="Search jobs, customers, or team" /></label>
+  <div class="error-banner" role="alert" *ngIf="error"><span>{{ error }}</span><button type="button" (click)="load(page)" [disabled]="loading">Retry</button></div>
+  <div class="error-banner" role="alert" *ngIf="optionsError"><span>{{ optionsError }}</span><button type="button" (click)="loadOptions()">Retry choices</button></div>
+  <p class="loading-state" *ngIf="loading" role="status">Loading jobs…</p>
+  <ng-container *ngIf="data as business">
+    <section class="metric-grid" aria-label="Job summary">
+      <button class="metric-card" type="button" (click)="status('upcoming')" [disabled]="loading || mutating"><span>Upcoming jobs</span><strong>{{ business.summary.upcoming }}</strong><small>Active jobs with a future start</small></button>
+      <button class="metric-card" type="button" (click)="status('inprogress')" [disabled]="loading || mutating"><span>In progress</span><strong>{{ business.summary.inProgress }}</strong><small>Work explicitly started</small></button>
+      <button class="metric-card" type="button" (click)="status('unassigned')" [disabled]="loading || mutating"><span>Needs assignment</span><strong>{{ business.summary.unassigned }}</strong><small>Active jobs without a team</small></button>
+      <article class="metric-card" *ngIf="business.canViewFinancials; else completionMetric"><span>Total booked job value</span><strong>{{ business.summary.totalValue | currency }}</strong><small>All matching jobs · cancellations excluded</small></article>
+      <ng-template #completionMetric><article class="metric-card"><span>Completed jobs</span><strong>{{ business.summary.completed }}</strong><small>Recorded completions</small></article></ng-template>
+    </section>
+    <section class="dashboard-layout">
+      <div class="work-queue" id="job-queue">
+        <div class="queue-header"><div><span class="section-kicker">WORK QUEUE</span><h2>Jobs</h2><p>{{ business.total }} matching jobs · {{ business.jobs.length }} on this page</p></div><label class="queue-search"><span class="sr-only">Search all jobs, customers, or assigned employees</span><mat-icon aria-hidden="true">search</mat-icon><input type="search" [(ngModel)]="filters.search" (ngModelChange)="search()" placeholder="Search jobs, customers, or team" [disabled]="mutating" /></label></div>
+        <div class="queue-toolbar"><nav class="filter-tabs" aria-label="Job status"><button type="button" *ngFor="let item of statuses" [class.active]="applied.filter === item.key" [attr.aria-pressed]="applied.filter === item.key" (click)="status(item.key)" [disabled]="loading || mutating">{{ item.name }}</button></nav><button type="button" class="button" (click)="showFilters = !showFilters" [attr.aria-expanded]="showFilters" aria-controls="job-filters">Filters</button></div>
+        <form *ngIf="showFilters" class="job-filters" id="job-filters" (ngSubmit)="load()"><label>Scheduled from<input type="date" name="from" [(ngModel)]="filters.start" /></label><label>Through<input type="date" name="through" [(ngModel)]="filters.end" /></label><label>Employee<select name="employee" [(ngModel)]="filters.employeeId"><option [ngValue]="null">All employees</option><option [ngValue]="0">Unassigned</option><option *ngFor="let employee of options.employees" [ngValue]="employee.businessUserId">{{ employee.displayName }}</option></select></label><div class="filter-actions"><button type="button" (click)="reset()" [disabled]="loading || mutating">Clear</button><button type="submit" class="primary" [disabled]="loading || mutating">Apply filters</button></div></form>
+        <p class="queue-note">Pending bookings and payment recovery are managed in <a [routerLink]="['/workspace','overview',code]">Overview</a>. Schedule times are shown as booked; Today uses UTC.</p>
+        <div class="table-scroll"><table class="job-table"><caption class="sr-only">Operational jobs, assigned teams, statuses and permitted actions</caption><thead><tr><th scope="col">Job / customer</th><th scope="col">Schedule</th><th scope="col">Assigned team</th><th scope="col" *ngIf="business.canViewFinancials">Job value</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead><tbody>
+          <tr *ngFor="let job of business.jobs"><td><button type="button" class="job-name" (click)="details(job)" [disabled]="loading || mutating">{{ job.name }}</button><small>{{ job.customerName }}</small></td><td>{{ date(job.startDateTime) }}<small>{{ time(job.startDateTime) }} – {{ time(job.endDateTime) }}</small><small *ngIf="job.startDateTime.slice(0,10) !== job.endDateTime.slice(0,10)">Ends {{ date(job.endDateTime) }}</small></td><td><button *ngIf="job.canReassign; else readonlyTeam" class="assignee-pill" type="button" (click)="openTeam(job)" [disabled]="loading || mutating" aria-haspopup="dialog">{{ team(job) }}</button><ng-template #readonlyTeam>{{ team(job) }}</ng-template></td><td *ngIf="business.canViewFinancials">{{ job.cost | currency }}</td><td><span class="status-badge" [class.completed]="job.status === 'Completed'" [class.in-progress]="job.status === 'In Progress'" [class.cancelled]="job.status === 'Cancelled'">{{ job.status }}</span></td><td><div class="row-actions"><button type="button" *ngIf="job.canReady" (click)="perform(job,'ready')" [disabled]="loading || mutating">Mark ready</button><button type="button" *ngIf="job.canStart" (click)="perform(job,'start')" [disabled]="loading || mutating">Start work</button><button type="button" *ngIf="job.canComplete" (click)="confirm(job,'complete')" [disabled]="loading || mutating">Complete</button><button type="button" (click)="details(job)" [disabled]="loading || mutating" aria-haspopup="dialog">Details</button></div></td></tr>
+        </tbody></table></div>
+        <div class="queue-empty" *ngIf="!business.jobs.length && !loading"><mat-icon aria-hidden="true">work_off</mat-icon><strong>No jobs match these filters</strong><p>Change your search or clear the filters.</p><button type="button" (click)="reset()">Clear filters</button></div>
+        <div class="pagination"><span>Page {{ page }} · {{ business.total }} jobs</span><button type="button" (click)="load(page - 1)" [disabled]="page <= 1 || loading || mutating">Previous</button><button type="button" (click)="load(page + 1)" [disabled]="page * business.pageSize >= business.total || loading || mutating">Next</button></div>
       </div>
-
-      <div class="queue-toolbar">
-        <nav class="filter-tabs" aria-label="Job status filters">
-          <button [class.active]="filter === 'all'" (click)="filter='all'">All <span>{{ business.jobs.length }}</span></button>
-          <button [class.active]="filter === 'upcoming'" (click)="filter='upcoming'">Upcoming <span>{{ upcomingCount }}</span></button>
-          <button [class.active]="filter === 'completed'" (click)="filter='completed'">Completed <span>{{ completedCount }}</span></button>
-        </nav>
-        <button class="filter-control" type="button"><mat-icon>tune</mat-icon>Filters</button>
-      </div>
-
-      <div class="table-scroll">
-        <table class="job-table">
-          <thead><tr><th>Job</th><th>Schedule</th><th>Assigned team</th><th class="number-column">Value</th><th>Status</th><th class="action-column">Actions</th></tr></thead>
-          <tbody>
-            <tr *ngFor="let job of jobs">
-              <td><div class="job-identity"><span class="job-monogram">{{ job.name.charAt(0) }}</span><div><strong>{{ job.name }}</strong><small>{{ job.customerName || 'Customer details unavailable' }}</small></div></div></td>
-              <td><div class="schedule-cell"><strong>{{ formatJobDate(job.startDateTime) }}</strong><small>{{ formatJobTime(job.startDateTime) }} – {{ formatJobTime(job.endDateTime) }}</small></div></td>
-              <td class="assignment-cell">
-                <button *ngIf="business.canManageJobRequests" class="assignee-pill" [class.unassigned]="!assignedTeamCount(job)" type="button" (click)="openAssignment(job)"><ng-container *ngIf="job.assignedEmployees?.[0] as lead"><img *ngIf="profileImageUrl(lead.profileImageBase64)" class="assignee-photo" [src]="profileImageUrl(lead.profileImageBase64)" alt="" /><span *ngIf="!profileImageUrl(lead.profileImageBase64)" class="presence-dot"></span></ng-container><span *ngIf="!job.assignedEmployees?.length" class="presence-dot"></span>{{ assignedTeamLabel(job) }}</button>
-                <span *ngIf="!business.canManageJobRequests" class="assignee-pill readonly"><span class="presence-dot"></span>{{ assignedTeamLabel(job) }}</span>
-                <div *ngIf="assignmentOpenJobId === job.jobId" class="people-picker">
-                  <div class="people-picker-title"><div><strong>Assign team</strong><span>Select every employee working this job</span></div><button type="button" (click)="openAssignment(job)" aria-label="Close employee picker"><mat-icon>close</mat-icon></button></div>
-                  <label class="people-search"><mat-icon>search</mat-icon><input [(ngModel)]="assignmentSearch" placeholder="Search employees" /></label>
-                  <div class="people-results">
-                    <button *ngFor="let employee of filteredAssignmentEmployees" type="button" (click)="toggleAssignee(job, employee.businessUserId)" [class.selected]="isAssigneeSelected(job, employee.businessUserId)" [disabled]="busy.has(job.jobId) || (!isAssigneeSelected(job, employee.businessUserId) && !canAssignEmployee(employee.businessUserId))"><img *ngIf="profileImageUrl(employee.profileImageBase64)" class="person-avatar person-avatar-image" [src]="profileImageUrl(employee.profileImageBase64)" alt="" /><span *ngIf="!profileImageUrl(employee.profileImageBase64)" class="person-avatar">{{ employee.displayName.charAt(0) }}</span><span><strong>{{ employee.displayName }}</strong><small>{{ employee.roleName || 'Team member' }}</small></span><span class="availability-label" [class.available]="availabilityFor(employee.businessUserId).state === 'available'" [class.busy]="availabilityFor(employee.businessUserId).state === 'busy'">{{ availabilityFor(employee.businessUserId).label }}</span><mat-icon *ngIf="isAssigneeSelected(job, employee.businessUserId)">check</mat-icon></button>
-                    <div class="empty-results" *ngIf="filteredAssignmentEmployees.length === 0">No employees found.</div>
-                  </div>
-                  <div class="people-picker-footer"><span>{{ (selectedAssigneeIds[job.jobId] || []).length }} selected</span><button type="button" (click)="reassign(job)" [disabled]="busy.has(job.jobId) || !(selectedAssigneeIds[job.jobId] || []).length">Save team</button></div>
-                </div>
-              </td>
-              <td class="number-column"><strong>{{ job.cost | currency }}</strong></td>
-              <td><span class="status-badge" [class.completed]="job.status === 'Completed'" [class.in-progress]="job.status === 'In Progress'">{{ job.status || 'Scheduled' }}</span></td>
-              <td class="action-column"><button *ngIf="job.status !== 'Completed'" class="icon-action complete-action" type="button" (click)="complete(job)" [disabled]="busy.has(job.jobId)" aria-label="Mark job complete"><mat-icon>check</mat-icon></button><button class="icon-action" type="button" aria-label="More job actions"><mat-icon>more_horiz</mat-icon></button></td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="queue-empty" *ngIf="jobs.length === 0"><mat-icon>work_off</mat-icon><strong>No jobs found</strong><span>Try changing your search or selected filter.</span></div>
-      </div>
-    </div>
-
-    <aside class="operations-rail">
-      <section class="rail-card today-card"><div class="rail-heading"><div><span class="section-kicker">TODAY</span><h3>{{ todayJobs.length }} scheduled</h3></div><span class="date-chip">{{ todayJobs.length ? formatJobShortDate(todayJobs[0].startDateTime) : '' }}</span></div><div class="timeline" *ngIf="todayJobs.length"><article *ngFor="let job of todayJobs"><time>{{ formatJobTime(job.startDateTime) }}</time><span class="timeline-marker" [class.completed]="job.status === 'Completed'"></span><div><strong>{{ job.name }}</strong><small>{{ job.assignedEmployeeName || 'Needs assignment' }}</small></div></article></div><div class="rail-empty" *ngIf="!todayJobs.length"><mat-icon>event_available</mat-icon><strong>Your day is clear</strong><span>No jobs are scheduled today.</span></div><button class="rail-link" type="button">Open full schedule <mat-icon>arrow_forward</mat-icon></button></section>
-      <section class="rail-card attention-card"><div class="rail-heading"><div><span class="section-kicker">ATTENTION</span><h3>Needs action</h3></div><span class="attention-count">{{ unassignedCount }}</span></div><p *ngIf="unassignedCount">{{ unassignedCount }} upcoming {{ unassignedCount === 1 ? 'job needs' : 'jobs need' }} a team assignment.</p><p *ngIf="!unassignedCount">Every active job has an assigned team member.</p></section>
-    </aside>
-  </section>
+      <aside class="operations-rail"><section class="rail-card"><span class="section-kicker">TODAY · UTC</span><h2>{{ business.todayTotal }} active jobs</h2><article class="timeline-row" *ngFor="let job of business.today"><time>{{ time(job.startDateTime) }}</time><div><button type="button" class="job-name" (click)="details(job)" [disabled]="mutating || loading">{{ job.name }}</button><small>{{ team(job) }}</small><span class="status-badge">{{ job.status }}</span></div></article><p *ngIf="business.todayTotal > business.today.length">Showing the first {{ business.today.length }}. Use date filters for the complete list.</p><p *ngIf="!business.todayTotal">No active jobs scheduled today.</p><button type="button" class="rail-link" (click)="nextWeek()" [disabled]="loading || mutating">View next 7 days</button></section><section class="rail-card"><span class="section-kicker">ATTENTION</span><h2>Needs action</h2><button type="button" class="attention-link" (click)="status('unassigned')" [disabled]="loading || mutating">{{ business.summary.unassigned }} active jobs need a team</button><button type="button" class="attention-link" (click)="status('overdue')" [disabled]="loading || mutating">{{ business.summary.overdue }} active jobs past their scheduled end</button></section></aside>
+    </section>
+  </ng-container>
 </main>
-<div class="dashboard-loading" *ngIf="loading"><span></span>Loading job operations…</div>
+
+<div class="modal-backdrop" *ngIf="detail || editingTeam || scheduling || confirmation || creating" (click)="backdrop($event)">
+  <section class="job-dialog" role="dialog" aria-modal="true" aria-labelledby="job-dialog-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
+    <header class="dialog-header"><h2 id="job-dialog-title">{{ editingTeam ? 'Assign team' : scheduling ? 'Reschedule job' : confirmation ? (confirmation.action === 'complete' ? 'Complete job' : 'Cancel job') : creating ? 'New manual job' : 'Job details' }}</h2><button type="button" class="close-dialog" (click)="closeModals()" [disabled]="mutating" aria-label="Close dialog" cdkFocusInitial><mat-icon aria-hidden="true">close</mat-icon></button></header>
+    <p class="dialog-error" role="alert" *ngIf="modalError">{{ modalError }}</p>
+    <ng-container *ngIf="detail as job"><h3>{{ job.name }}</h3><span class="status-badge">{{ job.status }}</span><dl class="job-details"><dt>Customer</dt><dd>{{ job.customerName }}<span *ngIf="job.customerEmail"> · {{ job.customerEmail }}</span><span *ngIf="job.customerPhone"> · {{ job.customerPhone }}</span></dd><dt>Service location</dt><dd>{{ location(job) }}</dd><dt>Services</dt><dd>{{ job.services.join(', ') || 'No service snapshot recorded' }}</dd><dt>Schedule</dt><dd>{{ date(job.startDateTime) }} {{ time(job.startDateTime) }} — {{ date(job.endDateTime) }} {{ time(job.endDateTime) }}</dd><dt>Team</dt><dd>{{ team(job) }}</dd><ng-container *ngIf="data?.canViewFinancials"><dt>Job value</dt><dd>{{ job.cost | currency }}</dd><dt>Payment</dt><dd>{{ job.paymentStatus }} · Job value is not cash collected.</dd></ng-container><ng-container *ngIf="job.completedDateTime"><dt>Completed</dt><dd>{{ job.completedDateTime | date:'medium' }} by {{ job.completedByName || 'Recorded employee' }}</dd></ng-container></dl><p *ngIf="job.status === 'Ready To Start' && !job.canStart">Work can start at the scheduled start time for a manager or assigned employee.</p><p class="queue-note" *ngIf="job.cancellationRestriction">{{ job.cancellationRestriction }}</p><footer class="dialog-actions"><button type="button" *ngIf="job.canReassign" (click)="openTeam(job)">Edit team</button><button type="button" *ngIf="job.canReschedule" (click)="reschedule(job)">Reschedule</button><button type="button" *ngIf="job.canReady" (click)="perform(job,'ready')" [disabled]="mutating || loading">Mark ready</button><button type="button" *ngIf="job.canStart" (click)="perform(job,'start')" [disabled]="mutating || loading">Start work</button><button type="button" *ngIf="job.canComplete" (click)="confirm(job,'complete')">Complete</button><button type="button" class="danger" *ngIf="job.canCancel" (click)="confirm(job,'cancel')">Cancel job</button></footer></ng-container>
+    <ng-container *ngIf="editingTeam as job"><h3>{{ job.name }}</h3><p>Select available, qualified employees. Save with no selection to leave this job unassigned. Editing the team returns the job to Scheduled.</p><label class="search-label">Search employees<input type="search" [(ngModel)]="teamSearch" [disabled]="teamLoading || mutating" /></label><p *ngIf="teamLoading" role="status">Checking the full schedule and service qualifications…</p><button type="button" *ngIf="modalError && !teamLoading" (click)="fetchTeam()" [disabled]="mutating">Retry availability</button><div class="team-list"><label class="team-option" *ngFor="let employee of visibleTeam"><input type="checkbox" [checked]="selectedIds.includes(employee.businessUserId)" (change)="toggleTeam(employee.businessUserId)" [disabled]="mutating || teamLoading || (!selectedIds.includes(employee.businessUserId) && !employee.canAssign)" /><span><strong>{{ employee.displayName }}</strong><small>{{ employee.availability }}</small></span></label><p *ngIf="!teamLoading && !visibleTeam.length && !modalError">No matching employees.</p></div><footer class="dialog-actions"><span>{{ selectedIds.length }} selected</span><button type="button" class="primary" (click)="saveTeam()" [disabled]="!canSaveTeam">{{ mutating ? 'Saving…' : 'Save team' }}</button></footer></ng-container>
+    <form *ngIf="scheduling" (ngSubmit)="saveSchedule()"><p>Existing team availability is checked again before saving. The job returns to Scheduled.</p><div class="schedule-fields"><label>Start<input type="datetime-local" name="start" [(ngModel)]="scheduleStart" required /></label><label>End<input type="datetime-local" name="end" [(ngModel)]="scheduleEnd" required /></label></div><footer class="dialog-actions"><button type="submit" class="primary" [disabled]="mutating || !scheduleStart || !scheduleEnd">{{ mutating ? 'Saving…' : 'Save schedule' }}</button></footer></form>
+    <ng-container *ngIf="confirmation as prompt"><h3>{{ prompt.job.name }}</h3><p *ngIf="prompt.action === 'complete'">Confirm that the work is finished. Your name and completion time will be recorded, and the team and schedule will be locked.</p><p *ngIf="prompt.action === 'cancel'">Cancel this job and remove it from active schedules. Its record will remain in history. This action does not issue a refund.</p><footer class="dialog-actions"><button type="button" (click)="closeModals()" [disabled]="mutating">Go back</button><button type="button" [class.danger]="prompt.action === 'cancel'" [class.primary]="prompt.action === 'complete'" (click)="confirmAction()" [disabled]="mutating">{{ mutating ? 'Saving…' : 'Confirm ' + prompt.action }}</button></footer></ng-container>
+    <form *ngIf="creating" (ngSubmit)="create()"><p>Create scheduled work using existing fixed-price services. This records job value and does not collect payment. Assign the team after creation. Customer checkout remains available for consultation services. A service address is required when the selected services need one.</p><label>Job name<input name="name" [(ngModel)]="createName" maxlength="200" required /></label><label>Existing customer (optional)<select name="createCustomer" [(ngModel)]="createCustomer"><option [ngValue]="null">Customer not linked</option><option *ngFor="let customer of options.customers" [ngValue]="customer.userId">{{ customer.name }}</option></select></label><div class="schedule-fields"><label>Start<input type="datetime-local" name="createStart" [(ngModel)]="createStart" required /></label><label>End<input type="datetime-local" name="createEnd" [(ngModel)]="createEnd" required /></label></div><fieldset><legend>Services</legend><label class="team-option" *ngFor="let service of options.services"><input type="checkbox" [checked]="createServices.includes(service.businessSubServiceId)" (change)="toggleService(service.businessSubServiceId)" /><span>{{ service.name }} · {{ service.price | currency }}<small>{{ service.durationMinutes }} scheduled minutes</small></span></label><p *ngIf="!options.services.length">No eligible fixed-price services. Add services in the Services workspace first.</p></fieldset><fieldset *ngIf="needsLocation"><legend>Service location</legend><label>Street address<input name="address1" [(ngModel)]="createLocation.address1" maxlength="200" required /></label><label>Address line 2<input name="address2" [(ngModel)]="createLocation.address2" maxlength="200" /></label><div class="schedule-fields"><label>City<input name="city" [(ngModel)]="createLocation.city" maxlength="100" required /></label><label>State / region<input name="state" [(ngModel)]="createLocation.state" maxlength="100" required /></label><label>Postal code<input name="zipCode" [(ngModel)]="createLocation.zipCode" maxlength="20" required /></label></div></fieldset><footer class="dialog-actions"><button class="primary" type="submit" [disabled]="mutating || !createName.trim() || !createStart || !createEnd || !createServices.length">{{ mutating ? 'Creating…' : 'Create job' }}</button></footer></form>
+  </section>
+</div>

@@ -68,6 +68,7 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddScoped<Holonix.Server.Application.Services.JobTeamValidator>();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IBusinessAvailabilityCalculator, BusinessAvailabilityCalculator>();

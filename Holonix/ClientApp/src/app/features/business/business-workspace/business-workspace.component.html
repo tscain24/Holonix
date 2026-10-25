@@ -55,7 +55,7 @@
             </button>
             <button type="button" class="workspace-menu-item" (click)="goToServiceManagerTab(); closeWorkspaceMenu()" role="menuitem">
               <mat-icon aria-hidden="true">tune</mat-icon>
-              Service Manager
+              Services
             </button>
             <button type="button" class="workspace-menu-item" (click)="goToMyAvailabilityTab(); closeWorkspaceMenu()" role="menuitem">
               <mat-icon aria-hidden="true">event_available</mat-icon>
@@ -65,6 +65,10 @@
               <mat-icon aria-hidden="true">work</mat-icon>
               Jobs
             </button>
+            <button type="button" class="workspace-menu-item" *ngIf="business.canViewJobRequestCostBreakdowns" [routerLink]="['/workspace', 'insights', business.businessCode]" (click)="closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">insights</mat-icon>
+              Financial Insights
+            </button>
           </div>
         </div>
 
@@ -72,9 +76,10 @@
           <nav class="workspace-tabs" aria-label="Workspace sections">
             <button type="button" class="workspace-tab workspace-tab-active" aria-current="page" (click)="goToOverviewTab()">Overview</button>
             <button type="button" class="workspace-tab" (click)="goToEmployeesTab()">Employees</button>
-            <button type="button" class="workspace-tab" (click)="goToServiceManagerTab()">Service Manager</button>
+            <button type="button" class="workspace-tab" (click)="goToServiceManagerTab()">Services</button>
             <button type="button" class="workspace-tab" (click)="goToMyAvailabilityTab()">Availability</button>
             <button type="button" class="workspace-tab" (click)="goToJobsTab()">Jobs</button>
+            <button type="button" class="workspace-tab" *ngIf="business.canViewJobRequestCostBreakdowns" [routerLink]="['/workspace', 'insights', business.businessCode]">Financial Insights</button>
           </nav>
         </ng-template>
       </div>
@@ -101,7 +106,7 @@
               <p class="workspace-kicker text-blue-600">Business Workspace</p>
               <ng-container *ngIf="!editingProfile; else businessProfileEditor">
                 <h1>{{ business.name }}</h1>
-                <p class="workspace-summary">{{ business.description || 'No business description yet.' }}</p>
+
               </ng-container>
 
               <div class="workspace-badges">
@@ -112,7 +117,7 @@
             </div>
           </div>
 
-          <div class="workspace-hero-aside" *ngIf="canEditBusinessProfile || canLeaveBusiness">
+          <div class="workspace-hero-aside" *ngIf="canEditBusinessProfile || canLeaveBusiness || canViewJobRequestCostBreakdowns">
             <div class="hero-actions hero-actions-hero">
               <button type="button" class="hero-btn hero-btn-secondary" *ngIf="!editingProfile" (click)="goToPublicPage()">
                 View Public Page
@@ -126,7 +131,7 @@
               >
                 {{ leavingBusiness ? 'Leaving...' : 'Leave Business' }}
               </button>
-              <button type="button" class="hero-btn hero-btn-primary" *ngIf="!editingProfile" (click)="startProfileEdit()">Edit Business</button>
+              <button type="button" class="hero-btn hero-btn-primary" *ngIf="!editingProfile && canEditBusinessProfile" (click)="startProfileEdit()">Business settings</button>
               <ng-container *ngIf="editingProfile">
                 <button
                   type="button"
@@ -161,19 +166,24 @@
         </div>
       </ng-template>
 
-      <section class="workspace-section" *ngIf="business.jobRequests.length > 0 || canManageJobRequests">
+<section class="overview-kpis" aria-label="Job metrics">
+<article><span>Upcoming Jobs</span><strong>{{ upcomingJobs.length }}</strong><small>Scheduled to start next</small></article>
+<article><span>In Progress</span><strong>{{ inProgressJobs.length }}</strong><small>Within scheduled work window</small></article>
+<article><span>Needs Assignment</span><strong>{{ unassignedJobs.length }}</strong><small>Open jobs without a team</small></article>
+<article *ngIf="canViewJobRequestCostBreakdowns"><span>Total Job Value</span><strong>{{ formatMoney(totalJobValue) }}</strong><small>All jobs · booking value</small></article>
+</section><section class="workspace-section attention-section">
         <div class="section-heading section-heading-actions">
           <div>
             <div class="section-heading-title-row">
-              <h2>Job Requests</h2>
-              <span class="section-count-chip">{{ business.jobRequests.length }}</span>
+              <h2>Needs Attention</h2>
+              <span class="section-count-chip">{{ business.jobRequests.length + unassignedJobs.length }}</span>
             </div>
-            <p>Customer bookings awaiting a business decision or payment recovery.</p>
+            <p>Review requests, recover payments, and staff open work.</p>
           </div>
         </div>
 
-        <div class="section-state" *ngIf="business.jobRequests.length === 0">
-          No pending job requests right now.
+        <div class="section-state" *ngIf="business.jobRequests.length === 0 && unassignedJobs.length === 0">
+          All clear. No pending requests or unassigned work.
         </div>
 
         <div class="job-list" *ngIf="business.jobRequests.length > 0">
@@ -280,8 +290,47 @@
             </aside>
           </article>
         </div>
+        <div class="unassigned-work" *ngIf="unassignedJobs.length">
+          <h3>Unassigned work</h3>
+          <article class="operation-row" *ngFor="let job of unassignedJobs">
+            <div class="operation-copy">
+              <strong>{{ job.name }}</strong>
+              <p>{{ formatJobWindow(job) }}</p>
+            </div>
+            <button type="button" class="hero-btn hero-btn-secondary" (click)="goToJobsTab()">{{ canManageJobRequests ? 'Assign team' : 'View job' }}</button>
+          </article>
+        </div>
       </section>
 
+      <section class="workspace-section">
+        <div class="section-heading section-heading-actions">
+          <div>
+            <h2>Upcoming Work</h2>
+            <p>The next scheduled jobs, in start-time order.</p>
+          </div>
+          <button type="button" class="hero-btn hero-btn-secondary" (click)="goToJobsTab()">View all jobs</button>
+        </div>
+        <div class="section-state" *ngIf="!upcomingJobs.length">No upcoming scheduled jobs.</div>
+        <article class="operation-row" *ngFor="let job of upcomingJobs | slice:0:5">
+          <mat-icon aria-hidden="true">event</mat-icon>
+          <div class="operation-copy">
+            <h3>{{ job.name }}</h3>
+            <p>{{ formatJobWindow(job) }}</p>
+            <small>{{ job.customerName || 'Customer not provided' }} · {{ jobTeamLabel(job) }}</small>
+          </div>
+          <span class="job-status-chip">{{ job.status }}</span>
+          <strong>{{ formatMoney(job.cost) }}</strong>
+        </article>
+      </section>
+
+      <details class="overview-details">
+        <summary>Business details &amp; resources <span>Profile, contact information, services, team, and job history</span></summary>
+        <section class="workspace-section">
+          <div class="section-heading">
+            <h2>Business Profile</h2>
+            <p>{{ business.description || 'No business description yet.' }}</p>
+          </div>
+        </section>
       <section class="workspace-section" *ngIf="canViewGeneralInformation">
         <div class="section-heading section-heading-actions">
           <div>
@@ -616,7 +665,7 @@
         <div class="section-heading section-heading-actions">
           <div>
             <div class="section-heading-title-row">
-              <h2>Service Manager</h2>
+              <h2>Services</h2>
               <span class="section-count-chip">{{ activeSubServiceCount }}</span>
             </div>
             <p>View the services that are configured for this business.</p>
@@ -708,7 +757,7 @@
 
         <div class="jobs-summary" *ngIf="business.jobs.length > 0">
           <div><strong>{{ upcomingJobs.length }}</strong><span>Upcoming</span></div>
-          <div><strong>{{ business.jobs.length - upcomingJobs.length - completedJobs.length }}</strong><span>In progress</span></div>
+          <div><strong>{{ inProgressJobs.length }}</strong><span>In progress</span></div>
           <div><strong>{{ completedJobs.length }}</strong><span>Completed</span></div>
         </div>
 
@@ -729,21 +778,17 @@
             </div>
 
             <div class="job-meta">
-              <span>Assigned To: {{ job.assignedEmployeeName || 'Unassigned' }}</span>
+              <span>Assigned To: {{ jobTeamLabel(job) }}</span>
               <span>Total Price: {{ formatMoney(job.cost) }}</span>
               <span *ngIf="job.completedByName">Completed by {{ job.completedByName }} · {{ job.completedDateTime | date:'medium' }}</span>
             </div>
-            <div class="job-actions" *ngIf="job.status !== 'Completed'">
-              <button type="button" class="hero-btn hero-btn-secondary" (click)="completeJob(job)" [disabled]="isUpdatingJobRequest(job.jobId)">Mark complete</button>
-              <select *ngIf="canManageJobRequests" [(ngModel)]="selectedJobAssignee[job.jobId]" aria-label="Select employee to assign">
-                <option [ngValue]="0">Reassign to...</option>
-                <option *ngFor="let employee of activeWorkspaceEmployees" [ngValue]="employee.businessUserId">{{ employee.displayName }}</option>
-              </select>
-              <button *ngIf="canManageJobRequests" type="button" class="hero-btn hero-btn-secondary" (click)="reassignJob(job)" [disabled]="!selectedJobAssignee[job.jobId] || isUpdatingJobRequest(job.jobId)">Reassign</button>
+            <div class="job-actions">
+              <button type="button" class="hero-btn hero-btn-secondary" (click)="goToJobsTab()">Manage in Jobs</button>
             </div>
           </article>
         </div>
       </section>
+      </details>
     </ng-container>
   </div>
 </section>

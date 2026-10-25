@@ -54,3 +54,7 @@ Use this when a task touches Angular routing, shared services, auth session beha
 - From `ClientApp/`, build with `npm run build`.
 - Production build budgets currently warn at `1.5mb` initial bundle size and `22kb` per component style, with errors at `2mb` and `28kb`.
 - The dev command is `npm start`, but the repo-level `.\start-dev.ps1` is preferred because it coordinates backend and frontend ports. The Angular dev server runs with SSL on `https://localhost:4200` so Stripe secure-origin features such as wallets and autofill can be tested locally, and the startup script exports the current localhost development certificate into `.dev-runtime/certs/` so Angular and ASP.NET share the same local certificate chain.
+
+- Financial Insights route /workspace/insights/:businessCode is registered in AppRoutingModule/AppModule. The dedicated business-insights service requests secured aggregate reports, paginated jobs and CSV. No additional dependencies.
+
+- Jobs uses a dedicated JobsService and encapsulated page styles. AppModule imports existing CDK A11yModule for focus-trapped job dialogs; no new dependencies. Legacy workspace financial DTOs now allow null for restricted values.

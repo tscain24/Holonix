@@ -66,3 +66,5 @@ Add or change reference behavior in seeders rather than scattering setup logic t
 - `DateOnly` is used for business start dates, birthdays, effective dates, recurrence dates, and availability effective dates.
 - `TimeOnly` is used for availability and recurrence times.
 - `DateTime.UtcNow` is commonly used for created/start/end/deactivation timestamps.
+
+- Jobs workflows reuse Workload/JobWorkload for operational state. WorkloadReferenceSeeder adds Manual Job and five lifecycle reference statuses; no schema change. Legacy jobs receive a manual workload on their first status mutation. JobAssignment remains current-team data; terminal jobs cannot be reassigned through the operational API.

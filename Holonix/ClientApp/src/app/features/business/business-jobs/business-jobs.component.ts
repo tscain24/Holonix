@@ -1,107 +1,133 @@
-import { Component, OnInit, ViewEncapsulation } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { finalize } from 'rxjs';
-import { BusinessService, BusinessWorkspace, BusinessWorkspaceJob } from '../../../core/services/business.service';
+import { Subject, Subscription, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
+import { JobEmployeeOption, JobOptions, JobsFilters, JobsPage, JobsService, OperationalJob } from '../../../core/services/jobs.service';
 
-type AssignmentAvailability = { state: 'available' | 'busy' | 'unavailable'; label: string };
+@Component({ selector: 'app-business-jobs', templateUrl: './business-jobs.component.html', styleUrls: ['./business-jobs.component.css'] })
+export class BusinessJobsComponent implements OnInit, OnDestroy {
+  code = '';
+  data: JobsPage | null = null;
+  options: JobOptions = { employees: [], services: [], customers: [] };
+  loading = false;
+  mutating = false;
+  error = '';
+  optionsError = '';
+  modalError = '';
+  showFilters = false;
+  page = 1;
+  filters: JobsFilters = { search: '', filter: 'all', start: '', end: '', employeeId: null };
+  applied = { ...this.filters };
+  statuses = [{ key: 'all', name: 'All' }, { key: 'upcoming', name: 'Upcoming' }, { key: 'inprogress', name: 'In progress' }, { key: 'unassigned', name: 'Unassigned' }, { key: 'completed', name: 'Completed' }, { key: 'cancelled', name: 'Cancelled' }, { key: 'overdue', name: 'Overdue' }];
+  detail: OperationalJob | null = null;
+  editingTeam: OperationalJob | null = null;
+  scheduling: OperationalJob | null = null;
+  confirmation: { job: OperationalJob; action: 'complete' | 'cancel' } | null = null;
+  creating = false;
+  selectedIds: number[] = [];
+  teamSearch = '';
+  teamOptions: JobEmployeeOption[] = [];
+  teamLoading = false;
+  teamLoaded = false;
+  scheduleStart = '';
+  scheduleEnd = '';
+  createName = '';
+  createCustomer: string | null = null;
+  createLocation = { address1: '', address2: '', city: '', state: '', zipCode: '' };
+  get needsLocation(): boolean { return this.options.services.some(s => this.createServices.includes(s.businessSubServiceId) && s.requiresServiceLocation); }
+  createStart = '';
+  createEnd = '';
+  createServices: number[] = [];
+  private destroyed = new Subject<void>();
+  private searchChanges = new Subject<string>();
+  private listRequest?: Subscription;
+  private optionRequest?: Subscription;
+  private teamRequest?: Subscription;
 
-@Component({ selector: 'app-business-jobs', templateUrl: './business-jobs.component.html', styleUrls: ['./business-jobs.component.css'], encapsulation: ViewEncapsulation.None })
-export class BusinessJobsComponent implements OnInit {
-  workspace: BusinessWorkspace | null = null;
-  loading = true;
-  filter: 'all' | 'upcoming' | 'completed' = 'all';
-  searchTerm = '';
-  busy = new Set<number>();
-  selectedAssigneeIds: Record<number, number[]> = {};
-  assignmentOpenJobId: number | null = null;
-  assignmentSearch = '';
-  loadingAssignmentAvailability = false;
-  assignmentAvailability: Record<number, AssignmentAvailability> = {};
-  constructor(private readonly route: ActivatedRoute, private readonly router: Router, private readonly businessService: BusinessService, private readonly snackBar: MatSnackBar) {}
-  ngOnInit(): void { const code = this.route.snapshot.paramMap.get('businessCode')?.trim(); if (!code) { this.router.navigate(['/business']); return; } this.load(code); }
-  get code(): string { return this.workspace?.businessCode ?? this.route.snapshot.paramMap.get('businessCode')?.trim() ?? ''; }
-  get jobs(): BusinessWorkspaceJob[] { const jobs = this.workspace?.jobs ?? []; const now = Date.now(); const scoped = this.filter === 'completed' ? jobs.filter(j => j.status === 'Completed') : this.filter === 'upcoming' ? jobs.filter(j => j.status !== 'Completed' && this.parseJobWallClock(j.endDateTime).getTime() >= now) : jobs; const query = this.searchTerm.trim().toLowerCase(); return query ? scoped.filter(j => `${j.name} ${j.customerName ?? ''} ${j.assignedEmployeeName ?? ''} ${j.status}`.toLowerCase().includes(query)) : scoped; }
-  get upcomingCount(): number { return (this.workspace?.jobs ?? []).filter(j => j.status !== 'Completed' && this.parseJobWallClock(j.endDateTime).getTime() >= Date.now()).length; }
-  get completedCount(): number { return (this.workspace?.jobs ?? []).filter(j => j.status === 'Completed').length; }
-  get inProgressCount(): number { return Math.max((this.workspace?.jobs.length ?? 0) - this.upcomingCount - this.completedCount, 0); }
-  get unassignedCount(): number { return (this.workspace?.jobs ?? []).filter(job => !job.assignedEmployeeName && job.status !== 'Completed').length; }
-  get employees(): BusinessWorkspace['employees'] { return (this.workspace?.employees ?? []).filter(e => e.isActive); }
-  get filteredAssignmentEmployees(): BusinessWorkspace['employees'] { const query = this.assignmentSearch.trim().toLowerCase(); return this.employees.filter(employee => !query || employee.displayName.toLowerCase().includes(query)); }
-  get todayJobs(): BusinessWorkspaceJob[] { const today = new Date().toDateString(); return (this.workspace?.jobs ?? []).filter(job => this.parseJobWallClock(job.startDateTime).toDateString() === today); }
-  formatJobDate(value: string): string { return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(this.parseJobWallClock(value)); }
-  formatJobShortDate(value: string): string { return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(this.parseJobWallClock(value)); }
-  formatJobTime(value: string): string { return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(this.parseJobWallClock(value)); }
-  complete(job: BusinessWorkspaceJob): void { if (this.busy.has(job.jobId) || !this.code) return; this.busy.add(job.jobId); this.businessService.completeJob(this.code, job.jobId).pipe(finalize(() => this.busy.delete(job.jobId))).subscribe({ next: r => { this.snackBar.open(r.message, 'Close', { duration: 3000, panelClass: ['snack-success'] }); this.load(this.code); }, error: e => this.snackBar.open(e?.error?.errors?.[0] ?? 'Could not complete this job.', 'Close', { duration: 3500, panelClass: ['snack-error'] }) }); }
-  reassign(job: BusinessWorkspaceJob): void { const ids = this.selectedAssigneeIds[job.jobId] ?? []; if (!ids.length || this.busy.has(job.jobId) || !this.code) return; this.busy.add(job.jobId); this.businessService.reassignJob(this.code, job.jobId, ids).pipe(finalize(() => this.busy.delete(job.jobId))).subscribe({ next: r => { this.assignmentOpenJobId = null; this.snackBar.open(r.message, 'Close', { duration: 3000, panelClass: ['snack-success'] }); this.load(this.code); }, error: e => this.snackBar.open(e?.error?.errors?.[0] ?? 'Could not update the assigned team.', 'Close', { duration: 3500, panelClass: ['snack-error'] }) }); }
-  openAssignment(job: BusinessWorkspaceJob): void {
-    if (!this.workspace?.canManageJobRequests) return;
-    const opening = this.assignmentOpenJobId !== job.jobId;
-    this.assignmentOpenJobId = opening ? job.jobId : null;
-    this.assignmentSearch = '';
-    this.assignmentAvailability = {};
-    if (opening) { this.selectedAssigneeIds[job.jobId] = this.currentAssignmentIds(job); this.loadAssignmentAvailability(job); }
+  constructor(private route: ActivatedRoute, private api: JobsService, private snacks: MatSnackBar) {}
+  ngOnInit(): void {
+    this.searchChanges.pipe(debounceTime(350), distinctUntilChanged(), takeUntil(this.destroyed)).subscribe(() => this.load());
+    this.route.paramMap.pipe(takeUntil(this.destroyed)).subscribe(params => {
+      this.code = params.get('businessCode')?.trim() ?? '';
+      this.data = null; this.options = { employees: [], services: [], customers: [] }; this.closeModals();
+      if (!this.code) { this.error = 'Business code is missing.'; return; }
+      this.load(); this.loadOptions();
+    });
   }
-  toggleAssignee(job: BusinessWorkspaceJob, businessUserId: number): void { const selected = this.selectedAssigneeIds[job.jobId] ?? []; this.selectedAssigneeIds[job.jobId] = selected.includes(businessUserId) ? selected.filter(id => id !== businessUserId) : [...selected, businessUserId]; }
-  isAssigneeSelected(job: BusinessWorkspaceJob, businessUserId: number): boolean { return (this.selectedAssigneeIds[job.jobId] ?? []).includes(businessUserId); }
-  assignedTeamCount(job: BusinessWorkspaceJob): number { return (job.assignedEmployees ?? []).length || (job.assignedEmployeeName ? 1 : 0); }
-  assignedTeamLabel(job: BusinessWorkspaceJob): string { const names = (job.assignedEmployees ?? []).map(employee => employee.displayName); return names.length ? names.join(', ') : job.assignedEmployeeName || 'Unassigned'; }
-  profileImageUrl(value?: string | null): string { const raw = value?.trim(); return !raw ? '' : raw.startsWith('data:image') ? raw : `data:image/*;base64,${raw}`; }
-  availabilityFor(businessUserId: number): AssignmentAvailability { return this.assignmentAvailability[businessUserId] ?? { state: 'unavailable', label: 'Checking availability' }; }
-  canAssignEmployee(businessUserId: number): boolean { return this.availabilityFor(businessUserId).state === 'available'; }
-  goOverview(): void { this.router.navigate(['/workspace/overview', this.code]); }
-  private load(code: string): void { this.loading = true; this.businessService.getBusinessWorkspace(code).pipe(finalize(() => this.loading = false)).subscribe({ next: w => this.workspace = w, error: () => this.snackBar.open('Could not load jobs.', 'Close', { duration: 3500, panelClass: ['snack-error'] }) }); }
-
-  private loadAssignmentAvailability(job: BusinessWorkspaceJob): void {
-    const start = this.parseJobWallClock(job.startDateTime);
-    const dateIso = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
-    this.loadingAssignmentAvailability = true;
-    this.businessService.getBusinessTeamDailyAvailability(this.code, dateIso)
-      .pipe(finalize(() => this.loadingAssignmentAvailability = false))
-      .subscribe({
-        next: response => {
-          const startMinutes = start.getHours() * 60 + start.getMinutes();
-          const end = this.parseJobWallClock(job.endDateTime);
-          const endMinutes = end.getHours() * 60 + end.getMinutes();
-          const availability: Record<number, AssignmentAvailability> = {};
-          for (const employee of this.employees) {
-            const member = response.members.find(item => item.businessUserId === employee.businessUserId);
-            if (!member || member.isDayOff || !member.isAvailable) {
-              availability[employee.businessUserId] = { state: 'unavailable', label: member?.isDayOff ? 'Day off' : 'Unavailable' };
-              continue;
-            }
-            const coversJob = member.timeFrames.some(frame => this.timeToMinutes(frame.startTime) <= startMinutes && this.timeToMinutes(frame.endTime) >= endMinutes);
-            if (!coversJob) {
-              availability[employee.businessUserId] = { state: 'unavailable', label: 'Outside working hours' };
-              continue;
-            }
-            const hasConflict = (this.workspace?.jobs ?? []).some(other => other.jobId !== job.jobId && (other.assignedEmployees ?? []).some(assignment => assignment.businessUserId === employee.businessUserId) && this.parseJobWallClock(other.startDateTime) < end && this.parseJobWallClock(other.endDateTime) > start && other.status !== 'Completed');
-            availability[employee.businessUserId] = hasConflict ? { state: 'busy', label: 'Busy at this time' } : { state: 'available', label: 'Available' };
-          }
-          this.assignmentAvailability = availability;
-        },
-        error: () => {
-          this.assignmentAvailability = Object.fromEntries(this.employees.map(employee => [employee.businessUserId, { state: 'unavailable', label: 'Availability unavailable' }]));
-        },
-      });
+  ngOnDestroy(): void { this.destroyed.next(); this.destroyed.complete(); this.listRequest?.unsubscribe(); this.optionRequest?.unsubscribe(); this.teamRequest?.unsubscribe(); }
+  @HostListener('document:keydown.escape') onEscape(): void { this.closeModals(); }
+  search(): void { this.searchChanges.next(this.filters.search); }
+  load(page = 1): void {
+    this.listRequest?.unsubscribe(); this.loading = true; this.error = '';
+    if (page === 1) this.applied = { ...this.filters };
+    this.listRequest = this.api.list(this.code, this.applied, page).subscribe({ next: data => {
+      if (data.total > 0 && data.jobs.length === 0 && page > 1) { this.load(page - 1); return; }
+      this.data = data; this.page = page; this.loading = false;
+    }, error: err => { this.loading = false; this.error = this.errorText(err, 'Could not load jobs. Try again.'); if (err.status === 401 || err.status === 403) this.data = null; } });
   }
-
-  private timeToMinutes(value: string): number {
-    const [hours, minutes] = value.split(':').map(Number);
-    return hours * 60 + minutes;
+  loadOptions(): void {
+    this.optionRequest?.unsubscribe(); this.optionsError = '';
+    this.optionRequest = this.api.options(this.code).subscribe({ next: result => this.options = result, error: err => this.optionsError = this.errorText(err, 'Could not load employee and service choices.') });
   }
-
-  private currentAssignmentIds(job: BusinessWorkspaceJob): number[] {
-    const assignedIds = (job.assignedEmployees ?? []).map(employee => employee.businessUserId);
-    if (assignedIds.length || !job.assignedEmployeeName) return assignedIds;
-    return this.employees
-      .filter(employee => employee.displayName === job.assignedEmployeeName)
-      .map(employee => employee.businessUserId);
+  status(key: string): void { this.filters.filter = key; this.load(); }
+  reset(): void { this.filters = { search: '', filter: 'all', start: '', end: '', employeeId: null }; this.load(); }
+  nextWeek(): void {
+    const now = new Date(); const last = new Date(now.getTime() + 6 * 86400000);
+    this.filters = { search: '', filter: 'all', employeeId: null, start: now.toISOString().slice(0,10), end: last.toISOString().slice(0,10) };
+    this.showFilters = true; this.load();
+    document.getElementById('job-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
-
-  private parseJobWallClock(value: string): Date {
-    const match = (value ?? '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
-    if (!match) return new Date(value);
-    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]), Number(match[5]), Number(match[6] ?? 0));
+  team(job: OperationalJob): string { return job.assignedEmployees.map(e => e.displayName).join(', ') || 'Unassigned'; }
+  date(value: string): string { const parts = value.slice(0,10).split('-').map(Number); return new Date(parts[0],parts[1]-1,parts[2]).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+  time(value: string): string { return value.slice(11,16); }
+  location(job: OperationalJob): string { const l = job.serviceLocation; return l ? [l.address1,l.address2,l.city,l.state,l.zipCode].filter(Boolean).join(', ') : 'No customer service location recorded'; }
+  details(job: OperationalJob): void { this.detail = job; this.modalError = ''; }
+  closeModals(): void {
+    if (this.mutating) return;
+    this.detail = null; this.editingTeam = null; this.scheduling = null; this.confirmation = null; this.creating = false;
+    this.modalError = ''; this.teamRequest?.unsubscribe(); this.teamLoading = false;
   }
+  backdrop(event: MouseEvent): void { if (event.target === event.currentTarget) this.closeModals(); }
+  openTeam(job: OperationalJob): void {
+    if (!job.canReassign || this.loading || this.mutating) return;
+    this.closeModals(); this.editingTeam = job; this.selectedIds = job.assignedEmployees.map(e=>e.businessUserId); this.teamSearch = ''; this.fetchTeam();
+  }
+  fetchTeam(): void {
+    if (!this.editingTeam) return;
+    this.teamRequest?.unsubscribe(); this.teamLoading = true; this.teamLoaded = false; this.modalError = ''; this.teamOptions = [];
+    this.teamRequest = this.api.teamOptions(this.code,this.editingTeam.jobId).subscribe({ next: choices => {
+      this.teamOptions = choices; this.teamLoading = false; this.teamLoaded = true;
+    }, error: err => { this.teamLoading = false; this.modalError = this.errorText(err,'Could not check availability. Retry before saving.'); } });
+  }
+  get visibleTeam(): JobEmployeeOption[] { const term = this.teamSearch.toLowerCase().trim(); return this.teamOptions.filter(e=>e.displayName.toLowerCase().includes(term)); }
+  toggleTeam(id: number): void { this.modalError = ''; this.selectedIds = this.selectedIds.includes(id) ? this.selectedIds.filter(i=>i!==id) : [...this.selectedIds,id]; }
+  get teamChanged(): boolean { return !!this.editingTeam && [...this.selectedIds].sort().join(',') !== this.editingTeam.assignedEmployees.map(e=>e.businessUserId).sort().join(','); }
+  get canSaveTeam(): boolean { return !this.mutating && !this.teamLoading && this.teamLoaded && this.teamChanged && this.selectedIds.every(id=>this.teamOptions.some(e=>e.businessUserId===id && e.canAssign)); }
+  saveTeam(): void { if (this.editingTeam && this.canSaveTeam) this.perform(this.editingTeam,'reassign',{businessUserIds:this.selectedIds}); }
+  reschedule(job: OperationalJob): void { this.closeModals(); this.scheduling = job; this.scheduleStart = job.startDateTime.slice(0,16); this.scheduleEnd = job.endDateTime.slice(0,16); }
+  saveSchedule(): void { if (this.scheduling) this.perform(this.scheduling,'reschedule',{startDateTime:this.scheduleStart,endDateTime:this.scheduleEnd}); }
+  confirm(job: OperationalJob, action: 'complete' | 'cancel'): void { this.closeModals(); this.confirmation = {job,action}; }
+  confirmAction(): void { if(this.confirmation) this.perform(this.confirmation.job,this.confirmation.action); }
+  perform(job: OperationalJob, action: string, body: object = {}): void {
+    if (this.loading || this.mutating) return;
+    this.mutating = true; this.modalError = '';
+    this.api.action(this.code,job,action,body).pipe(takeUntil(this.destroyed)).subscribe({ next: result => {
+      this.mutating = false; this.closeModals(); this.snacks.open(result.message,'Close',{duration:3000}); this.load(this.page);
+    }, error: err => {
+      this.mutating = false; const message = this.errorText(err,'Could not update this job.');
+      if(this.editingTeam || this.scheduling || this.confirmation) this.modalError = message; else this.error = message;
+      if(err.status===409) { this.closeModals(); this.load(this.page); this.snacks.open(message,'Close',{duration:5000}); }
+    } });
+  }
+  newJob(): void { this.closeModals(); this.creating = true; this.createName='';this.createCustomer=null;this.createLocation={address1:'',address2:'',city:'',state:'',zipCode:''};this.createStart='';this.createEnd='';this.createServices=[]; }
+  toggleService(id: number): void { this.createServices = this.createServices.includes(id) ? this.createServices.filter(i=>i!==id) : [...this.createServices,id]; }
+  create(): void {
+    if (this.mutating || this.loading) return;
+    this.mutating = true;this.modalError='';
+    this.api.create(this.code,{name:this.createName,customerUserId:this.createCustomer,serviceLocation:this.needsLocation ? this.createLocation : null,startDateTime:this.createStart,endDateTime:this.createEnd,businessSubServiceIds:this.createServices,businessUserIds:[]}).pipe(takeUntil(this.destroyed)).subscribe({next: result=>{
+      this.mutating=false;this.closeModals();this.snacks.open(result.message,'Close',{duration:4500});this.reset();
+    },error:err=>{this.mutating=false;this.modalError=this.errorText(err,'Could not create this job.');}});
+  }
+  image(value?: string | null): string { return !value ? '' : value.startsWith('data:image') ? value : `data:image/png;base64,${value}`; }
+  private errorText(err: any, fallback: string): string { return err.error?.errors?.[0] ?? (err.status===403 ? 'You do not have permission for this action.' : fallback); }
 }

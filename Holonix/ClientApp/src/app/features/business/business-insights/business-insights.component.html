@@ -1,0 +1,69 @@
+<main class="insights">
+  <app-workspace-breadcrumb [businessCode]="code" currentLabel="Financial Insights"></app-workspace-breadcrumb>
+  <header class="page-heading"><div><p class="eyebrow">BUSINESS INTELLIGENCE</p><h1>Financial Insights</h1><p>Understand your performance. Find your next opportunity.</p></div><button type="button" class="primary" (click)="export()" [disabled]="!report || loading || exporting">{{ exporting ? 'Exporting…' : 'Export CSV' }}</button></header>
+  <p class="error" role="alert" *ngIf="error">{{ error }}</p>
+  <p class="error" role="alert" *ngIf="exportError">{{ exportError }}</p>
+  <ng-container *ngIf="!denied">
+    <form class="surface report-builder" (ngSubmit)="run()">
+      <div class="section-heading"><div><h2>Build your report</h2><p>Choose a period, narrow your focus, and explore the results.</p></div><span class="badge">Scheduled date basis</span></div>
+      <div class="filters">
+        <label>From<input type="date" name="start" [(ngModel)]="filters.start" required /></label>
+        <label>Through<input type="date" name="end" [(ngModel)]="filters.end" required /></label>
+        <label>Group by<select name="groupBy" [(ngModel)]="filters.groupBy"><option value="day">Day</option><option value="month">Month</option><option value="year">Year</option><option value="status">Job status</option><option value="customer">Customer</option><option value="employee">Employee (equal value share)</option></select></label>
+        <label>Employee<select name="employeeId" [(ngModel)]="filters.employeeId">
+          <option [ngValue]="null">All employees</option>
+          <option [ngValue]="0">Unassigned</option>
+          <option *ngFor="let employee of employeeOptions" [ngValue]="employee.employeeId">{{ employee.name }}</option>
+        </select></label>
+        <label>Job status<select name="status" [(ngModel)]="filters.status"><option value="">All</option><option>Scheduled</option><option>Completed</option><option>Cancelled</option></select></label>
+      </div>
+      <details><summary>More filters</summary><div class="filters advanced">
+        <label>Customer name<input name="customer" [(ngModel)]="filters.customer" maxlength="100" /><span><input type="checkbox" name="exactCustomer" [(ngModel)]="filters.exactCustomer" style="width:auto" /> Exact match</span></label>
+        <label>Service name contains<input name="service" [(ngModel)]="filters.service" maxlength="100" /></label>
+        <label>Minimum job value<input type="number" name="minValue" [(ngModel)]="filters.minValue" min="0" step="0.01" /></label>
+        <label>Maximum job value<input type="number" name="maxValue" [(ngModel)]="filters.maxValue" min="0" step="0.01" /></label>
+      </div><p class="muted">Service filters select whole jobs containing a matching service; values represent the complete job.</p></details>
+      <div class="filter-actions"><span class="muted">Up to 367 days per report · USD</span><button type="button" (click)="reset()">Reset</button><button class="primary" type="submit" [disabled]="loading">{{ loading ? 'Loading…' : 'Run report' }}</button></div>
+    </form>
+    <p class="loading" role="status" *ngIf="loading">Preparing your financial report…</p>
+    <ng-container *ngIf="report as data">
+      <div class="section-heading"><div><h2>Performance at a glance</h2><p>{{ applied.start }} — {{ applied.end }} · Based on scheduled start date</p></div><button type="button" (click)="showMetrics = !showMetrics" [attr.aria-expanded]="showMetrics">Customize metrics</button></div>
+      <div class="surface metric-options" *ngIf="showMetrics"><label *ngFor="let card of cards"><input type="checkbox" [(ngModel)]="card.visible" />{{ card.title }}</label><p class="muted">Payments collected, outstanding balances, service revenue allocation are unavailable in this phase.</p><p class="muted">Metric selection applies to this visit. Saved layouts are planned for a later phase.</p></div>
+      <section class="metrics" aria-label="Financial metrics"><ng-container *ngFor="let card of cards"><article class="surface metric" *ngIf="card.visible"><span>{{ card.title }}</span><strong>{{ card.money ? money(cardValue(card.key)) : cardValue(card.key) }}</strong><small>{{ card.definition }}</small></article></ng-container></section>
+      <section class="surface monthly-trend" aria-labelledby="monthly-value-title">
+        <div class="section-heading">
+          <div><h2 id="monthly-value-title">Month-over-month job value</h2><p>Total booked job value · {{ trendStart }} — {{ applied.end }}</p></div>
+          <span class="badge">12-month trend · USD</span>
+        </div>
+        <p class="muted">Uses the report’s status, customer, service, employee, and value filters across the last 12 calendar months ending on your selected end date. Cancelled jobs excluded. Select a month to view its jobs.</p>
+        <div class="monthly-chart-scroll" (scroll)="hideMonthTooltip()">
+          <div class="monthly-chart" role="list" aria-label="Monthly booked job values">
+            <div class="monthly-column" role="listitem" *ngFor="let point of monthlyValues; let index = index" (mouseenter)="showMonthTooltip(point, $event)" (mouseleave)="hideMonthTooltip()" (keydown.escape)="hideMonthTooltip()">
+              <button type="button" class="monthly-bar-button" (click)="drillMonth(point)" [attr.aria-label]="point.label + ': ' + money(point.value) + ', ' + monthlyChange(point, index) + '. View jobs.'" (focus)="showMonthTooltip(point, $event)" (blur)="hideMonthTooltip()" [attr.aria-describedby]="activeMonth === point.key ? 'month-tooltip-' + point.key : null">
+                <strong>{{ money(point.value) }}</strong>
+                <span class="monthly-bar-space"><span class="monthly-bar" [style.height.%]="point.width"></span></span>
+                <span class="monthly-label">{{ point.label }}</span>
+              </button>
+              <div *ngIf="activeMonth === point.key" class="month-tooltip" role="tooltip" [id]="'month-tooltip-' + point.key" [style.left.px]="monthTooltipLeft" [style.top.px]="monthTooltipTop">
+                <span class="month-tooltip-heading">{{ point.label }}</span>
+                <span class="month-tooltip-caption">Total booked job value</span>
+                <strong>{{ money(point.value) }}</strong>
+                <span class="month-tooltip-change" [class.positive]="point.change !== null && point.change > 0">{{ monthlyChange(point, index) }}</span>
+                <span class="month-tooltip-hint">Select month to view jobs</span>
+              </div>
+              <small class="monthly-change" [class.positive]="point.change !== null && point.change > 0">{{ monthlyChange(point, index) }}</small>
+            </div>
+          </div>
+        </div>
+        <p class="muted">Scheduled start date determines the month. A partial final month is compared with the full prior month. Percent change is unavailable when the prior value is zero; empty months show $0. Values represent bookings, not payments collected.</p>
+      </section>
+      <details class="surface data-notes"><summary>How to read these numbers</summary><p>Booked value is accepted and legacy job value, not cash collected. Cancelled jobs are counted separately and excluded from value totals. Completion uses the recorded completion timestamp, not the acceptance status. Pending requests and expired checkout attempts are excluded.</p><p>Payments collected, outstanding balances, refunds, and actual working hours are unavailable: the current records do not contain captured/refunded amounts, balance transactions, or time entries. A successful payment status alone cannot establish net cash collected.</p><p>Employee value is split equally among the assigned team using current assignments, with remaining cents distributed in employee ID order. Unassigned work is shown separately. Employee job counts reflect participation and can overlap; dashboard totals count each job once. Employee filters select whole jobs, while employee rows show each team member’s allocated share. These figures are not wages or payments collected. Service revenue allocation is deferred. Scheduled times use business wall-clock values; completion timestamps are displayed in your local timezone.</p></details>
+      <section class="surface results"><div class="section-heading"><div><h2>Report results</h2><p>Select a group to narrow the report to its contributing jobs.</p><p *ngIf="applied.groupBy === 'employee'">Employee values are equal team shares; job counts reflect participation and may overlap.</p></div><div class="result-options"><label>Metric<select [(ngModel)]="metric"><option value="jobValue">Booked job value</option><option value="jobs">Job count</option><option value="averageValue">Average job value</option><option value="completedJobs">Completed jobs</option><option value="completedValue">Completed value</option><option value="cancelledJobs">Cancelled jobs</option></select></label><label>View<select [(ngModel)]="visualization"><option value="bar">Bar chart</option><option value="table">Data table</option></select></label></div></div>
+        <p class="empty" *ngIf="!data.groups.length">No jobs match this report. Try a wider date range or remove a filter.</p>
+        <div class="bars" *ngIf="visualization === 'bar' && data.groups.length"><button type="button" class="bar-row" *ngFor="let group of data.groups" (click)="drill(group)" [attr.aria-label]="group.key + ': ' + formatted(group) + '. View contributing jobs'"><span>{{ group.key }}</span><span class="bar-track"><span class="bar-fill" [style.width.%]="width(group)"></span></span><strong>{{ formatted(group) }}</strong></button></div>
+        <div class="table-scroll" *ngIf="visualization === 'table'"><table><thead><tr><th>Group</th><th>Jobs</th><th>{{ applied.groupBy === 'employee' ? 'Allocated booked value' : 'Booked value' }}</th><th>Average value</th><th>Completed</th><th>{{ applied.groupBy === 'employee' ? 'Allocated completed value' : 'Completed value' }}</th><th>Cancelled</th></tr></thead><tbody><tr *ngFor="let group of data.groups"><td><button type="button" class="text-button" (click)="drill(group)">{{ group.key }}</button></td><td>{{ group.jobs }}</td><td>{{ money(group.jobValue) }}</td><td>{{ money(group.averageValue) }}</td><td>{{ group.completedJobs }}</td><td>{{ money(group.completedValue) }}</td><td>{{ group.cancelledJobs }}</td></tr></tbody></table></div>
+      </section>
+      <section class="surface"><div class="section-heading"><div><h2>Underlying jobs</h2><p>{{ data.totalJobs }} jobs · Each job counted once</p></div><span class="badge">25 per page</span></div><div class="table-scroll"><table><thead><tr><th>Job / customer</th><th>Services</th><th>Schedule / completed</th><th>Team</th><th>Status</th><th>Job value</th><th>Payment status</th></tr></thead><tbody><tr *ngFor="let job of data.jobs"><td><strong>{{ job.name }}</strong><small>{{ job.customer }}</small></td><td>{{ job.services.join(', ') || 'No service snapshot' }}</td><td>{{ schedule(job.start) }}<small>Ends {{ schedule(job.end) }}</small><small *ngIf="job.completedAt">Completed {{ job.completedAt | date:'medium' }}</small></td><td>{{ job.employees.join(', ') || 'Unassigned' }}</td><td><span class="badge">{{ job.status }}</span></td><td>{{ money(job.value) }}</td><td>{{ job.paymentStatus }}</td></tr></tbody></table></div><p class="empty" *ngIf="!data.jobs.length">No underlying jobs for this report.</p><div class="pagination"><button type="button" (click)="run(page - 1)" [disabled]="page <= 1 || loading">Previous</button><span>Page {{ page }}</span><button type="button" (click)="run(page + 1)" [disabled]="page * data.pageSize >= data.totalJobs || loading">Next</button></div></section>
+    </ng-container>
+  </ng-container>
+</main>

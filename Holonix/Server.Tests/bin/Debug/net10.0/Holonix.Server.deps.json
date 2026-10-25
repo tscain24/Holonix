@@ -13,6 +13,7 @@
           "Microsoft.AspNetCore.OpenApi": "10.0.7",
           "Microsoft.EntityFrameworkCore.Design": "10.0.7",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "10.0.0",
+          "Stripe.net": "52.1.0",
           "Swashbuckle.AspNetCore": "10.1.7"
         },
         "runtime": {
@@ -517,6 +518,18 @@
           }
         }
       },
+      "Stripe.net/52.1.0": {
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.3",
+          "System.Configuration.ConfigurationManager": "9.0.0"
+        },
+        "runtime": {
+          "lib/net9.0/Stripe.net.dll": {
+            "assemblyVersion": "52.1.0.0",
+            "fileVersion": "52.1.0.0"
+          }
+        }
+      },
       "Swashbuckle.AspNetCore/10.1.7": {
         "dependencies": {
           "Swashbuckle.AspNetCore.Swagger": "10.1.7",
@@ -622,6 +635,17 @@
           }
         }
       },
+      "System.Configuration.ConfigurationManager/9.0.0": {
+        "dependencies": {
+          "System.Security.Cryptography.ProtectedData": "9.0.0"
+        },
+        "runtime": {
+          "lib/net9.0/System.Configuration.ConfigurationManager.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.24.52809"
+          }
+        }
+      },
       "System.IdentityModel.Tokens.Jwt/8.0.1": {
         "dependencies": {
           "Microsoft.IdentityModel.JsonWebTokens": "8.0.1",
@@ -631,6 +655,14 @@
           "lib/net9.0/System.IdentityModel.Tokens.Jwt.dll": {
             "assemblyVersion": "8.0.1.0",
             "fileVersion": "8.0.1.50722"
+          }
+        }
+      },
+      "System.Security.Cryptography.ProtectedData/9.0.0": {
+        "runtime": {
+          "lib/net9.0/System.Security.Cryptography.ProtectedData.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.24.52809"
           }
         }
       }
@@ -831,6 +863,13 @@
       "path": "npgsql.entityframeworkcore.postgresql/10.0.0",
       "hashPath": "npgsql.entityframeworkcore.postgresql.10.0.0.nupkg.sha512"
     },
+    "Stripe.net/52.1.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-xzYOMenSrhR2UIgk+zBOjfzADSFe9NnCuhffs2FMpWSJst4M19m6QS7GAxq4cLeBdWvUoUo3RuHNc5uzI5eOFg==",
+      "path": "stripe.net/52.1.0",
+      "hashPath": "stripe.net.52.1.0.nupkg.sha512"
+    },
     "Swashbuckle.AspNetCore/10.1.7": {
       "type": "package",
       "serviceable": true,
@@ -908,12 +947,26 @@
       "path": "system.composition.typedparts/9.0.0",
       "hashPath": "system.composition.typedparts.9.0.0.nupkg.sha512"
     },
+    "System.Configuration.ConfigurationManager/9.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-PdkuMrwDhXoKFo/JxISIi9E8L+QGn9Iquj2OKDWHB6Y/HnUOuBouF7uS3R4Hw3FoNmwwMo6hWgazQdyHIIs27A==",
+      "path": "system.configuration.configurationmanager/9.0.0",
+      "hashPath": "system.configuration.configurationmanager.9.0.0.nupkg.sha512"
+    },
     "System.IdentityModel.Tokens.Jwt/8.0.1": {
       "type": "package",
       "serviceable": true,
       "sha512": "sha512-GJw3bYkWpOgvN3tJo5X4lYUeIFA2HD293FPUhKmp7qxS+g5ywAb34Dnd3cDAFLkcMohy5XTpoaZ4uAHuw0uSPQ==",
       "path": "system.identitymodel.tokens.jwt/8.0.1",
       "hashPath": "system.identitymodel.tokens.jwt.8.0.1.nupkg.sha512"
+    },
+    "System.Security.Cryptography.ProtectedData/9.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-CJW+x/F6fmRQ7N6K8paasTw9PDZp4t7G76UjGNlSDgoHPF0h08vTzLYbLZpOLEJSg35d5wy2jCXGo84EN05DpQ==",
+      "path": "system.security.cryptography.protecteddata/9.0.0",
+      "hashPath": "system.security.cryptography.protecteddata.9.0.0.nupkg.sha512"
     }
   }
 }

@@ -125,3 +125,6 @@ C:\Users\tscai\source\repos\Holonix\Server.Tests\obj\Debug\net10.0\refint\Server
 C:\Users\tscai\source\repos\Holonix\Server.Tests\obj\Debug\net10.0\Server.Tests.pdb
 C:\Users\tscai\source\repos\Holonix\Server.Tests\obj\Debug\net10.0\Server.Tests.genruntimeconfig.cache
 C:\Users\tscai\source\repos\Holonix\Server.Tests\obj\Debug\net10.0\ref\Server.Tests.dll
+C:\Users\tscai\source\repos\Holonix\Server.Tests\bin\Debug\net10.0\Stripe.net.dll
+C:\Users\tscai\source\repos\Holonix\Server.Tests\bin\Debug\net10.0\System.Configuration.ConfigurationManager.dll
+C:\Users\tscai\source\repos\Holonix\Server.Tests\bin\Debug\net10.0\System.Security.Cryptography.ProtectedData.dll

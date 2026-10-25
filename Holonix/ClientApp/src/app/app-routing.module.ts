@@ -1,3 +1,4 @@
+import { BusinessInsightsComponent } from './features/business/business-insights/business-insights.component';
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes, UrlMatchResult, UrlSegment } from '@angular/router';
 import { LoginComponent } from './features/auth/login/login.component';
@@ -57,6 +58,7 @@ const routes: Routes = [
   { path: 'business/create', component: CreateBusinessComponent },
 
   // New workspace URLs
+  { path: 'workspace/insights/:businessCode', component: BusinessInsightsComponent },
   { path: 'workspace/overview/:businessCode', component: BusinessWorkspaceComponent },
   { path: 'workspace/jobs/:businessCode', component: BusinessJobsComponent },
   { path: 'workspace/employees/:businessCode', component: BusinessEmployeesComponent },

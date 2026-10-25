@@ -550,6 +550,30 @@
             "fileVersion": "1.0.0.0"
           }
         }
+      },
+      "Stripe.net/52.1.0.0": {
+        "runtime": {
+          "Stripe.net.dll": {
+            "assemblyVersion": "52.1.0.0",
+            "fileVersion": "52.1.0.0"
+          }
+        }
+      },
+      "System.Configuration.ConfigurationManager/9.0.0.0": {
+        "runtime": {
+          "System.Configuration.ConfigurationManager.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.24.52809"
+          }
+        }
+      },
+      "System.Security.Cryptography.ProtectedData/9.0.0.0": {
+        "runtime": {
+          "System.Security.Cryptography.ProtectedData.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.24.52809"
+          }
+        }
       }
     }
   },
@@ -778,6 +802,21 @@
     },
     "Holonix.Server/1.0.0": {
       "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Stripe.net/52.1.0.0": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "System.Configuration.ConfigurationManager/9.0.0.0": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "System.Security.Cryptography.ProtectedData/9.0.0.0": {
+      "type": "reference",
       "serviceable": false,
       "sha512": ""
     }

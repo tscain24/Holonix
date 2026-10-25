@@ -74,3 +74,5 @@ Legacy `/business/:businessCode*` routes still redirect to the workspace URLs.
 - Run `npm run build` from `ClientApp/` for TypeScript/template checks.
 - When checking live behavior, use the repo root `.\start-dev.ps1` so backend and frontend ports are coordinated and the Angular dev server is started over HTTPS.
 - For UI changes, verify the affected page layout at mobile and desktop breakpoints before closing the task.
+
+- Financial reporting route: /workspace/insights/:businessCode (Owner/Administrator only, enforced by the API).

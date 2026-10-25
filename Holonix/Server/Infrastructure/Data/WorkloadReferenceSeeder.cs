@@ -42,6 +42,9 @@ public static class WorkloadReferenceSeeder
             ],
             cancellationToken);
 
+        var manualType = await EnsureWorkloadTypeAsync(dbContext, "Manual Job", cancellationToken);
+        await EnsureStatusesAsync(dbContext, manualType.WorkloadTypeId, ["Scheduled", "Ready To Start", "In Progress", "Completed", "Cancelled"], cancellationToken);
+
         var customerBookingType = await EnsureWorkloadTypeAsync(dbContext, CustomerBookingTypeName, cancellationToken);
         await EnsureStatusesAsync(
             dbContext,

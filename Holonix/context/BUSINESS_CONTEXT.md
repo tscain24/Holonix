@@ -61,3 +61,29 @@ Backend permission checks live mostly in `Server/Controllers/BusinessController.
 
 - Backend business details: `context/server/BUSINESS_CONTEXT.md`
 - Frontend business details: `context/client/business/BUSINESS_CONTEXT.md`
+
+- Overview prioritizes operational KPIs, requests/payment attention, unassigned work, and the next five scheduled jobs; expandable resources retain profile/contact, services, team, and full job controls.
+
+- Workspace navigation and service page headings use the user-facing label Services.
+
+- The Services page title is simply Services, avoiding repeated words in business names.
+
+- Jobs and Employees use standalone page titles consistent with Services.
+
+## Financial Insights — first phase
+- Owners and Administrators can open Financial Insights from Overview. The reporting page supports scheduled-date filters, server-side KPIs/grouped reports, selectable metrics, table/bar views, drill-down into paginated underlying jobs, and CSV aggregate export.
+- Booked job value means accepted/legacy Job.Cost (including the customer fee), excluding cancellations; it is not revenue collected. Completed value uses the completion timestamp. Upcoming value uses future scheduled starts against UTC because a business timezone is not stored. Employee/team attribution, service revenue allocation, cash/refund/balance metrics and actual worked time are not invented.
+- Later phases: saved reports/templates, persistent personalized dashboards, widget reorder/resize, more charts/groupings and advanced filters. Current metric selection lasts for the page visit.
+
+- Financial Insights includes a 12-month job-value trend ending on the selected report end date, respecting all non-start-date report filters. It excludes cancellations, includes empty months, and labels partial-month comparisons. Selecting a month drills into its jobs.
+
+- Employee breakdown is available on Financial Insights and in every CSV export. Each job value is split equally across distinct assigned employees, with any remaining cents allocated by ascending business membership ID; legacy primary assignee applies only when no team exists. Unassigned value has its own row. Current/former employee assignments remain reportable. Participation counts overlap across employees; dashboard totals still count jobs once. Clicking an employee filters matching whole jobs, while breakdown rows show allocated shares.
+
+- Financial Insights employee selection is a top-row filter rather than a separate dashboard section. Employee grouping and CSV breakdowns are retained.
+
+- Financial Insights is a workspace navigation tab beside Jobs, with a matching mobile-menu entry. Visibility uses the existing backend Owner/Administrator financial permission. The former Overview hero shortcut is removed. Insights API authorization still protects direct URLs and exports.
+
+## Jobs operational workflow
+- Jobs now uses a dedicated paginated operational API, not the Overview preview. Counts/search cover all matching work. Pending requests remain in Overview; cancelled work is excluded from active KPIs and booked value. Full-team labels/search, chronological active Today work and explicit overdue/unassigned filters are supported.
+- Scheduled -> Ready To Start -> In Progress -> Completed is explicit and permission-controlled. Managers own scheduling and staffing; assigned employees can advance work. Completion metadata is shown, terminal team/schedule changes are blocked, and stale mutations are rejected. Historical employee allocations cannot be changed through completed-job reassignment.
+- New job, Filters, Details, date-range schedule view, team editing/unassignment and rescheduling are functional. Manual creation is Owner/Admin-only, uses fixed-price services and requires a recorded address for location-required services, records value without collecting payment, and can link an existing business customer (otherwise the customer remains explicitly unlinked). Charged bookings cannot be cancelled through Jobs without a payment-resolution workflow.
