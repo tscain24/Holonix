@@ -24,6 +24,9 @@ export class JobsService {
     return this.http.get<JobsPage>(this.url(code), { params });
   }
   options(code: string) { return this.http.get<JobOptions>(this.url(code) + '/options'); }
+  schedule(code: string, start: string, end: string, page = 1) {
+    return this.http.get<JobsPage>(this.url(code), { params: { start, end, overlap: true, page, pageSize: 100 } });
+  }
   teamOptions(code: string, id: number) { return this.http.get<JobEmployeeOption[]>(`${this.url(code)}/${id}/team-options`); }
   action(code: string, job: OperationalJob, action: string, body: object = {}) { return this.http.post<{ message: string }>(`${this.url(code)}/${job.jobId}/${action}`, { ...body, revision: job.revision }); }
   create(code: string, body: object) { return this.http.post<{ message: string }>(this.url(code), body); }

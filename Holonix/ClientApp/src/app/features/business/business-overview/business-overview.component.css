@@ -304,6 +304,58 @@
   line-height: 1.7;
 }
 
+.business-state-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-color: #fecaca;
+  background: #fff7f7;
+  color: #991b1b;
+  text-align: left;
+}
+
+.business-state-error strong,
+.business-state-error span {
+  display: block;
+}
+
+.business-state-error span {
+  margin-top: 4px;
+  color: #7f1d1d;
+  font-weight: 500;
+}
+
+.business-retry-btn {
+  flex: 0 0 auto;
+  min-height: 40px;
+  border: 1px solid #fca5a5;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 0 15px;
+  color: #991b1b;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.business-retry-btn:hover,
+.business-retry-btn:focus-visible {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+@media (max-width: 640px) {
+  .business-state-error {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .business-retry-btn {
+    width: 100%;
+  }
+}
+
 .business-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -434,6 +486,32 @@
   font-size: 22px;
   font-weight: 600;
   color: #173057;
+}
+
+.assigned-job-map-link {
+  display: inline;
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.assigned-job-map-link:hover {
+  color: #173d9c;
+}
+
+.assigned-job-map-link:focus-visible {
+  outline: 3px solid #3973da;
+  outline-offset: 3px;
+}
+
+.assigned-job-map-link mat-icon {
+  width: 14px;
+  height: 14px;
+  margin-left: 3px;
+  font-size: 14px;
+  line-height: 14px;
+  vertical-align: middle;
 }
 
 @media (max-width: 900px) {

@@ -16,6 +16,7 @@ import { ServiceSearchResultsComponent } from './features/search/service-search-
 import { PublicBusinessPageComponent } from './features/business/public-business-page/public-business-page.component';
 import { TermsOfServiceComponent } from './features/legal/terms-of-service/terms-of-service.component';
 import { PrivacyPolicyComponent } from './features/legal/privacy-policy/privacy-policy.component';
+import { WorkerWorkspaceComponent } from './features/worker/worker-workspace/worker-workspace.component';
 
 function publicBusinessCodeMatcher(segments: UrlSegment[]): UrlMatchResult | null {
   if (segments.length !== 1) {
@@ -27,7 +28,7 @@ function publicBusinessCodeMatcher(segments: UrlSegment[]): UrlMatchResult | nul
     return null;
   }
 
-  const reserved = new Set(['home', 'login', 'register', 'profile', 'business', 'businesses', 'search', 'workspace', 'terms', 'privacy']);
+  const reserved = new Set(['home', 'login', 'register', 'profile', 'business', 'businesses', 'search', 'workspace', 'worker', 'terms', 'privacy']);
   if (reserved.has(raw.toLowerCase())) {
     return null;
   }
@@ -56,6 +57,7 @@ const routes: Routes = [
   { path: 'privacy', component: PrivacyPolicyComponent },
   { path: 'business', component: BusinessOverviewComponent },
   { path: 'business/create', component: CreateBusinessComponent },
+  { path: 'worker', component: WorkerWorkspaceComponent },
 
   // New workspace URLs
   { path: 'workspace/insights/:businessCode', component: BusinessInsightsComponent },

@@ -32,6 +32,6 @@ export class AppBottomNavComponent {
 
   private applyRouteVisibility(url: string): void {
     const route = url.split('?')[0].split('#')[0];
-    this.hideNav = route === '/login' || route === '/register';
+    this.hideNav = route === '/login' || route === '/register' || route === '/worker';
   }
 }

@@ -29,6 +29,7 @@ Local frontend development runs over `https://localhost:4200` so secure-origin S
 - `src/app/features/profile/`: user profile and recent activity.
 - `src/app/features/business/`: create business, overview, workspace, employees, service manager, availability, and public business profile screens.
 - `src/app/features/search/`: semantic service/business search results.
+- `src/app/features/worker/`: unified worker dashboard and mobile-first worker navigation.
 - Assets include Holonix logos and home-service imagery under `src/assets/`.
 - Business-specific feature context: `context/client/business/BUSINESS_CONTEXT.md`.
 - App-wide frontend context: `context/client/FRONTEND_CONTEXT.md`.
@@ -43,6 +44,7 @@ Local frontend development runs over `https://localhost:4200` so secure-origin S
 - `/privacy`
 - `/business`
 - `/business/create`
+- `/worker`
 - `/workspace/overview/:businessCode`
 - `/workspace/employees/:businessCode`
 - `/workspace/services/:businessCode`

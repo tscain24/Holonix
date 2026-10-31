@@ -18,7 +18,7 @@ declare global {
 })
 export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnDestroy {
   private static readonly PageSize = 10;
-  private static readonly MobileCategoryBreakpointPx = 640;
+  private static readonly MobileCategoryBreakpointPx = 760;
 
   query = '';
   radiusMiles = 25;
@@ -29,6 +29,9 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
   locationLabel = '';
   relatedCategoriesExpanded = false;
   isMobileLayout = false;
+  showMobileMap = false;
+  selectedBusinessId: number | null = null;
+  readonly loadingPlaceholders = [1, 2, 3];
   mapStatus: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
   mapError: string | null = null;
   currentPage = 1;
@@ -40,7 +43,7 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
   private static readonly EmptyResponse: BusinessSearchResponse = { topCategories: [], results: [] };
 
   private map: any | null = null;
-  private markers: any[] = [];
+  private markers: Array<{ marker: any; businessId: number; dot: HTMLSpanElement }> = [];
   private mapInitPromise: Promise<void> | null = null;
 
   constructor(
@@ -119,6 +122,9 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
       .subscribe(async (response) => {
         this.topCategories = response.topCategories ?? [];
         this.results = response.results ?? [];
+        this.selectedBusinessId = this.results.some(item => item.businessId === this.selectedBusinessId)
+          ? this.selectedBusinessId
+          : this.results[0]?.businessId ?? null;
         this.totalCount = response.totalCount ?? this.results.length;
         this.currentPage = response.pageNumber ?? this.currentPage;
         await this.updateMapAsync();
@@ -137,7 +143,7 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
     if (this.relatedCategoriesExpanded) {
       return categories;
     }
-    return categories.slice(0, 1);
+    return categories.slice(0, 2);
   }
 
   private refreshMobileLayout(): void {
@@ -148,6 +154,7 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
     this.isMobileLayout = window.innerWidth <= ServiceSearchResultsComponent.MobileCategoryBreakpointPx;
     if (!this.isMobileLayout) {
       this.relatedCategoriesExpanded = false;
+      this.showMobileMap = false;
     }
   }
 
@@ -211,6 +218,42 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
       },
       queryParamsHandling: 'merge',
     });
+  }
+
+  resetFilters(): void {
+    this.setRadiusMiles(25);
+  }
+
+  toggleMobileMap(): void {
+    this.showMobileMap = !this.showMobileMap;
+    if (this.showMobileMap) {
+      window.setTimeout(() => this.map?.resize(), 0);
+    }
+  }
+
+  isCategoryActive(category: TopCategoryResult): boolean {
+    return category.categoryName.trim().toLocaleLowerCase() === this.query.trim().toLocaleLowerCase();
+  }
+
+  trackBusiness(_index: number, item: BusinessSearchResult): number {
+    return item.businessId;
+  }
+
+  resultCardId(item: BusinessSearchResult): string {
+    return `business-result-${item.businessId}`;
+  }
+
+  selectBusiness(item: BusinessSearchResult, fromMap = false): void {
+    this.selectedBusinessId = item.businessId;
+    this.syncMarkerSelection();
+    if (!fromMap) {
+      return;
+    }
+
+    document.getElementById(this.resultCardId(item))?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (this.map && item.longitude != null && item.latitude != null) {
+      this.map.easeTo({ center: [item.longitude, item.latitude], duration: 350 });
+    }
   }
 
   viewBusiness(item: BusinessSearchResult): void {
@@ -298,22 +341,6 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
       },
       queryParamsHandling: 'merge',
     });
-  }
-
-  formatMatchLabel(score: number | null | undefined): string {
-    if (score == null) {
-      return 'Match';
-    }
-    if (score >= 0.72) {
-      return 'Best match';
-    }
-    if (score >= 0.58) {
-      return 'Great match';
-    }
-    if (score >= 0.45) {
-      return 'Good match';
-    }
-    return 'Match';
   }
 
   getBusinessLogoSrc(item: BusinessSearchResult): string | null {
@@ -476,9 +503,9 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
     }
 
     // business markers
-    for (const marker of this.markers) {
+    for (const entry of this.markers) {
       try {
-        marker.remove();
+        entry.marker.remove();
       } catch {
         // ignore
       }
@@ -496,11 +523,36 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
       }
       const popupHtml = `<strong>${escapeHtml(item.businessName)}</strong><div>${escapeHtml(item.categoryName)}</div>`;
       const popup = new mapboxgl.Popup({ offset: 16 }).setHTML(popupHtml);
-      const marker = new mapboxgl.Marker({ color: '#1d4ed8' })
+      const markerElement = document.createElement('button');
+      markerElement.type = 'button';
+      markerElement.setAttribute('aria-label', `Select ${item.businessName}`);
+      markerElement.style.cssText = 'width:34px;height:34px;padding:0;border:2px solid #fff;border-radius:50%;background:#2563eb;box-shadow:0 3px 12px rgba(15,35,65,.3);display:grid;place-items:center;cursor:pointer;transition:width .15s,height .15s,background .15s;';
+      const dot = document.createElement('span');
+      dot.style.cssText = 'width:9px;height:9px;border-radius:50%;background:#fff;display:block;';
+      markerElement.appendChild(dot);
+      markerElement.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this.zone.run(() => this.selectBusiness(item, true));
+      });
+      const marker = new mapboxgl.Marker({ element: markerElement, anchor: 'center' })
         .setLngLat([item.longitude, item.latitude])
         .setPopup(popup)
         .addTo(this.map);
-      this.markers.push(marker);
+      this.markers.push({ marker, businessId: item.businessId, dot });
+    }
+    this.syncMarkerSelection();
+  }
+
+  private syncMarkerSelection(): void {
+    for (const entry of this.markers) {
+      const selected = entry.businessId === this.selectedBusinessId;
+      const element = entry.marker.getElement() as HTMLElement;
+      element.style.width = selected ? '42px' : '34px';
+      element.style.height = selected ? '42px' : '34px';
+      element.style.background = selected ? '#123f9c' : '#2563eb';
+      element.style.zIndex = selected ? '2' : '1';
+      entry.dot.style.width = selected ? '12px' : '9px';
+      entry.dot.style.height = selected ? '12px' : '9px';
     }
   }
 
@@ -540,10 +592,12 @@ export class ServiceSearchResultsComponent implements OnInit, AfterViewInit, OnD
       bounds.extend([item.longitude, item.latitude]);
     }
 
-    const circle = createCirclePolygon(originLng, originLat, clamp(radiusMiles, 1, 100));
-    const ring = circle.coordinates?.[0] ?? [];
-    for (const coord of ring) {
-      bounds.extend(coord);
+    if (this.results.length > 2) {
+      const circle = createCirclePolygon(originLng, originLat, clamp(radiusMiles, 1, 100));
+      const ring = circle.coordinates?.[0] ?? [];
+      for (const coord of ring) {
+        bounds.extend(coord);
+      }
     }
 
     try {

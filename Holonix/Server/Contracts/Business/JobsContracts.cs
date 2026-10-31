@@ -9,6 +9,7 @@ public sealed class JobsQuery
     public string Filter { get; set; } = "all";
     public DateOnly? Start { get; set; }
     public DateOnly? End { get; set; }
+    public bool Overlap { get; set; }
     public long? EmployeeId { get; set; }
 }
 public sealed record JobCommand(string? Revision = null);

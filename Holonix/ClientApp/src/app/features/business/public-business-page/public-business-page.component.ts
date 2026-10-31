@@ -133,6 +133,14 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
         this.business = profile;
         this.restoreSelectedSubServices(profile);
         this.loadTodayAvailability();
+        if (this.isCartScreen && this.selectedSubServices.length > 0) {
+          if (this.isLoggedIn) {
+            this.currentCheckoutStep = 2;
+            this.loadVisibleCalendarAvailability();
+          } else {
+            this.redirectToLoginForBooking();
+          }
+        }
         this.loading = false;
       });
 
@@ -566,12 +574,6 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     this.currentPaymentFlowType = response.paymentFlowType;
     this.stripePaymentElement = this.stripeElements.create('payment', {
       layout: 'tabs',
-      paymentMethodOrder: ['card', 'us_bank_account', 'cashapp'],
-      wallets: {
-        applePay: 'never',
-        googlePay: 'never',
-        link: 'never',
-      },
     });
     this.stripePaymentElement.on('ready', () => {
       this.paymentSetupSignature = signature;
@@ -618,7 +620,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
   }
 
   get paymentTimingCopy(): string {
-    return 'Saved and processed with Stripe. Charged after acceptance.';
+    return 'Your payment method is saved securely with Stripe. You are charged only if the business accepts this booking request.';
   }
 
   showComingSoon(section: string): void {
@@ -712,6 +714,10 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     return this.selectedSubServices.length;
   }
 
+  get hasAvailableServices(): boolean {
+    return (this.business?.services ?? []).some((service) => (service.subServices?.length ?? 0) > 0);
+  }
+
   get cartHasConsultation(): boolean {
     return this.selectedSubServices.some((sub) => sub.consultationNeeded);
   }
@@ -726,7 +732,7 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
 
   get cartPrimaryCtaLabel(): string {
     if (!this.isCartScreen) {
-      return 'View Cart';
+      return 'Continue to scheduling';
     }
 
     return this.isLoggedIn ? 'Schedule' : 'Log in to proceed';

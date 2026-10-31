@@ -1,0 +1,106 @@
+<main class="worker-shell">
+  <header class="worker-header">
+    <div>
+      <span class="eyebrow">WORKER WORKSPACE</span>
+      <h1>{{ view === 'today' ? 'Today' : view === 'schedule' ? 'Schedule' : view === 'jobs' ? 'Jobs' : 'Inbox' }}</h1>
+      <p>{{ view === 'today' ? 'Everything you need for the workday.' : view === 'schedule' ? 'Your assigned work across every business.' : view === 'jobs' ? 'Open assigned work and manage it in the existing Jobs workflow.' : 'Worker conversations will appear here when messaging is available.' }}</p>
+    </div>
+    <button type="button" class="refresh-button" (click)="load()" [disabled]="loading">
+      <mat-icon aria-hidden="true">refresh</mat-icon><span>Refresh</span>
+    </button>
+  </header>
+
+  <nav class="worker-nav" aria-label="Worker workspace">
+    <button type="button" [class.active]="view === 'today'" (click)="selectView('today')"><mat-icon aria-hidden="true">today</mat-icon><span>Today</span></button>
+    <button type="button" [class.active]="view === 'schedule'" (click)="selectView('schedule')"><mat-icon aria-hidden="true">calendar_month</mat-icon><span>Schedule</span></button>
+    <button type="button" [class.active]="view === 'jobs'" (click)="selectView('jobs')"><mat-icon aria-hidden="true">work_outline</mat-icon><span>Jobs</span></button>
+    <button type="button" [class.active]="view === 'inbox'" (click)="selectView('inbox')"><mat-icon aria-hidden="true">chat_bubble_outline</mat-icon><span>Inbox</span></button>
+  </nav>
+
+  <div class="worker-error" role="alert" *ngIf="error">
+    <mat-icon aria-hidden="true">cloud_off</mat-icon><span>{{ error }}</span><button type="button" (click)="load()">Try again</button>
+  </div>
+  <div class="worker-loading" role="status" *ngIf="loading"><span></span>Loading your workday…</div>
+
+  <ng-container *ngIf="!loading && !error">
+    <section class="today-view" *ngIf="view === 'today'">
+      <article class="next-job" *ngIf="nextJob as job; else noUpcoming">
+        <div class="next-job-topline"><span>UP NEXT</span><span>{{ job.businessName }}</span></div>
+        <h2>{{ job.jobName }}</h2>
+        <p class="appointment-time"><mat-icon aria-hidden="true">schedule</mat-icon>{{ dateLabel(job.startDateTime) }} · {{ timeLabel(job.startDateTime) }}–{{ timeLabel(job.endDateTime) }}</p>
+        <a *ngIf="jobMapsUrl(job) as maps" class="location-link" [href]="maps" target="_blank" rel="noopener noreferrer"><mat-icon aria-hidden="true">near_me</mat-icon><span>{{ location(job) }}</span><mat-icon aria-hidden="true">open_in_new</mat-icon></a>
+        <div class="next-actions">
+          <a class="primary-action" [routerLink]="['/workspace','jobs',job.businessCode]">Open job <mat-icon aria-hidden="true">arrow_forward</mat-icon></a>
+          <a *ngIf="jobMapsUrl(job) as maps" class="secondary-action" [href]="maps" target="_blank" rel="noopener noreferrer">Navigate</a>
+        </div>
+      </article>
+      <ng-template #noUpcoming><section class="empty-card"><mat-icon aria-hidden="true">event_available</mat-icon><h2>No upcoming assigned work</h2><p>New assigned appointments will appear here automatically.</p></section></ng-template>
+
+      <section class="workspace-section" *ngIf="todayJobs.length">
+        <div class="section-heading"><div><span class="eyebrow">TODAY'S ROUTE</span><h2>{{ todayJobs.length }} {{ todayJobs.length === 1 ? 'appointment' : 'appointments' }}</h2></div><button type="button" (click)="selectView('schedule')">Full schedule</button></div>
+        <div class="job-stack"><ng-container *ngTemplateOutlet="jobCards; context: { $implicit: todayJobs }"></ng-container></div>
+      </section>
+
+      <section class="workspace-section businesses-section" *ngIf="businesses.length">
+        <div class="section-heading"><div><span class="eyebrow">WORK CONTEXT</span><h2>Your businesses</h2></div></div>
+        <div class="business-grid">
+          <article class="business-card" *ngFor="let business of businesses">
+            <img *ngIf="icon(business) as image; else initialsIcon" [src]="image" alt="" />
+            <ng-template #initialsIcon><span class="business-initials">{{ initials(business.name) }}</span></ng-template>
+            <div><strong>{{ business.name }}</strong><span>{{ business.roleName || 'Team member' }}</span></div>
+            <a [routerLink]="['/workspace','jobs',business.businessCode]" [attr.aria-label]="'Open jobs for ' + business.name"><mat-icon aria-hidden="true">chevron_right</mat-icon></a>
+          </article>
+        </div>
+      </section>
+
+      <section class="manager-strip" *ngIf="canManageBookings">
+        <div><mat-icon aria-hidden="true">assignment_turned_in</mat-icon><span><strong>Booking requests</strong><small>Available for your manager, administrator, or owner roles.</small></span></div>
+        <nav aria-label="Booking requests by business"><a *ngFor="let business of managedBusinesses" [routerLink]="['/workspace','overview',business.businessCode]">{{ business.name }}<mat-icon aria-hidden="true">arrow_forward</mat-icon></a></nav>
+      </section>
+
+      <section class="workspace-section recent-activity">
+        <div class="section-heading"><div><span class="eyebrow">RECENT ACTIVITY</span><h2>Recent assignments</h2></div><button type="button" *ngIf="recentActivity.length" (click)="selectView('jobs')">View jobs</button></div>
+        <div class="activity-list" *ngIf="recentActivity.length; else noRecentActivity">
+          <article class="activity-row" *ngFor="let job of recentActivity; trackBy: trackJob">
+            <span class="activity-icon"><mat-icon aria-hidden="true">history</mat-icon></span>
+            <div><strong>{{ job.jobName }}</strong><span>{{ job.businessName }} · {{ job.customerName }}</span></div>
+            <time>{{ dateLabel(job.startDateTime) }}<span>{{ timeLabel(job.startDateTime) }}</span></time>
+            <a [routerLink]="['/workspace','jobs',job.businessCode]" [attr.aria-label]="'Open ' + job.jobName"><mat-icon aria-hidden="true">chevron_right</mat-icon></a>
+          </article>
+        </div>
+        <ng-template #noRecentActivity><div class="activity-empty"><mat-icon aria-hidden="true">history</mat-icon><p>No recent assigned appointments in the last seven days.</p></div></ng-template>
+        <p class="activity-note">Based on scheduled assignment history. Open the job to see its current status.</p>
+      </section>
+    </section>
+
+    <section class="schedule-view" *ngIf="view === 'schedule'">
+      <div class="section-heading"><div><span class="eyebrow">NEXT 24 DAYS</span><h2>Assigned schedule</h2></div></div>
+      <div class="job-stack" *ngIf="upcomingJobs.length; else noSchedule"><ng-container *ngTemplateOutlet="jobCards; context: { $implicit: upcomingJobs }"></ng-container></div>
+      <ng-template #noSchedule><section class="empty-card"><mat-icon aria-hidden="true">calendar_month</mat-icon><h2>Your schedule is clear</h2><p>No assigned jobs were found in this schedule window.</p></section></ng-template>
+      <section class="capability-card" *ngIf="businesses.length">
+        <div><mat-icon aria-hidden="true">event_available</mat-icon><div><strong>Manage availability</strong><p>Availability stays specific to each business so its current scheduling rules remain intact.</p></div></div>
+        <nav aria-label="Availability by business"><a *ngFor="let business of businesses" [routerLink]="['/workspace','availability',business.businessCode]">{{ business.name }}<mat-icon aria-hidden="true">arrow_forward</mat-icon></a></nav>
+      </section>
+    </section>
+
+    <section class="jobs-view" *ngIf="view === 'jobs'">
+      <div class="section-heading"><div><span class="eyebrow">ASSIGNED WORK</span><h2>Jobs across your businesses</h2></div><span>{{ jobs.length }} in this window</span></div>
+      <div class="job-stack" *ngIf="jobs.length; else noJobs"><ng-container *ngTemplateOutlet="jobCards; context: { $implicit: jobs }"></ng-container></div>
+      <ng-template #noJobs><section class="empty-card"><mat-icon aria-hidden="true">work_outline</mat-icon><h2>No assigned jobs</h2><p>Only real jobs assigned to your active business memberships appear here.</p></section></ng-template>
+      <aside class="permission-note"><mat-icon aria-hidden="true">verified_user</mat-icon><p><strong>Actions follow your existing permissions.</strong> Open a job to mark it ready, start work, or complete it when allowed. Manager-only scheduling and assignment controls stay protected.</p></aside>
+    </section>
+
+    <section class="inbox-view" *ngIf="view === 'inbox'">
+      <section class="empty-card honest-gap"><mat-icon aria-hidden="true">forum</mat-icon><h2>Inbox is not connected yet</h2><p>Holonix does not currently expose worker messaging data, so this workspace will not fabricate conversations or notifications.</p></section>
+    </section>
+  </ng-container>
+
+  <ng-template #jobCards let-items>
+    <article class="job-card" *ngFor="let job of items; trackBy: trackJob">
+      <time><strong>{{ timeLabel(job.startDateTime) }}</strong><span>{{ dateLabel(job.startDateTime) }}</span></time>
+      <div class="job-card-body"><span class="business-label">{{ job.businessName }}</span><h3>{{ job.jobName }}</h3><p>{{ job.customerName }} · {{ duration(job) }}</p><a *ngIf="jobMapsUrl(job) as maps" [href]="maps" target="_blank" rel="noopener noreferrer"><mat-icon aria-hidden="true">place</mat-icon>{{ location(job) }}</a></div>
+      <a class="open-job" [routerLink]="['/workspace','jobs',job.businessCode]" [attr.aria-label]="'Open ' + job.jobName + ' in Jobs'"><span>Open job</span><mat-icon aria-hidden="true">chevron_right</mat-icon></a>
+    </article>
+  </ng-template>
+
+</main>

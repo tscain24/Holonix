@@ -45,6 +45,10 @@ public sealed class StripeSetupIntentService : IStripeSetupIntentService
         {
             Customer = customer.Id,
             Usage = "off_session",
+            AutomaticPaymentMethods = new SetupIntentAutomaticPaymentMethodsOptions
+            {
+                Enabled = true,
+            },
             Metadata = metadata,
             Description = $"Holonix booking setup for {request.CustomerEmail}",
         }, cancellationToken: cancellationToken);

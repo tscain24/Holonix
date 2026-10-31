@@ -85,169 +85,53 @@
       </div>
 
       <header class="availability-dashboard-header">
-        <div>
-          <span class="availability-section-kicker">TEAM CAPACITY</span>
-          <h1>Availability</h1>
-          <p>Set your working hours, review coverage, and plan time away.</p>
-        </div>
-        <button
-          *ngIf="!isEditingAvailability"
-          type="button"
-          class="availability-header-action"
-          (click)="startEditingAvailability()"
-          [disabled]="savingAvailability || loadingAvailability"
-        >
-          <mat-icon aria-hidden="true">edit_calendar</mat-icon>
-          Edit availability
-        </button>
+        <div><span class="availability-section-kicker">SCHEDULING WORKSPACE</span><h1>Availability</h1><p>Manage your team's schedules, capacity, and time off.</p></div>
+        <div class="header-actions"><button *ngIf="canEditBusinessHours" class="ghost-btn" type="button" (click)="editBusinessHours()">Edit business hours</button><button class="ghost-btn" type="button" (click)="startEditingAvailability()" [disabled]="!!availabilityError">Edit my working hours</button><button class="primary-btn" type="button" (click)="openTimeOff()" [disabled]="!!availabilityError"><mat-icon aria-hidden="true">add</mat-icon> Add time off</button></div>
       </header>
-
-      <section class="availability-metric-grid" aria-label="Availability summary">
-        <article class="availability-metric-card metric-blue">
-          <div class="availability-metric-icon"><mat-icon aria-hidden="true">event_available</mat-icon></div>
-          <div><span>Working days</span><strong>{{ enabledDayCount }}</strong><small>In your weekly schedule</small></div>
-        </article>
-        <article class="availability-metric-card metric-amber">
-          <div class="availability-metric-icon"><mat-icon aria-hidden="true">schedule</mat-icon></div>
-          <div><span>Working windows</span><strong>{{ workingWindowCount }}</strong><small>Across the week</small></div>
-        </article>
-        <article class="availability-metric-card metric-red">
-          <div class="availability-metric-icon"><mat-icon aria-hidden="true">event_busy</mat-icon></div>
-          <div><span>Time off</span><strong>{{ daysOff.length }}</strong><small>Upcoming entries</small></div>
-        </article>
-        <article class="availability-metric-card metric-green">
-          <div class="availability-metric-icon"><mat-icon aria-hidden="true">groups</mat-icon></div>
-          <div><span>Team coverage</span><strong>{{ teamAvailabilityMembers.length }}</strong><small>Shown for selected day</small></div>
-        </article>
-      </section>
-
-      <section class="availability-section">
-        <div class="section-heading">
-          <h2>Upcoming Availability</h2>
-          <p>Calendar preview with time off applied.</p>
+<p *ngIf="availabilityError" class="conflict-note" role="alert">{{ availabilityError }} <button class="ghost-btn" (click)="loadAvailability(business.businessCode)">Retry</button></p><section class="schedule-workspace" aria-label="Scheduling calendar">
+        <div class="schedule-toolbar">
+          <div class="schedule-navigation"><button class="ghost-btn" (click)="navigateCalendar(-1)" [disabled]="view === 'month' && !canGoPrevCalendarMonth" aria-label="Previous period"><mat-icon>chevron_left</mat-icon></button><h2>{{ calendarMonthLabel }}</h2><button class="ghost-btn" (click)="navigateCalendar(1)" [disabled]="view === 'month' && !canGoNextCalendarMonth" aria-label="Next period"><mat-icon>chevron_right</mat-icon></button><button class="ghost-btn" (click)="calendarToday()">Today</button></div>
+          <div class="view-switch" role="group" aria-label="Schedule view"><button [attr.aria-pressed]="view === 'month'" (click)="setView('month')">Month</button><button [attr.aria-pressed]="view === 'week'" (click)="setView('week')">Week</button><button [attr.aria-pressed]="view === 'team'" (click)="setView('team')">Team schedule</button></div>
         </div>
-
-        <div class="calendar-toolbar" aria-label="Calendar navigation">
-          <button type="button" class="ghost-btn" (click)="prevCalendarMonth()" [disabled]="!canGoPrevCalendarMonth">
-            Prev
-          </button>
-          <div class="calendar-month-label">{{ calendarMonthLabel }}</div>
-          <button type="button" class="ghost-btn" (click)="nextCalendarMonth()" [disabled]="!canGoNextCalendarMonth">
-            Next
-          </button>
-        </div>
-
-        <div class="calendar-legend" aria-label="Calendar legend">
-           <div class="legend-item">
-             <span class="legend-swatch legend-swatch-on" aria-hidden="true"></span>
-             <span>Available</span>
-           </div>
-           <div class="legend-item">
-             <span class="legend-swatch legend-swatch-partial" aria-hidden="true"></span>
-             <span>Part. Avail</span>
-           </div>
-           <div class="legend-item">
-             <span class="legend-swatch legend-swatch-off" aria-hidden="true"></span>
-             <span>Time off</span>
-           </div>
-           <div class="legend-item">
-            <span class="legend-swatch legend-swatch-unavailable" aria-hidden="true"></span>
-            <span>Unavailable</span>
-            <span class="legend-info-shell">
-              <button
-                type="button"
-                class="legend-info-btn"
-                (click)="toggleLegendInfo($event)"
-                [attr.aria-expanded]="legendInfoOpen"
-                aria-label="Legend info"
-              >
-                i
-              </button>
-              <div
-                class="legend-info-popover"
-                *ngIf="legendInfoOpen"
-                role="dialog"
-                aria-label="Legend info details"
-              >
-                <div class="legend-info-title">Legend</div>
-                <div class="legend-info-list">
-                  <div class="legend-info-row" *ngFor="let item of legendInfoItems">
-                    <span class="legend-swatch" [ngClass]="item.swatchClass" aria-hidden="true"></span>
-                    <div class="legend-info-copy">
-                      <div class="legend-info-row-title">{{ item.title }}</div>
-                      <div class="legend-info-text">{{ item.description }}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </span>
+        <div class="date-jump"><label for="scheduleDate">Jump to date</label><input id="scheduleDate" type="date" [ngModel]="selectedCalendarDay?.isoDate" (ngModelChange)="chooseDate($event)" /></div><div class="schedule-meta"><span><i class="status-dot available"></i> My weekly template</span><span><i class="status-dot partial"></i> Partial time off</span><span><i class="status-dot away"></i> Time off</span><span class="scope-label">Team visibility follows your role · Business clock times</span></div>
+        <p class="schedule-note" *ngIf="loadingJobs" role="status">Loading scheduled jobs…</p><p class="conflict-note" *ngIf="jobsError" role="alert">{{ jobsError }} <button class="ghost-btn" (click)="loadScheduleJobs()">Retry</button></p>
+        <p class="schedule-note">Calendar previews your current weekly template. Selected-date and team hours use effective schedules, with time off applied.</p><div class="calendar-layout" *ngIf="view !== 'team'; else teamSchedule">
+          <div class="calendar-grid" aria-label="Choose a schedule date">
+            <div class="calendar-dow" *ngFor="let label of calendarDayLabels">{{ label }}</div>
+            <button type="button" class="calendar-cell" *ngFor="let day of visibleDays" [class.calendar-cell-outside]="!day.inMonth" [class.calendar-cell-today]="day.isToday" [class.calendar-cell-selected]="selectedCalendarDay?.isoDate === day.isoDate" [attr.aria-pressed]="selectedCalendarDay?.isoDate === day.isoDate" [attr.aria-current]="day.isToday ? 'date' : null" [attr.aria-label]="day.isoDate + ': ' + day.detailLabel" (click)="selectCalendarDay(day)">
+              <span class="calendar-date">{{ day.dayNumber }} <i class="status-dot" [class.available]="day.status === 'available'" [class.partial]="day.status === 'partialAvailable'" [class.away]="day.status === 'timeOff'"></i></span>
+              <span class="cell-hours">{{ day.status === 'available' || day.status === 'partialAvailable' ? 'Working' : day.status === 'timeOff' ? 'Time off' : 'Not working' }}</span>
+              <span class="cell-jobs" *ngIf="!loadingJobs && !jobsError && jobsFor(day.isoDate).length">{{ jobsFor(day.isoDate).length }} jobs</span>
+              <span class="cell-team" *ngIf="teamCount(day.isoDate) !== null">{{ teamCount(day.isoDate) }} available</span>
+            </button>
           </div>
+          <aside class="day-panel" *ngIf="selectedCalendarDay as selected" aria-live="polite">
+            <span class="availability-section-kicker">SELECTED DAY</span><h3>{{ selected.date | date:'EEE, MMM d' }}</h3><p>{{ businessHoursLabel(selected) }}</p><div class="day-personal"><strong>Your working hours</strong><p>{{ selectedPersonalHours }}</p></div>
+            <h4>Team availability <span *ngIf="!loadingTeamAvailability">{{ teamAvailabilityMembers.length }}</span></h4><p *ngIf="loadingTeamAvailability">Loading team…</p><p class="conflict-note" *ngIf="teamError">{{ teamError }}</p>
+            <div class="member-detail" *ngFor="let member of teamAvailabilityMembers"><strong>{{ member.firstName }} {{ member.lastName }}{{ member.businessUserId === currentBusinessUserId ? ' (you)' : '' }}</strong><span>{{ teamMemberDetailLabel(member) }}</span><small class="conflict-note" *ngIf="!loadingJobs && !jobsError && hasConflict(selected.isoDate,member.businessUserId)">Potential schedule conflict</small></div>
+            <p *ngIf="!loadingTeamAvailability && !teamError && !teamAvailabilityMembers.length">No team schedules visible for your role.</p>
+            <h4>Scheduled work</h4><button type="button" class="day-job" *ngFor="let job of jobsFor(selected.isoDate)" (click)="openJob(job)" aria-haspopup="dialog"><strong>{{ job.name }}</strong><span>{{ jobTime(job) }}</span><small>{{ job.assignedEmployees.length ? job.assignedEmployees.length + ' assigned' : 'Needs assignment' }}</small></button><p *ngIf="!loadingJobs && !jobsError && !jobsFor(selected.isoDate).length">No active jobs scheduled.</p>
+            <button class="ghost-btn" (click)="openTimeOff()" [disabled]="!!availabilityError">Add time off for this date</button>
+          </aside>
         </div>
-
-        <div class="calendar-grid" role="grid" aria-label="Upcoming availability calendar">
-          <div class="calendar-dow" role="columnheader" *ngFor="let label of calendarDayLabels">{{ label }}</div>
-
-          <button
-            type="button"
-            class="calendar-cell"
-            role="gridcell"
-            *ngFor="let day of calendarDays"
-            [class.calendar-cell-outside]="!day.inMonth"
-            [class.calendar-cell-past]="day.isPast"
-            [class.calendar-cell-today]="day.isToday"
-            [class.calendar-cell-selected]="selectedCalendarDay?.isoDate === day.isoDate"
-            [class.calendar-cell-status-on]="day.status === 'available'"
-            [class.calendar-cell-status-partial]="day.status === 'partialAvailable'"
-            [class.calendar-cell-status-off]="day.status === 'timeOff'"
-            [class.calendar-cell-status-unavailable]="day.status === 'unavailable'"
-            (click)="selectCalendarDay(day)"
-            [attr.title]="day.detailLabel"
-          >
-            <div class="calendar-date">{{ day.dayNumber }}</div>
-              <div
-                class="calendar-pill"
-                [class.calendar-pill-on]="day.status === 'available'"
-                [class.calendar-pill-partial]="day.status === 'partialAvailable'"
-                [class.calendar-pill-off]="day.status === 'timeOff'"
-                [class.calendar-pill-unavailable]="day.status === 'unavailable'"
-              >
-                {{ day.pillLabel }}
-              </div>
-          </button>
-        </div>
-
-        <div class="calendar-detail" *ngIf="selectedCalendarDay as selected">
-          <div class="calendar-detail-date">{{ formatEffectiveDate(selected.isoDate) }}</div>
-          <div class="calendar-detail-hours">{{ selected.detailLabel }}</div>
-
-          <div class="calendar-team" *ngIf="loadingTeamAvailability">Loading team availability...</div>
-
-          <ng-container *ngIf="!loadingTeamAvailability && hasVisibleTeamAvailability">
-            <div class="calendar-team-title">Team availability</div>
-            <div class="calendar-team-row" *ngFor="let member of teamAvailabilityMembers">
-              <div class="calendar-team-name">{{ member.firstName }} {{ member.lastName }}</div>
-              <div class="calendar-team-hours">{{ teamMemberDetailLabel(member) }}</div>
-            </div>
-          </ng-container>
-        </div>
+        <ng-template #teamSchedule>
+          <div class="team-toolbar"><label for="scheduleEmployee">Employee</label><select id="scheduleEmployee" [(ngModel)]="employeeFilter"><option [ngValue]="0">All visible employees</option><option *ngFor="let member of visibleTeam" [ngValue]="member.businessUserId">{{ member.firstName }} {{ member.lastName }}</option></select><span>{{ weekRangeLabel }}</span></div>
+          <p class="schedule-note" *ngIf="loadingTeamAvailability">Loading team schedule…</p><p class="conflict-note" *ngIf="teamError">{{ teamError }}</p>
+          <div class="team-timeline" tabindex="0" aria-label="Weekly team schedule, scroll horizontally for more days" *ngIf="!loadingTeamAvailability && !teamError"><table><thead><tr><th>Employee</th><th *ngFor="let day of weekDays">{{ day.date | date:'EEE d' }}</th></tr></thead><tbody><tr *ngFor="let member of filteredTeam"><th>{{ member.firstName }} {{ member.lastName }}</th><td *ngFor="let day of weekDays"><ng-container *ngIf="memberFor(day.isoDate,member.businessUserId) as daily; else noSchedule"><strong>{{ teamMemberDetailLabel(daily) }}</strong><button type="button" *ngFor="let job of jobsFor(day.isoDate,member.businessUserId)" (click)="openJob(job)" aria-haspopup="dialog" class="team-job">{{ job.name }}<small>{{ jobTime(job) }}</small></button><span class="conflict-note" *ngIf="!loadingJobs && !jobsError && hasConflict(day.isoDate,member.businessUserId)">Potential conflict</span><small *ngIf="!loadingJobs && !jobsError && daily.isAvailable && !daily.isDayOff">Unbooked: {{ freeWindows(day.isoDate,member.businessUserId) }}</small></ng-container><ng-template #noSchedule>Not visible</ng-template></td></tr></tbody></table></div>
+          <p class="schedule-note" *ngIf="!loadingTeamAvailability && !teamError && !filteredTeam.length">No employee schedules visible for this selection.</p><p class="schedule-note">Unbooked windows subtract active job assignments from working hours. Travel, service qualifications, and business opening hours can further restrict booking eligibility.</p>
+        </ng-template>
       </section>
-
-      <section class="availability-section">
+      <div class="schedule-secondary">
+        <section class="availability-section compact-summary"><div class="section-heading section-heading-row"><div><h2>Your weekly hours</h2><p>Effective {{ formatEffectiveDate(effectiveStartDate) }}</p></div><button class="ghost-btn" (click)="startEditingAvailability()" [disabled]="!!availabilityError">Edit hours</button></div><div class="weekly-summary"><div *ngFor="let day of availabilityDays"><strong>{{ day.label.slice(0,3) }}</strong><span>{{ weeklyHoursLabel(day) }}</span></div></div><p class="schedule-note">Personal working hours are separate from business opening hours. Business details are available in <a [routerLink]="['/workspace','overview',business.businessCode]">Overview settings</a>.</p></section>
+        <section class="availability-section compact-summary"><div class="section-heading section-heading-row"><div><h2>Upcoming time off</h2><p>Your scheduled absences</p></div><button class="ghost-btn" (click)="openTimeOff(false)" [disabled]="!!availabilityError">Manage</button></div><div class="absence-summary" *ngFor="let item of upcomingTimeOff"><mat-icon aria-hidden="true">event_busy</mat-icon><div><strong>{{ formatEffectiveDate(item.startDate) }}{{ item.endDate !== item.startDate ? ' – ' + formatEffectiveDate(item.endDate) : '' }}</strong><span>{{ item.startTime === '00:00' && item.endTime === '00:00' ? 'Full day' : timeLabel(item.startTime) + ' – ' + timeLabel(item.endTime) }}</span></div></div><p *ngIf="!upcomingTimeOff.length" class="empty-hint">No upcoming time off.</p></section>
+      </div><div class="editor-backdrop" *ngIf="isEditingAvailability">      <section class="availability-section editor-panel" role="dialog" aria-modal="true" aria-labelledby="hoursEditorTitle" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
         <div class="section-heading section-heading-row">
           <div class="section-heading-copy">
-            <h2>Default Weekly Availability</h2>
-            <p>Effective {{ formatEffectiveDate(effectiveStartDate) }}. Mark a day as available and set a working window.</p>
+            <h2 id="hoursEditorTitle">Your working hours</h2>
+            <p>Effective {{ formatEffectiveDate(effectiveStartDate) }}. Separate working windows leave breaks between shifts. This changes your personal schedule, not business opening hours.</p>
           </div>
           <div class="hero-actions">
-            <button
-              *ngIf="!isEditingAvailability"
-              type="button"
-              class="primary-btn"
-              (click)="startEditingAvailability()"
-              [disabled]="savingAvailability || loadingAvailability"
-            >
-              Edit
-            </button>
+
 
             <ng-container *ngIf="isEditingAvailability">
               <button type="button" class="primary-btn" (click)="saveAvailability()" [disabled]="!canSaveAvailability">
@@ -464,14 +348,18 @@
         </div>
       </section>
 
-      <section class="availability-section">
+</div><div class="editor-backdrop" *ngIf="timeOffOpen">      <section class="availability-section editor-panel" role="dialog" aria-modal="true" aria-labelledby="timeOffEditorTitle" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
         <div class="section-heading section-heading-row">
           <div class="section-heading-copy">
-            <h2>Time Off</h2>
-            <p>Mark upcoming time off. These dates override your weekly availability.</p>
+            <h2 id="timeOffEditorTitle">Manage your time off</h2>
+            <p>Scope: your schedule. Multi-day absences are full days. Existing jobs are never changed automatically.</p>
           </div>
         </div>
 
+        <button type="button" class="ghost-btn editor-close" (click)="closeTimeOff()" [disabled]="savingAvailability" aria-label="Close time off">Close</button>
+        <div class="absence-mode" role="group" aria-label="Time off duration"><button class="ghost-btn" [attr.aria-pressed]="fullDayOff" (click)="setFullDayOff(true)">Full day</button><button class="ghost-btn" [attr.aria-pressed]="!fullDayOff" (click)="setFullDayOff(false)" [disabled]="newDayOffStartDate !== newDayOffEndDate">Partial day</button></div>
+        <p class="schedule-note" role="status">{{ loadingAbsenceJobs ? 'Checking assigned jobs…' : absenceJobsError }}</p>
+        <div class="conflict-note" role="status" *ngIf="timeOffConflicts.length">{{ timeOffConflicts.length }} assigned job(s) may overlap this absence. Review them in Jobs before saving. Assignments will stay unchanged.</div>
         <div class="timeoff-add-row" aria-label="Add time off range">
           <div class="timeoff-field">
             <label class="timeoff-label" for="timeOffStartDate">Start</label>
@@ -480,7 +368,7 @@
               type="date"
               class="timeoff-input"
               [(ngModel)]="newDayOffStartDate"
-              (ngModelChange)="onNewDayOffChanged()"
+              (ngModelChange)="changeAbsenceDates()"
               [disabled]="savingAvailability || loadingAvailability"
             />
           </div>
@@ -492,12 +380,12 @@
               type="date"
               class="timeoff-input"
               [(ngModel)]="newDayOffEndDate"
-              (ngModelChange)="onNewDayOffChanged()"
+              (ngModelChange)="changeAbsenceDates()"
               [disabled]="savingAvailability || loadingAvailability"
             />
           </div>
 
-          <div class="timeoff-field timeoff-field-hours">
+          <div class="timeoff-field timeoff-field-hours" *ngIf="!fullDayOff">
             <label class="timeoff-label">Hours</label>
             <div class="time-range">
               <div
@@ -584,15 +472,7 @@
             </div>
           </div>
 
-          <button
-            *ngIf="canAddDayOff"
-            type="button"
-            class="primary-btn timeoff-submit"
-            (click)="submitTimeOff()"
-            [disabled]="savingAvailability || loadingAvailability || !!daysOffValidationMessage"
-          >
-            {{ savingAvailability ? 'Submitting...' : 'Submit Time Off' }}
-          </button>
+
         </div>
 
         <div class="row-help row-help-warn" *ngIf="daysOffValidationMessage">{{ daysOffValidationMessage }}</div>
@@ -731,7 +611,25 @@
         <ng-template #noTimeOff>
           <div class="empty-hint">No time off scheduled yet.</div>
         </ng-template>
-      </section>
+<p class="schedule-note" *ngIf="!canSubmitTimeOff && !savingAvailability">Choose a valid future date range and end time, or clear both new dates to save existing entries.</p><div class="editor-footer"><button type="button" class="primary-btn" (click)="submitTimeOff()" [disabled]="!canSubmitTimeOff">{{ savingAvailability ? 'Saving…' : 'Save time off changes' }}</button></div></section>
+</div>      <div class="editor-backdrop" *ngIf="businessHoursOpen"><section class="availability-section editor-panel" role="dialog" aria-modal="true" aria-labelledby="businessHoursTitle" cdkTrapFocus [cdkTrapFocusAutoCapture]="true"><div class="section-heading"><h2 id="businessHoursTitle">Business opening hours</h2><p>These are the business's public opening hours. Your personal shifts and existing job assignments stay separate.</p></div><div class="business-hours-row" *ngFor="let day of businessHoursDraft"><strong>{{ calendarDayLabels[day.dayOfWeek] }}</strong><label><input type="checkbox" [(ngModel)]="day.isClosed" [disabled]="savingBusinessHours" /> Closed</label><label *ngIf="!day.isClosed">Open <input type="time" [(ngModel)]="day.openTime" [disabled]="savingBusinessHours" /></label><label *ngIf="!day.isClosed">Close <input type="time" [(ngModel)]="day.closeTime" [disabled]="savingBusinessHours" /></label></div><p class="conflict-note" *ngIf="invalidBusinessHours">Each open day needs a closing time after its opening time.</p><p class="conflict-note" role="alert" *ngIf="businessHoursError">{{ businessHoursError }}</p><div class="editor-footer"><button class="ghost-btn" (click)="businessHoursOpen = false" [disabled]="savingBusinessHours">Cancel</button><button class="primary-btn" (click)="saveBusinessHours()" [disabled]="savingBusinessHours || invalidBusinessHours">{{ savingBusinessHours ? 'Saving…' : 'Save business hours' }}</button></div></section></div>
+      <div class="editor-backdrop" *ngIf="selectedJob as job" (click)="selectedJob = null">
+        <section class="availability-section editor-panel job-preview" role="dialog" aria-modal="true" aria-labelledby="scheduleJobTitle" aria-describedby="scheduleJobSchedule" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
+          <header class="job-preview-header">
+            <div><span class="availability-section-kicker">SCHEDULED JOB</span><h2 id="scheduleJobTitle">{{ job.name }}</h2><span class="job-preview-status">{{ job.status }}</span></div>
+            <button type="button" class="ghost-btn" (click)="selectedJob = null" aria-label="Close job details" cdkFocusInitial><mat-icon aria-hidden="true">close</mat-icon></button>
+          </header>
+          <dl class="job-preview-details">
+            <div><dt>Schedule</dt><dd id="scheduleJobSchedule">{{ jobTime(job) }}</dd></div>
+            <div><dt>Customer</dt><dd>{{ job.customerName || 'No customer recorded' }}<span *ngIf="job.customerEmail">{{ job.customerEmail }}</span><span *ngIf="job.customerPhone">{{ job.customerPhone }}</span></dd></div>
+            <div><dt>Assigned team</dt><dd>{{ jobTeam(job) }}</dd></div>
+            <div><dt>Services</dt><dd>{{ job.services.join(', ') || 'No service snapshot recorded' }}</dd></div>
+            <div><dt>Service location</dt><dd><a *ngIf="jobMapsUrl(job) as maps; else noPreviewLocation" class="job-map-link" [href]="maps" target="_blank" rel="noopener noreferrer" aria-label="Open service address in Google Maps (new tab)">{{ jobLocation(job) }} <mat-icon aria-hidden="true">open_in_new</mat-icon></a><ng-template #noPreviewLocation>{{ jobLocation(job) }}</ng-template></dd></div>
+            <ng-container *ngIf="job.cost !== null"><div><dt>Job value</dt><dd>{{ job.cost | currency }}</dd></div><div *ngIf="job.paymentStatus"><dt>Payment status</dt><dd>{{ job.paymentStatus }}</dd></div></ng-container>
+          </dl>
+          <footer class="editor-footer"><button type="button" class="ghost-btn" (click)="selectedJob = null">Close</button><button type="button" class="primary-btn" (click)="goToJobsTab()">Go to Jobs <mat-icon aria-hidden="true">arrow_forward</mat-icon></button></footer>
+        </section>
+      </div>
     </ng-container>
   </div>
 </section>

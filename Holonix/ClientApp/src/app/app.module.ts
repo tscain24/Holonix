@@ -36,6 +36,7 @@ import { AppBottomNavComponent } from './core/components/app-bottom-nav/app-bott
 import { PublicBusinessPageComponent } from './features/business/public-business-page/public-business-page.component';
 import { TermsOfServiceComponent } from './features/legal/terms-of-service/terms-of-service.component';
 import { PrivacyPolicyComponent } from './features/legal/privacy-policy/privacy-policy.component';
+import { WorkerWorkspaceComponent } from './features/worker/worker-workspace/worker-workspace.component';
 
 @NgModule({
   declarations: [
@@ -60,7 +61,8 @@ import { PrivacyPolicyComponent } from './features/legal/privacy-policy/privacy-
     ServiceSearchResultsComponent,
     PublicBusinessPageComponent,
     TermsOfServiceComponent,
-    PrivacyPolicyComponent
+    PrivacyPolicyComponent,
+    WorkerWorkspaceComponent
   ],
   imports: [
     A11yModule,

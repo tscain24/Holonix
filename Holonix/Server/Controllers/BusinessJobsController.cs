@@ -55,7 +55,7 @@ public sealed class BusinessJobsController(ApplicationDbContext db, JobTeamValid
         if (access == null) return Error("You do not have access to this business.", 403);
         if (query.Start > query.End || !new[] { "all", "upcoming", "inprogress", "unassigned", "completed", "cancelled", "overdue" }.Contains(query.Filter)) return Error("Choose valid dates and a job filter.");
         var rows = Rows(access);
-        if (query.Start.HasValue) { var from = WallClock(query.Start.Value.ToDateTime(TimeOnly.MinValue)); rows = rows.Where(r => r.Job.StartDateTime >= from); }
+        if (query.Start.HasValue) { var from = WallClock(query.Start.Value.ToDateTime(TimeOnly.MinValue)); rows = query.Overlap ? rows.Where(r => r.Job.EndDateTime > from) : rows.Where(r => r.Job.StartDateTime >= from); }
         if (query.End.HasValue) { if (query.End == DateOnly.MaxValue) return Error("Choose a valid end date."); var until = WallClock(query.End.Value.AddDays(1).ToDateTime(TimeOnly.MinValue)); rows = rows.Where(r => r.Job.StartDateTime < until); }
         if (!string.IsNullOrWhiteSpace(query.Search)) { var term = query.Search.Trim().ToLower(); rows = rows.Where(r => (r.Job.Name ?? "").ToLower().Contains(term) || (r.Job.User != null && (r.Job.User.FirstName + " " + r.Job.User.LastName).ToLower().Contains(term)) || db.JobAssignments.Any(a => a.JobId == r.Job.JobId && (a.BusinessUser.User.FirstName + " " + a.BusinessUser.User.LastName).ToLower().Contains(term)) || (r.Job.BusinessUser != null && (r.Job.BusinessUser.User.FirstName + " " + r.Job.BusinessUser.User.LastName).ToLower().Contains(term))); }
         if (query.EmployeeId.HasValue) { var id = query.EmployeeId.Value; rows = id == 0 ? rows.Where(r => r.Job.BusinessUserId == null && !db.JobAssignments.Any(a => a.JobId == r.Job.JobId)) : rows.Where(r => db.JobAssignments.Any(a => a.JobId == r.Job.JobId && a.BusinessUserId == id) || (!db.JobAssignments.Any(a => a.JobId == r.Job.JobId) && r.Job.BusinessUserId == id)); }
@@ -97,7 +97,7 @@ public sealed class BusinessJobsController(ApplicationDbContext db, JobTeamValid
             var canWork = access.Manage || assigned;
             var payment = payments.GetValueOrDefault(j.JobId);
             var restriction = access.Manage && payment == "Charge Succeeded" ? "This booking has been charged. Cancellation requires a payment-resolution workflow; no refund is issued here." : null;
-            var location = string.IsNullOrWhiteSpace(j.ServiceAddress1) ? null : new BusinessWorkspaceJobLocationResponse(j.ServiceLocationLabel, j.ServiceAddress1, j.ServiceAddress2, j.ServiceCity ?? "", j.ServiceState ?? "", j.ServiceZipCode ?? "", j.ServiceLatitude, j.ServiceLongitude);
+            var location = string.IsNullOrWhiteSpace(j.ServiceAddress1) ? null : new BusinessWorkspaceJobLocationResponse(null, j.ServiceAddress1, j.ServiceAddress2, j.ServiceCity ?? "", j.ServiceState ?? "", j.ServiceZipCode ?? "", j.ServiceLatitude, j.ServiceLongitude);
             return new OperationalJob(j.JobId, j.Name ?? $"Job #{j.JobId}", j.User == null ? "Customer not linked" : (j.User.FirstName + " " + j.User.LastName).Trim(), j.User?.Email, j.User?.PhoneNumber,
                 j.StartDateTime, j.EndDateTime, r.Status, access.Financial ? j.Cost : null, access.Financial ? payment ?? "Not recorded" : null, members, location,
                 lines.Where(l => l.JobId == j.JobId).Select(l => l.ServiceName).ToArray(), j.CompletedByUser == null ? null : (j.CompletedByUser.FirstName + " " + j.CompletedByUser.LastName).Trim(), j.CompletedDateTime,

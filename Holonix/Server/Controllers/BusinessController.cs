@@ -5410,7 +5410,7 @@ public class BusinessController : ControllerBase
         }
 
         return new BusinessWorkspaceJobLocationResponse(
-            label,
+            null,
             address1,
             address2,
             city,

@@ -1,8 +1,11 @@
-import { Component, HostListener, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit, OnDestroy } from '@angular/core';
+import { EMPTY, Subscription, expand, forkJoin, reduce, switchMap } from 'rxjs';
+import { JobsService, OperationalJob } from '../../../core/services/jobs.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   BusinessService,
+  BusinessHoursDay,
   BusinessWorkspace,
   BusinessDailyTeamAvailabilityMember,
   MyBusinessAvailability,
@@ -76,7 +79,28 @@ type LegendInfoKey = 'available' | 'partialAvailable' | 'timeOff' | 'unavailable
   templateUrl: './business-availability.component.html',
   styleUrls: ['./business-availability.component.css'],
 })
-export class BusinessAvailabilityComponent implements OnInit {
+export class BusinessAvailabilityComponent implements OnInit, OnDestroy {
+  view: 'month' | 'week' | 'team' = 'month';
+  timeOffOpen = false;
+  fullDayOff = true;
+  businessHoursOpen = false;
+  savingBusinessHours = false;
+  businessHoursError = '';
+  businessHoursDraft: BusinessHoursDay[] = [];
+  employeeFilter = 0;
+  scheduleJobs: OperationalJob[] = [];
+  selectedJob: OperationalJob | null = null;
+  loadingJobs = false;
+  jobsError = '';
+  teamError = '';
+  private jobsRequest?: Subscription;
+  private teamRequest?: Subscription;
+  private absenceRequest?: Subscription;
+  private absenceSnapshot: DayOffEditor[] = [];
+  absenceJobs: OperationalJob[] = [];
+  loadingAbsenceJobs = false;
+  absenceJobsError = '';
+  teamWeek: Array<{ date: string; members: BusinessDailyTeamAvailabilityMember[] }> = [];
   private static readonly MobileNavBreakpointPx = 900;
   private static readonly TimeStepMinutes = 30;
   private static readonly TimePopoverMaxHeight = 280;
@@ -101,6 +125,7 @@ export class BusinessAvailabilityComponent implements OnInit {
   isMobileNav = false;
   loadingWorkspace = true;
   loadingAvailability = true;
+  availabilityError = '';
   savingAvailability = false;
   isEditingAvailability = false;
   private availabilityDaysSnapshot: AvailabilityDayEditor[] | null = null;
@@ -172,7 +197,8 @@ export class BusinessAvailabilityComponent implements OnInit {
     private readonly router: Router,
     private readonly snackBar: MatSnackBar,
     private readonly businessService: BusinessService,
-    private readonly authSession: AuthSessionService
+    private readonly authSession: AuthSessionService,
+    private readonly jobsService: JobsService
   ) {
     const today = new Date();
     this.minCalendarMonthKey = today.getFullYear() * 12 + today.getMonth();
@@ -240,6 +266,155 @@ export class BusinessAvailabilityComponent implements OnInit {
 
   goHome(): void {
     this.router.navigate(['/home']);
+  }
+
+  @HostListener('document:keydown.escape')
+  closeEditor(): void {
+    if (this.selectedJob) { this.selectedJob = null; return; }
+    if (this.openTimePicker || this.openTimeOffPicker) { this.closePicker(); this.openTimeOffPicker = null; return; }
+    if (!this.savingAvailability) { this.cancelEditingAvailability(); this.closeTimeOff(); }
+    if (!this.savingBusinessHours) this.businessHoursOpen = false;
+  }
+  ngOnDestroy(): void { this.jobsRequest?.unsubscribe(); this.teamRequest?.unsubscribe(); this.absenceRequest?.unsubscribe(); }
+
+  get weekDays(): CalendarDay[] {
+    const anchor = this.selectedCalendarDay?.date ?? new Date();
+    const start = new Date(anchor); start.setDate(start.getDate() - start.getDay());
+    const first = this.toIsoDate(start);
+    const end = new Date(start); end.setDate(end.getDate() + 6);
+    return this.calendarDays.filter(d => d.isoDate >= first && d.isoDate <= this.toIsoDate(end));
+  }
+  get visibleDays(): CalendarDay[] { return this.view === 'month' ? this.calendarDays : this.weekDays; }
+  get canEditBusinessHours(): boolean { return this.businessWorkspace?.currentUserRoleName?.toLowerCase() === 'owner'; }
+  get invalidBusinessHours(): boolean { return this.businessHoursDraft.some(d => !d.isClosed && (!d.openTime || !d.closeTime || d.openTime >= d.closeTime)); }
+  editBusinessHours(): void {
+    if (!this.canEditBusinessHours) return;
+    this.businessHoursDraft = this.availabilityDays.map(d => {
+      const hours = this.businessWorkspace?.businessHours?.find(h => h.dayOfWeek === d.dayOfWeek);
+      return { dayOfWeek: d.dayOfWeek, isClosed: hours?.isClosed ?? true, openTime: this.normalizeTime(hours?.openTime) || '09:00', closeTime: this.normalizeTime(hours?.closeTime) || '17:00' };
+    });
+    this.businessHoursError = ''; this.businessHoursOpen = true;
+  }
+  saveBusinessHours(): void {
+    const code = this.businessWorkspace?.businessCode;
+    if (!code || !this.canEditBusinessHours || this.invalidBusinessHours || this.savingBusinessHours) return;
+    this.savingBusinessHours = true; this.businessHoursError = '';
+    // Refresh the profile first: the existing endpoint accepts the complete profile.
+    this.businessService.getBusinessWorkspace(code).pipe(switchMap(b => this.businessService.updateBusinessProfile(code, {
+      name:b.name, description:b.description, businessIconBase64:b.businessIconBase64, businessEmail:b.businessEmail, businessPhoneNumber:b.businessPhoneNumber,
+      businessHours:this.businessHoursDraft.map(d => ({...d, openTime:d.isClosed ? null : d.openTime + ':00', closeTime:d.isClosed ? null : d.closeTime + ':00'})),
+      address1:b.address1 ?? '', address2:b.address2, city:b.city ?? '', state:b.state ?? '', zipCode:b.zipCode ?? '', businessJobPercentage:b.businessJobPercentage
+    }))).subscribe({ next: response => { if (this.businessWorkspace) this.businessWorkspace.businessHours = response.businessHours; this.savingBusinessHours = false; this.businessHoursOpen = false; this.snackBar.open('Business hours updated.',undefined,{duration:2500}); }, error: err => { this.savingBusinessHours = false; this.businessHoursError = err?.error?.errors?.[0] ?? 'Could not update business hours.'; } });
+  }
+  get weekRangeLabel(): string { const days = this.weekDays; return days.length ? `${this.formatEffectiveDate(days[0].isoDate)} – ${this.formatEffectiveDate(days[days.length-1].isoDate)}` : ''; }
+  get visibleTeam(): BusinessDailyTeamAvailabilityMember[] {
+    const members = new Map<number, BusinessDailyTeamAvailabilityMember>();
+    this.teamWeek.forEach(day => day.members.forEach(m => members.set(m.businessUserId, m)));
+    return [...members.values()].sort((a,b) => a.lastName.localeCompare(b.lastName));
+  }
+  get filteredTeam(): BusinessDailyTeamAvailabilityMember[] { return this.visibleTeam.filter(m => !this.employeeFilter || m.businessUserId === +this.employeeFilter); }
+  get upcomingTimeOff(): DayOffEditor[] { return this.daysOff.filter(d => d.endDate >= this.todayIsoUtc); }
+  get selectedPersonalHours(): string {
+    if (this.loadingTeamAvailability) return 'Loading dated working hours…';
+    const self = this.teamAvailabilityMembers.find(m => m.businessUserId === this.currentBusinessUserId);
+    return self ? this.teamMemberDetailLabel(self) : 'No dated working hours visible.';
+  }
+  businessHoursLabel(day: CalendarDay): string {
+    const hours = this.businessWorkspace?.businessHours?.find(h => h.dayOfWeek === day.date.getDay());
+    return !hours ? 'Business hours not set' : hours.isClosed ? 'Business closed' : `${this.timeLabel(this.normalizeTime(hours.openTime))} – ${this.timeLabel(this.normalizeTime(hours.closeTime))}`;
+  }
+  jobsFor(date: string, employeeId = 0): OperationalJob[] {
+    return this.scheduleJobs.filter(j => j.startDateTime.slice(0,10) <= date && j.endDateTime.slice(0,19) > date + 'T00:00:00' && (!employeeId || j.assignedEmployees.some(e => e.businessUserId === +employeeId)));
+  }
+  memberFor(date: string, id: number): BusinessDailyTeamAvailabilityMember | undefined { return this.teamWeek.find(d => d.date === date)?.members.find(m => m.businessUserId === id); }
+  teamCount(date: string): number | null {
+    const day = this.teamWeek.find(d => d.date === date);
+    return day ? day.members.filter(m => m.isAvailable && !m.isDayOff).length : null;
+  }
+  jobTime(job: OperationalJob): string { return `${job.startDateTime.slice(0,10)} · ${this.timeLabel(job.startDateTime.slice(11,16))} – ${job.endDateTime.slice(0,10) !== job.startDateTime.slice(0,10) ? job.endDateTime.slice(0,10) + ' · ' : ''}${this.timeLabel(job.endDateTime.slice(11,16))}`; }
+  openJob(job: OperationalJob): void { this.selectedJob = job; }
+  jobTeam(job: OperationalJob): string { return job.assignedEmployees.map(member => member.displayName).join(', ') || 'Needs assignment'; }
+  jobLocation(job: OperationalJob): string {
+    const location = job.serviceLocation;
+    return location ? [location.address1, location.address2, location.city, location.state, location.zipCode].filter(Boolean).join(', ') : 'No service location recorded';
+  }
+  jobMapsUrl(job: OperationalJob): string | null { return job.serviceLocation?.address1 ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(this.jobLocation(job)) : null; }
+  hasConflict(date: string, id: number): boolean {
+    const jobs = this.jobsFor(date, id);
+    const member = this.memberFor(date, id);
+    if (jobs.some(a => jobs.some(b => a.jobId !== b.jobId && a.startDateTime < b.endDateTime && b.startDateTime < a.endDateTime))) return true;
+    if (!member) return false;
+    return jobs.some(job => {
+      const start = job.startDateTime.slice(0,10) < date ? '00:00' : job.startDateTime.slice(11,16);
+      const end = job.endDateTime.slice(0,10) > date ? '24:00' : job.endDateTime.slice(11,16);
+      return !member.isAvailable || member.isDayOff || !member.timeFrames.some(f => this.normalizeTime(f.startTime) <= start && this.normalizeTime(f.endTime) >= end);
+    });
+  }
+  freeWindows(date: string, id: number): string {
+    const member = this.memberFor(date,id);
+    if (!member?.isAvailable || member.isDayOff) return 'No working windows';
+    const ranges = member.timeFrames.map(f => ({ start: this.timeToMinutes(this.normalizeTime(f.startTime)), end: this.timeToMinutes(this.normalizeTime(f.endTime)) }));
+    const booked = this.jobsFor(date,id).map(j => ({ start: j.startDateTime.slice(0,10) < date ? 0 : this.timeToMinutes(j.startDateTime.slice(11,16)), end: j.endDateTime.slice(0,10) > date ? 1440 : this.timeToMinutes(j.endDateTime.slice(11,16)) }));
+    return this.formatRanges(this.subtractRanges(ranges, this.normalizeRanges(booked))) || 'No unbooked windows';
+  }
+  setView(view: 'month' | 'week' | 'team'): void { this.view = view; this.loadTeamAvailabilityForSelectedDay(); }
+  calendarToday(): void {
+    const today = new Date(); this.calendarMonthStart = new Date(today.getFullYear(),today.getMonth(),1);
+    this.selectedCalendarDay = null; this.rebuildCalendar();
+  }
+  navigateCalendar(direction: number): void {
+    if (this.view === 'month') { direction < 0 ? this.prevCalendarMonth() : this.nextCalendarMonth(); return; }
+    const date = new Date(this.selectedCalendarDay?.date ?? new Date()); date.setDate(date.getDate() + direction * 7);
+    const key = this.calendarMonthKey(date);
+    if (key < this.minCalendarMonthKey || key > this.maxCalendarMonthKey) return;
+    this.calendarMonthStart = new Date(date.getFullYear(),date.getMonth(),1); this.rebuildCalendar();
+    const day = this.calendarDays.find(d => d.isoDate === this.toIsoDate(date)); if (day) this.selectCalendarDay(day);
+  }
+  chooseDate(iso: string): void {
+    const date = new Date(iso + 'T00:00:00'); if (isNaN(date.getTime())) return;
+    if (this.calendarMonthKey(date) < this.minCalendarMonthKey || this.calendarMonthKey(date) > this.maxCalendarMonthKey) return;
+    this.calendarMonthStart = new Date(date.getFullYear(),date.getMonth(),1); this.rebuildCalendar();
+    const day = this.calendarDays.find(d => d.isoDate === iso); if (day) this.selectCalendarDay(day);
+  }
+  openTimeOff(prefill = true): void {
+    if (this.availabilityError) return;
+    this.absenceSnapshot = this.daysOff.map(d => ({...d})); this.timeOffOpen = true;
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+    const selected = this.selectedCalendarDay?.isoDate ?? '';
+    this.newDayOffStartDate = prefill ? (selected > this.todayIsoUtc ? selected : this.toIsoDate(tomorrow)) : '';
+    this.newDayOffEndDate = this.newDayOffStartDate; this.setFullDayOff(true); this.loadAbsenceJobs();
+  }
+  get canSubmitTimeOff(): boolean { return this.canPersistAvailabilityAndTimeOff && (!(this.newDayOffStartDate || this.newDayOffEndDate) || this.canAddDayOff); }
+  setFullDayOff(full: boolean): void { this.fullDayOff = full; this.newDayOffStartTime = full ? '00:00' : '09:00'; this.newDayOffEndTime = full ? '00:00' : '17:00'; }
+  closeTimeOff(): void { if (this.savingAvailability || !this.timeOffOpen) return; this.daysOff = this.absenceSnapshot.map(d => ({...d})); this.timeOffOpen = false; this.openTimeOffPicker = null; this.absenceRequest?.unsubscribe(); this.rebuildCalendar(); }
+  changeAbsenceDates(): void { this.onNewDayOffChanged(); if (this.newDayOffStartDate !== this.newDayOffEndDate) this.setFullDayOff(true); this.loadAbsenceJobs(); }
+  private loadAbsenceJobs(): void {
+    this.absenceRequest?.unsubscribe(); this.absenceJobs = []; this.absenceJobsError = '';
+    const code = this.businessWorkspace?.businessCode;
+    if (!code || !this.newDayOffStartDate || !this.newDayOffEndDate || this.newDayOffStartDate > this.newDayOffEndDate) { this.loadingAbsenceJobs = false; return; }
+    this.loadingAbsenceJobs = true;
+    const start = this.newDayOffStartDate, end = this.newDayOffEndDate;
+    this.absenceRequest = this.jobsService.schedule(code,start,end).pipe(
+      expand(result => result.page * result.pageSize < result.total ? this.jobsService.schedule(code,start,end,result.page+1) : EMPTY),
+      reduce((all,result) => [...all,...result.jobs], [] as OperationalJob[])
+    ).subscribe({ next: jobs => { this.absenceJobs = jobs.filter(j => j.status !== 'Cancelled' && j.status !== 'Completed'); this.loadingAbsenceJobs = false; }, error: () => { this.loadingAbsenceJobs = false; this.absenceJobsError = 'Could not check job conflicts. Review assigned work in Jobs before saving.'; } });
+  }
+  get timeOffConflicts(): OperationalJob[] {
+    if (!this.newDayOffStartDate || !this.newDayOffEndDate) return [];
+    const first = this.newDayOffStartDate + 'T' + (this.fullDayOff ? '00:00' : this.newDayOffStartTime) + ':00';
+    const end = new Date(this.newDayOffEndDate + 'T00:00:00');
+    if (this.fullDayOff) end.setDate(end.getDate()+1);
+    const last = this.fullDayOff ? this.toIsoDate(end) + 'T00:00:00' : this.newDayOffEndDate + 'T' + this.newDayOffEndTime + ':00';
+    return this.absenceJobs.filter(j => j.assignedEmployees.some(m => m.businessUserId === this.currentBusinessUserId) && j.startDateTime.slice(0,19) < last && j.endDateTime.slice(0,19) > first);
+  }
+  loadScheduleJobs(): void {
+    const code = this.businessWorkspace?.businessCode; if (!code || !this.calendarDays.length) return;
+    this.jobsRequest?.unsubscribe(); this.loadingJobs = true; this.jobsError = ''; this.scheduleJobs = [];
+    const start = this.calendarDays[0].isoDate, end = this.calendarDays[this.calendarDays.length-1].isoDate;
+    this.jobsRequest = this.jobsService.schedule(code,start,end).pipe(
+      expand(result => result.page * result.pageSize < result.total ? this.jobsService.schedule(code,start,end,result.page+1) : EMPTY),
+      reduce((all, result) => [...all, ...result.jobs], [] as OperationalJob[])
+    ).subscribe({ next: jobs => { this.scheduleJobs = jobs.filter(j => j.status !== 'Cancelled' && j.status !== 'Completed').sort((a,b) => a.startDateTime.localeCompare(b.startDateTime)); this.loadingJobs = false; }, error: () => { this.loadingJobs = false; this.jobsError = 'Scheduled jobs could not be loaded. Availability does not include booking conflicts.'; } });
   }
 
   toggleWorkspaceMenu(event: MouseEvent): void {
@@ -686,6 +861,7 @@ export class BusinessAvailabilityComponent implements OnInit {
   }
 
   submitTimeOff(): void {
+    if (!this.canSubmitTimeOff) return;
     if (this.canAddDayOff) {
       this.addDayOff();
     }
@@ -694,7 +870,7 @@ export class BusinessAvailabilityComponent implements OnInit {
   }
 
   startEditingAvailability(): void {
-    if (this.loadingAvailability || this.savingAvailability) {
+    if (this.loadingAvailability || this.savingAvailability || this.availabilityError) {
       return;
     }
 
@@ -751,6 +927,7 @@ export class BusinessAvailabilityComponent implements OnInit {
           this.availabilityDaysSnapshot = null;
         }
         this.savingAvailability = false;
+        this.timeOffOpen = false;
         this.snackBar.open('Availability updated.', undefined, {
           duration: 2500,
           panelClass: ['snack-success'],
@@ -1180,8 +1357,9 @@ export class BusinessAvailabilityComponent implements OnInit {
     }
   }
 
-  private loadAvailability(businessCode: string): void {
+  loadAvailability(businessCode: string): void {
     this.loadingAvailability = true;
+    this.availabilityError = '';
     this.businessService.getMyBusinessAvailability(businessCode).subscribe({
       next: (response) => {
         this.applyAvailability(response);
@@ -1189,6 +1367,7 @@ export class BusinessAvailabilityComponent implements OnInit {
       },
       error: (err) => {
         this.loadingAvailability = false;
+        this.availabilityError = 'Your working hours could not be loaded. Retry before making changes.';
         if (this.authSession.hasSessionExpiredFlag()) {
           return;
         }
@@ -1227,8 +1406,8 @@ export class BusinessAvailabilityComponent implements OnInit {
         .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
       if (!hasSavedAvailability) {
-        const isWeekday = day.dayOfWeek >= 1 && day.dayOfWeek <= 5;
-        day.enabled = isWeekday;
+
+        day.enabled = false;
         day.timeFrames = [{ startTime: '09:00', endTime: '17:00' }];
       } else {
         day.enabled = frames.length > 0;
@@ -1241,11 +1420,10 @@ export class BusinessAvailabilityComponent implements OnInit {
 
     const today = new Date();
     this.calendarMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    this.rebuildCalendar();
-
     this.availabilityDaysSnapshot = null;
     this.isEditingAvailability = false;
     this.closePicker();
+    this.rebuildCalendar();
   }
 
   private loadTeamAvailabilityForSelectedDay(): void {
@@ -1257,44 +1435,18 @@ export class BusinessAvailabilityComponent implements OnInit {
       return;
     }
 
-    this.loadingTeamAvailability = true;
-    this.businessService.getBusinessTeamDailyAvailability(businessCode, dateIso).subscribe({
-      next: (response) => {
+    this.teamRequest?.unsubscribe();
+    this.loadingTeamAvailability = true; this.teamError = ''; this.teamWeek = []; this.teamAvailabilityMembers = [];
+    const dates = this.weekDays.map(d => d.isoDate);
+    this.teamRequest = forkJoin(dates.map(date => this.businessService.getBusinessTeamDailyAvailability(businessCode,date))).subscribe({
+      next: responses => {
+        this.teamWeek = responses.map((response,i) => ({ date: dates[i], members: response.members ?? [] }));
+        this.teamAvailabilityMembers = this.teamWeek.find(d => d.date === dateIso)?.members ?? [];
         this.loadingTeamAvailability = false;
-        const members = (response?.members ?? [])
-          .filter((member) => !!member)
-          .slice()
-          .sort((a, b) => {
-            const last = (a.lastName ?? '').localeCompare(b.lastName ?? '');
-            if (last !== 0) {
-              return last;
-            }
-            return (a.firstName ?? '').localeCompare(b.firstName ?? '');
-          });
-
-        const currentId = this.currentBusinessUserId;
-        this.teamAvailabilityMembers = currentId
-          ? members.filter((member) => (member?.businessUserId ?? 0) !== currentId)
-          : members;
       },
-      error: (err) => {
-        this.loadingTeamAvailability = false;
-        this.teamAvailabilityMembers = [];
-
-        if (this.authSession.hasSessionExpiredFlag()) {
-          return;
-        }
-
-        const errors = (err as { error?: { errors?: unknown } } | null | undefined)?.error?.errors;
-        const messages = Array.isArray(errors) ? errors.filter((value): value is string => typeof value === 'string') : [];
-        this.snackBar.open(messages[0] ?? 'Could not load team availability.', 'Close', {
-          duration: 3500,
-          panelClass: ['snack-error'],
-        });
-      },
+      error: () => { this.loadingTeamAvailability = false; this.teamError = 'Team availability could not be loaded. Try selecting the date again.'; }
     });
   }
-
   private mapTimeOff(rows: MyBusinessTimeOff[]): DayOffEditor[] {
     return (rows ?? []).map((row) => ({
       businessUserTimeOffId: row.businessUserTimeOffId ?? 0,
@@ -1390,11 +1542,10 @@ export class BusinessAvailabilityComponent implements OnInit {
     }
 
     this.calendarDays = days;
-    if (this.selectedCalendarDay) {
-      this.selectedCalendarDay = days.find((day) => day.isoDate === this.selectedCalendarDay?.isoDate) ?? null;
-    }
+    this.selectedCalendarDay = days.find(day => day.isoDate === this.selectedCalendarDay?.isoDate)
+      ?? days.find(day => day.isToday) ?? days.find(day => day.inMonth) ?? null;
+    if (!this.isEditingAvailability) { this.loadTeamAvailabilityForSelectedDay(); this.loadScheduleJobs(); }
   }
-
   private isDateDayOff(isoDate: string): boolean {
     return (this.daysOff ?? []).some((range) => range.startDate <= isoDate && range.endDate >= isoDate);
   }

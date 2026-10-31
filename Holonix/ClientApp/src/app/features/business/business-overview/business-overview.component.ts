@@ -23,6 +23,7 @@ export class BusinessOverviewComponent implements OnInit {
   isUserMenuOpen = false;
   isMobileMenuOpen = false;
   loadingBusinesses = true;
+  businessLoadError: string | null = null;
   loadingEmployeeSchedule = false;
   businesses: UserBusinessSummary[] = [];
   employeeScheduleDays: string[] = [];
@@ -60,18 +61,31 @@ export class BusinessOverviewComponent implements OnInit {
     this.initials = `${parts[0]?.[0] ?? 'U'}${parts[1]?.[0] ?? ''}`.toUpperCase();
     this.profileImageDataUrl = this.buildImageDataUrl(localStorage.getItem('holonix_profile_image_base64'));
 
+    this.loadBusinesses();
+  }
+
+  loadBusinesses(): void {
+    this.loadingBusinesses = true;
+    this.businessLoadError = null;
+
     this.businessService.getMyBusinesses().subscribe({
       next: (businesses) => {
         this.businesses = businesses;
         this.loadingBusinesses = false;
         this.loadEmployeeSchedule(businesses);
       },
-      error: () => {
+      error: (error) => {
         this.loadingBusinesses = false;
+        this.businesses = [];
         if (this.authSession.hasSessionExpiredFlag()) {
           return;
         }
 
+        const errorMessage = typeof error?.message === 'string' ? error.message.toLowerCase() : '';
+        const isApiUnavailable = error?.status === 0 || errorMessage.includes('configured local origins');
+        this.businessLoadError = isApiUnavailable
+          ? 'The Holonix API could not be reached. Check that the local backend is running, then try again.'
+          : 'Your businesses could not be loaded. Please try again.';
         this.snackBar.open('Could not load your businesses.', 'Close', {
           duration: 3500,
           panelClass: ['snack-error'],
@@ -212,6 +226,12 @@ export class BusinessOverviewComponent implements OnInit {
     return [location.address1, location.address2, `${location.city}, ${location.state} ${location.zipCode}`]
       .filter((part): part is string => !!part && part.trim().length > 0)
       .join(', ');
+  }
+
+  assignedJobMapsUrl(job: MyAssignedJob): string | null {
+    return job.serviceLocation?.address1
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(this.formatServiceLocation(job))}`
+      : null;
   }
 
   private getAvailabilityLabel(availability: import('../../../core/services/business.service').MyBusinessAvailability | null, date: Date): string {

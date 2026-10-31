@@ -1,205 +1,93 @@
 <main class="search-shell" aria-label="Service search results">
-  <header class="search-header">
-    <div class="search-header-copy">
-      <h1>Search Results</h1>
-      <p class="search-subtitle" *ngIf="locationLabel && query">Showing pros near {{ locationLabel }}</p>
+  <header class="results-header">
+    <div>
+      <span class="results-kicker">LOCAL SERVICES</span>
+      <h1>{{ loading ? 'Finding local businesses' : (totalCount === 1 ? '1 business found' : totalCount + ' businesses found') }}</h1>
+      <p *ngIf="locationLabel && query">Results for “{{ query }}” near {{ locationLabel }}</p>
     </div>
+    <button type="button" class="mobile-map-toggle" (click)="toggleMobileMap()" [attr.aria-expanded]="showMobileMap">
+      <mat-icon aria-hidden="true">{{ showMobileMap ? 'view_list' : 'map' }}</mat-icon>
+      {{ showMobileMap ? 'Show results' : 'Show map' }}
+    </button>
   </header>
 
-  <section class="chip-section" *ngIf="topCategories.length > 0 && !error" aria-label="Related categories">
-    <div class="chip-section-header">
-      <strong class="chip-section-title">Related Categories</strong>
-      <span class="chip-section-subtitle">Based on your search</span>
+  <section class="discovery-controls" *ngIf="!error" aria-label="Search filters">
+    <div class="category-filter" *ngIf="topCategories.length > 0">
+      <span class="control-label">Explore</span>
+      <div class="category-row">
+        <button type="button" class="category-chip" *ngFor="let category of visibleTopCategories"
+          [class.active]="isCategoryActive(category)" [attr.aria-pressed]="isCategoryActive(category)"
+          (click)="applyRelatedCategory(category.categoryName)">{{ category.categoryName }}</button>
+        <button type="button" class="category-chip category-more" *ngIf="isMobileLayout && topCategories.length > 2"
+          (click)="toggleRelatedCategories()" [attr.aria-expanded]="relatedCategoriesExpanded">
+          {{ relatedCategoriesExpanded ? 'Show less' : '+' + (topCategories.length - 2) + ' more' }}
+        </button>
+      </div>
     </div>
-    <div class="chip-row">
-      <button
-        type="button"
-        class="chip"
-        *ngFor="let cat of visibleTopCategories"
-        [attr.aria-label]="cat.categoryName"
-        (click)="applyRelatedCategory(cat.categoryName)"
-      >
-        <span class="chip-name">{{ cat.categoryName }}</span>
-        <span class="chip-match">{{ formatMatchLabel(cat.semanticScore ?? null) }}</span>
-      </button>
 
-      <button
-        type="button"
-        class="chip chip-toggle chip-toggle-compact"
-        *ngIf="isMobileLayout && topCategories.length > 1"
-        [attr.aria-label]="relatedCategoriesExpanded ? 'Collapse related categories' : 'Show more related categories'"
-        (click)="toggleRelatedCategories()"
-      >
-        <span class="chip-name">{{ relatedCategoriesExpanded ? '−' : '+' }}{{ relatedCategoriesExpanded ? '' : (topCategories.length - 1) }}</span>
-      </button>
+    <div class="distance-filter" [class.active]="radiusMiles !== 25">
+      <label for="distanceFilter"><span>Distance</span><strong>{{ radiusMiles }} mi</strong></label>
+      <input id="distanceFilter" type="range" min="1" max="100" step="1" [value]="radiusMiles"
+        (input)="setRadiusMiles(($any($event.target).valueAsNumber ?? 25))" />
+      <button type="button" class="reset-filter" (click)="resetFilters()" [disabled]="radiusMiles === 25">Reset</button>
     </div>
   </section>
 
-  <div class="search-state search-error" *ngIf="error">{{ error }}</div>
+  <div class="error-state" *ngIf="error" role="alert">
+    <mat-icon aria-hidden="true">search_off</mat-icon><h2>We couldn’t show these results</h2><p>{{ error }}</p>
+  </div>
 
-  <section class="results-grid" *ngIf="!error" aria-label="Search results layout">
-    <aside class="filters" aria-label="Filters">
-      <div class="filters-card">
-        <div class="filters-header">
-          <strong>Filters</strong>
-          <button type="button" class="filters-link" (click)="setRadiusMiles(25)">Reset</button>
-        </div>
-
-        <div class="filter-block">
-          <div class="filter-title-row">
-            <span class="filter-title">Distance</span>
-            <span class="filter-value">Within {{ radiusMiles }} miles</span>
-          </div>
-          <input
-            class="filter-range"
-            type="range"
-            min="1"
-            max="100"
-            step="1"
-            [value]="radiusMiles"
-            (input)="setRadiusMiles(($any($event.target).valueAsNumber ?? 25))"
-            aria-label="Distance miles"
-          />
-        </div>
-      </div>
-    </aside>
-
-    <section class="results" aria-label="Results">
-      <div class="search-state" *ngIf="loading">Searching...</div>
-      <div class="search-empty" *ngIf="!loading && results.length === 0">No results found.</div>
-
-      <div class="search-table-shell" *ngIf="!isMobileLayout && !loading && results.length > 0">
-        <table class="search-table">
-          <thead>
-            <tr>
-              <th scope="col">Business</th>
-              <th scope="col">Category</th>
-              <th scope="col" class="search-table-distance">Distance</th>
-              <th scope="col" class="search-table-rating">Rating</th>
-              <th scope="col" class="search-table-actions"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              *ngFor="let item of results"
-              class="search-table-row"
-              [class.search-table-row-clickable]="(item.businessCode ?? '').trim().length > 0"
-              (click)="viewBusiness(item)"
-            >
-              <td class="search-table-name">
-                <span class="result-logo-inline" aria-hidden="true">
-                  <img
-                    *ngIf="getBusinessLogoSrc(item) as logoSrc; else logoFallback"
-                    [src]="logoSrc"
-                    alt=""
-                    class="result-logo-img"
-                  />
-                  <ng-template #logoFallback>
-                    <span class="result-logo-fallback">{{ getBusinessInitials(item.businessName) }}</span>
-                  </ng-template>
-                </span>
-                <button
-                  type="button"
-                  class="search-table-business-link"
-                  (click)="viewBusiness(item); $event.stopPropagation()"
-                  [disabled]="!(item.businessCode ?? '').trim()"
-                  aria-label="View business"
-                >
-                  {{ item.businessName }}
-                </button>
-              </td>
-              <td>{{ item.categoryName }}</td>
-              <td class="search-table-distance">
-                <span *ngIf="item.distanceMiles != null">{{ item.distanceMiles | number: '1.1-1' }} mi</span>
-              </td>
-              <td class="search-table-rating"></td>
-              <td class="search-table-actions">
-                <button
-                  type="button"
-                  class="table-action-btn table-action-icon"
-                  (click)="viewBusiness(item)"
-                  [disabled]="!(item.businessCode ?? '').trim()"
-                  aria-label="View business"
-                >
-                  <span class="table-action-label">View</span>
-                  <svg class="table-action-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M9 6l6 6-6 6" />
-                  </svg>
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="table-pagination" aria-label="Search pagination" *ngIf="totalCount > 0">
-          <span class="table-pagination-count">Showing {{ pageStart }}-{{ pageEnd }} of {{ totalCount }}</span>
-          <div class="table-pagination-actions">
-            <button type="button" class="secondary-btn" (click)="goToPreviousPage()" [disabled]="!hasPreviousPage || loading">
-              Previous
-            </button>
-            <button type="button" class="secondary-btn" (click)="goToNextPage()" [disabled]="!hasNextPage || loading">
-              Next
-            </button>
-          </div>
-        </div>
+  <section class="marketplace-layout" *ngIf="!error" aria-label="Search results and map">
+    <section class="listings" [class.mobile-hidden]="showMobileMap" aria-label="Businesses">
+      <div class="loading-list" *ngIf="loading" aria-label="Loading businesses" aria-busy="true">
+        <article class="listing-card loading-card" *ngFor="let placeholder of loadingPlaceholders">
+          <span class="skeleton skeleton-logo"></span><span class="loading-lines"><span class="skeleton skeleton-title"></span><span class="skeleton skeleton-copy"></span><span class="skeleton skeleton-copy short"></span></span>
+        </article>
       </div>
 
-      <div class="result-cards" *ngIf="isMobileLayout && !loading && results.length > 0" aria-label="Search results">
-        <button
-          type="button"
-          class="result-card result-card-clickable"
-          *ngFor="let item of results"
-          (click)="viewBusiness(item)"
-          [disabled]="!(item.businessCode ?? '').trim()"
-          aria-label="View business"
-        >
-          <div class="result-top">
-            <div class="result-main">
-              <span class="result-logo" aria-hidden="true">
-                <img
-                  *ngIf="getBusinessLogoSrc(item) as logoSrc; else logoFallbackCard"
-                  [src]="logoSrc"
-                  alt=""
-                  class="result-logo-img"
-                />
-                <ng-template #logoFallbackCard>
-                  <span class="result-logo-fallback">{{ getBusinessInitials(item.businessName) }}</span>
-                </ng-template>
-              </span>
+      <div class="empty-state" *ngIf="!loading && results.length === 0">
+        <span class="empty-icon"><mat-icon aria-hidden="true">travel_explore</mat-icon></span>
+        <h2>No nearby businesses found</h2><p>Try a broader distance or another service category.</p>
+        <button type="button" class="primary-action" *ngIf="radiusMiles !== 25" (click)="resetFilters()">Reset distance</button>
+      </div>
 
-              <div class="result-text">
-                <div class="result-service">{{ item.businessName }}</div>
-                <div class="result-business">{{ item.categoryName }}</div>
-              </div>
-            </div>
-
-            <div class="result-meta" *ngIf="item.distanceMiles != null">
-              <div class="result-distance">{{ item.distanceMiles | number: '1.1-1' }} mi</div>
-            </div>
-          </div>
-
-          <div class="result-card-actions">
-            <span class="result-card-cta">View business</span>
-            <svg class="table-action-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M9 6l6 6-6 6" />
-            </svg>
-          </div>
+      <div class="listing-list" *ngIf="!loading && results.length > 0" [class.sparse]="results.length < 3">
+        <button type="button" class="listing-card" *ngFor="let item of results; trackBy: trackBusiness"
+          [id]="resultCardId(item)" [class.selected]="selectedBusinessId === item.businessId"
+          [disabled]="!(item.businessCode ?? '').trim()" (mouseenter)="selectBusiness(item)"
+          (focus)="selectBusiness(item)" (click)="viewBusiness(item)"
+          [attr.aria-label]="'View ' + item.businessName + ' business page'">
+          <span class="listing-logo" aria-hidden="true">
+            <img *ngIf="getBusinessLogoSrc(item) as logoSrc; else listingFallback" [src]="logoSrc" alt="" />
+            <ng-template #listingFallback><span>{{ getBusinessInitials(item.businessName) }}</span></ng-template>
+          </span>
+          <span class="listing-content">
+            <span class="listing-category">{{ item.categoryName }}</span><span class="listing-name">{{ item.businessName }}</span>
+            <span class="listing-details">
+              <span *ngIf="item.distanceMiles != null"><mat-icon aria-hidden="true">near_me</mat-icon>{{ item.distanceMiles | number: '1.1-1' }} miles away</span>
+              <span *ngIf="item.distanceMiles == null"><mat-icon aria-hidden="true">location_on</mat-icon>Distance unavailable</span>
+            </span>
+            <span class="listing-cta">View business <mat-icon aria-hidden="true">arrow_forward</mat-icon></span>
+          </span>
         </button>
       </div>
+
+      <nav class="pagination" aria-label="Search result pages" *ngIf="!loading && totalCount > 0">
+        <span>Showing {{ pageStart }}–{{ pageEnd }} of {{ totalCount }}</span>
+        <div><button type="button" (click)="goToPreviousPage()" [disabled]="!hasPreviousPage || loading">Previous</button><button type="button" (click)="goToNextPage()" [disabled]="!hasNextPage || loading">Next</button></div>
+      </nav>
     </section>
 
-    <aside class="map" aria-label="Map">
+    <aside class="map-panel" [class.mobile-visible]="showMobileMap" aria-label="Business map">
       <div class="map-shell">
         <div class="map-canvas" #mapEl></div>
         <div class="map-overlay" *ngIf="mapStatus !== 'ready'">
-          <div class="map-overlay-title">Map</div>
-          <div class="map-overlay-subtitle" *ngIf="mapStatus === 'loading'">Loading map…</div>
-          <div class="map-overlay-subtitle" *ngIf="mapStatus === 'idle'">Map will appear after you search.</div>
-          <div class="map-overlay-subtitle map-overlay-error" *ngIf="mapStatus === 'error'">
-            {{ mapError || 'Map failed to load.' }}
-          </div>
+          <mat-icon aria-hidden="true">map</mat-icon><strong>{{ mapStatus === 'loading' ? 'Loading map' : 'Map unavailable' }}</strong>
+          <span *ngIf="mapStatus === 'idle'">The map appears after a search.</span>
+          <span class="map-error" *ngIf="mapStatus === 'error'">{{ mapError || 'Map failed to load.' }}</span>
         </div>
       </div>
+      <p class="map-hint" *ngIf="mapStatus === 'ready'">Select a marker to highlight its business.</p>
     </aside>
   </section>
 </main>

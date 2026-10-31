@@ -68,11 +68,19 @@
 
     <div class="business-state" *ngIf="loadingBusinesses">Loading businesses...</div>
 
-    <div class="business-state" *ngIf="!loadingBusinesses && businesses.length === 0">
+    <div class="business-state business-state-error" *ngIf="!loadingBusinesses && businessLoadError" role="alert">
+      <div>
+        <strong>We couldn’t connect to your businesses.</strong>
+        <span>{{ businessLoadError }}</span>
+      </div>
+      <button type="button" class="business-retry-btn" (click)="loadBusinesses()">Try again</button>
+    </div>
+
+    <div class="business-state" *ngIf="!loadingBusinesses && !businessLoadError && businesses.length === 0">
       No businesses yet. Create a business to get started.
     </div>
 
-    <section *ngIf="!loadingBusinesses && businesses.length > 0" style="margin: 0 0 28px; padding: 22px; border: 1px solid #d8e4f2; border-radius: 18px; background: rgba(255, 255, 255, 0.88); box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);">
+    <section *ngIf="!loadingBusinesses && !businessLoadError && businesses.length > 0" style="margin: 0 0 28px; padding: 22px; border: 1px solid #d8e4f2; border-radius: 18px; background: rgba(255, 255, 255, 0.88); box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);">
       <h2 style="margin: 0; color: #173057; font-size: 20px;">My Schedule</h2>
       <p style="margin: 6px 0 16px; color: #647a9b; font-size: 13px;">Your availability for the next seven days at every business you belong to.</p>
       <div *ngIf="loadingEmployeeSchedule" class="business-state">Loading your schedule...</div>
@@ -91,7 +99,7 @@
       </div>
     </section>
 
-    <div class="business-grid" *ngIf="!loadingBusinesses && businesses.length > 0">
+    <div class="business-grid" *ngIf="!loadingBusinesses && !businessLoadError && businesses.length > 0">
       <button type="button" class="business-card business-card-button" *ngFor="let business of businesses" (click)="openBusinessWorkspace(business)">
         <div class="business-card-top">
           <div class="business-icon" [class.business-icon-empty]="!getBusinessIconDataUrl(business.businessIconBase64)">
@@ -139,7 +147,21 @@
     <div style="padding: 22px; display: grid; gap: 18px; color: #365878; font-size: 14px;">
       <div><strong style="display: block; margin-bottom: 4px; color: #173057;">Schedule</strong>{{ formatAssignedJobWindow(job) }}</div>
       <div><strong style="display: block; margin-bottom: 4px; color: #173057;">Customer</strong>{{ job.customerName }}</div>
-      <div><strong style="display: block; margin-bottom: 4px; color: #173057;">Service location</strong>{{ formatServiceLocation(job) }}</div>
+      <div>
+        <strong style="display: block; margin-bottom: 4px; color: #173057;">Service location</strong>
+        <a
+          *ngIf="assignedJobMapsUrl(job) as mapsUrl; else assignedJobLocationUnavailable"
+          class="assigned-job-map-link"
+          [href]="mapsUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Open service address in Google Maps (new tab)"
+        >
+          {{ formatServiceLocation(job) }}
+          <mat-icon aria-hidden="true">open_in_new</mat-icon>
+        </a>
+        <ng-template #assignedJobLocationUnavailable>{{ formatServiceLocation(job) }}</ng-template>
+      </div>
     </div>
   </section>
 </div>
