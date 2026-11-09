@@ -43,6 +43,16 @@ export class HomeComponent implements OnInit, OnDestroy {
     { label: 'Handyman', icon: 'handyman' },
     { label: 'More', icon: 'more_horiz' },
   ];
+  exploreServices = [
+    { label: 'House Cleaning', query: 'House cleaning', icon: 'cleaning_services' },
+    { label: 'Lawn Mowing', query: 'Lawn mowing', icon: 'grass' },
+    { label: 'Painting', query: 'Painting', icon: 'format_paint' },
+    { label: 'Furniture Assembly', query: 'Furniture assembly', icon: 'chair' },
+    { label: 'Pressure Washing', query: 'Pressure washing', icon: 'water_drop' },
+    { label: 'Junk Removal', query: 'Junk removal', icon: 'delete_sweep' },
+    { label: 'TV Mounting', query: 'TV mounting', icon: 'tv' },
+    { label: 'Explore All Services', query: 'services', icon: 'apps' },
+  ];
 
   constructor(
     private router: Router,

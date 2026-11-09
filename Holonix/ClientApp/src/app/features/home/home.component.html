@@ -1,13 +1,13 @@
 <div class="uber-home-shell">
-  <section class="guest-search" aria-label="Service search">
+  <section id="service-search" class="guest-search" [class.auth-search]="isLoggedIn" aria-label="Service search">
     <div class="guest-search-inner">
-      <div class="guest-search-pill" aria-label="Trusted pros">
+      <div class="guest-search-pill" *ngIf="!isLoggedIn" aria-label="Trusted pros">
         <mat-icon aria-hidden="true">verified</mat-icon>
         <span>Trusted pros. On demand.</span>
       </div>
 
-      <h1 class="guest-search-title">What do you need done?</h1>
-      <p class="guest-search-subtitle">Book services with businesses near you.</p>
+      <h1 class="guest-search-title">{{ isLoggedIn ? 'What do you need done today?' : 'What do you need done?' }}</h1>
+      <p class="guest-search-subtitle">{{ isLoggedIn ? 'Find trusted local professionals and book services with confidence.' : 'Book services with businesses near you.' }}</p>
 
       <div class="guest-search-card" role="search">
         <div class="guest-search-field guest-search-field-service">
@@ -112,7 +112,7 @@
         </button>
       </div>
 
-      <div class="guest-search-trust" aria-label="Trust signals">
+      <div class="guest-search-trust" *ngIf="!isLoggedIn" aria-label="Trust signals">
         <span class="guest-search-trust-item">
           <mat-icon aria-hidden="true">stars</mat-icon>
           Verified reviews
@@ -123,6 +123,35 @@
         </span>
       </div>
     </div>
+  </section>
+
+  <section class="marketplace-section explore-services" *ngIf="!isLoggedIn" aria-labelledby="explore-services-title">
+    <div class="marketplace-heading">
+      <span>Explore services</span>
+      <h2 id="explore-services-title">Explore services for every project.</h2>
+      <p>Explore services for your home, projects, and everyday needs.</p>
+    </div>
+    <div class="explore-grid">
+      <button type="button" *ngFor="let service of exploreServices" (click)="searchCategory(service.query)">
+        <span class="explore-photo" aria-hidden="true">
+          <span class="explore-icon"><mat-icon>{{ service.icon }}</mat-icon></span>
+        </span>
+        <span class="explore-copy"><span><strong>{{ service.label }}</strong><small>{{ service.label === 'Explore All Services' ? 'Browse the service marketplace' : 'Find ' + service.label.toLowerCase() + ' near you' }}</small></span><mat-icon class="explore-arrow" aria-hidden="true">arrow_forward</mat-icon></span>
+      </button>
+    </div>
+  </section>
+
+  <section class="marketplace-section how-it-works" *ngIf="!isLoggedIn" aria-labelledby="how-it-works-title">
+    <div class="marketplace-heading light">
+      <span>How Holonix works</span>
+      <h2 id="how-it-works-title">From search to scheduled service</h2>
+      <p>Holonix keeps service discovery, booking details, and provider confirmation in one clear flow.</p>
+    </div>
+    <ol class="steps-grid">
+      <li><span>1</span><div><h3>Find the right service</h3><p>Search by what you need and your location, then review available service details and pricing.</p></div></li>
+      <li><span>2</span><div><h3>Send a booking request</h3><p>Choose an available time, provide the required service details, and authorize your payment method.</p></div></li>
+      <li><span>3</span><div><h3>Get confirmation</h3><p>The business reviews your request. When it accepts, your booking is confirmed and the authorized payment method is charged.</p></div></li>
+    </ol>
   </section>
 
   <app-home-summary *ngIf="isLoggedIn" [firstName]="firstName"></app-home-summary>
@@ -296,18 +325,33 @@
 
     <div class="business-cta-copy">
       <span class="business-eyebrow">HOLONIX BUSINESS</span>
-      <h2>Start Strong, Build Whole</h2>
-      <p>
-        Build your own business on your schedule. Get discovered by nearby customers and manage your work
-        with Holonix.
-      </p>
+      <h2>{{ isLoggedIn ? 'Start Strong, Build Whole' : 'Grow your business with Holonix' }}</h2>
+      <p>{{ isLoggedIn ? 'Build your own business on your schedule. Get discovered by nearby customers and manage your work with Holonix.' : 'Showcase what you offer, connect with local customers, and manage your bookings in one place.' }}</p>
       <div class="business-cta-actions">
         <button type="button" class="business-btn primary" *ngIf="!isLoggedIn || !hasBusiness" (click)="goToBusinessEntry()">
-          Get started
+          {{ isLoggedIn ? 'Get started' : 'List Your Business' }}
         </button>
-        <a routerLink="/login" class="business-btn secondary" *ngIf="!isLoggedIn">Already have an account? Sign in</a>
         <a routerLink="/business" class="business-btn primary" *ngIf="isLoggedIn && hasBusiness">View Businesses</a>
       </div>
     </div>
+  </section>
+
+  <section class="marketplace-section faq-section" *ngIf="!isLoggedIn" aria-labelledby="faq-title">
+    <div class="marketplace-heading">
+      <span>Common questions</span>
+      <h2 id="faq-title">Know before you book</h2>
+      <p>Quick answers for customers and businesses getting started with Holonix.</p>
+    </div>
+    <div class="faq-list">
+      <details><summary>How does a booking become confirmed?<mat-icon aria-hidden="true">add</mat-icon></summary><p>You submit a booking request for an available time. The service business reviews the request, and the booking is confirmed only after the business accepts it.</p></details>
+      <details><summary>Can I choose a service time?<mat-icon aria-hidden="true">add</mat-icon></summary><p>Yes. The booking flow shows available dates and times supplied by the business and its team.</p></details>
+      <details><summary>When am I charged?<mat-icon aria-hidden="true">add</mat-icon></summary><p>Your payment method is authorized when you submit the request. It is charged when the business accepts and confirms the booking.</p></details>
+      <details><summary>How can I list my business?<mat-icon aria-hidden="true">add</mat-icon></summary><p>Create a Holonix account, start the business registration flow, and add your business profile, services, availability, and team details.</p></details>
+    </div>
+  </section>
+
+  <section class="final-marketplace-cta" *ngIf="!isLoggedIn" aria-labelledby="final-cta-title">
+    <div><span>Ready when you are</span><h2 id="final-cta-title">Get something done—or grow the business that does it.</h2></div>
+    <div class="final-cta-actions"><a href="#service-search" class="business-btn primary">Find a Service</a><button type="button" class="business-btn secondary" (click)="goToBusinessEntry()">List Your Business</button></div>
   </section>
 </div>

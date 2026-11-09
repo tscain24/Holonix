@@ -1,12 +1,16 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnInit } from '@angular/core';
 import { HomeService, PendingInvite } from '../../../core/services/home.service';
 import { AuthSessionService } from '../../../core/services/auth-session.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { BusinessService, MyAssignedJob, UserBusinessSummary } from '../../../core/services/business.service';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-home-summary',
   templateUrl: './home-summary.component.html',
   styleUrls: ['./home-summary.component.css'],
+  changeDetection: ChangeDetectionStrategy.Default,
 })
 export class HomeSummaryComponent implements OnInit {
   @Input() firstName = 'User';
@@ -15,27 +19,52 @@ export class HomeSummaryComponent implements OnInit {
   pendingInvites: PendingInvite[] = [];
   selectedInvite: PendingInvite | null = null;
   updatingInvite = false;
+  loadingDashboard = true;
+  businesses: UserBusinessSummary[] = [];
+  assignedJobs: MyAssignedJob[] = [];
 
   constructor(
     private readonly homeService: HomeService,
+    private readonly businessService: BusinessService,
     private readonly authSession: AuthSessionService,
     private readonly snackBar: MatSnackBar
   ) {}
 
   ngOnInit(): void {
-    this.homeService.getPendingInvites().subscribe({
-      next: (pendingInvites) => {
-        this.pendingInvites = pendingInvites;
-        this.loadingPendingInvites = false;
-      },
-      error: () => {
-        this.loadingPendingInvites = false;
-
-        if (this.authSession.hasSessionExpiredFlag()) {
-          return;
-        }
-      },
+    const today = new Date();
+    const end = new Date(today);
+    end.setDate(end.getDate() + 60);
+    forkJoin({
+      pendingInvites: this.homeService.getPendingInvites().pipe(catchError(() => of([] as PendingInvite[]))),
+      businesses: this.businessService.getMyBusinesses().pipe(catchError(() => of([] as UserBusinessSummary[]))),
+      jobs: this.businessService.getMyAssignedJobs(this.toIsoDate(today), this.toIsoDate(end)).pipe(catchError(() => of([] as MyAssignedJob[]))),
+    }).subscribe(({ pendingInvites, businesses, jobs }) => {
+      this.pendingInvites = pendingInvites;
+      this.businesses = businesses;
+      this.assignedJobs = jobs.filter((job) => new Date(job.endDateTime).getTime() >= Date.now())
+        .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime());
+      this.loadingPendingInvites = false;
+      this.loadingDashboard = false;
     });
+  }
+
+  get hasWorkAccess(): boolean { return this.businesses.length > 0 || this.assignedJobs.length > 0; }
+  get upcomingJobs(): MyAssignedJob[] { return this.assignedJobs.slice(0, 6); }
+
+  formatJobDate(value: string): string {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? 'Date unavailable' : new Intl.DateTimeFormat('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+    }).format(date);
+  }
+
+  trackJob(_: number, job: MyAssignedJob): number { return job.jobId; }
+
+  private toIsoDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   formatInviteDate(value: string): string {
