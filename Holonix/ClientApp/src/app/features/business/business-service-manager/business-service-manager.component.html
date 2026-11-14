@@ -65,9 +65,9 @@
               <mat-icon aria-hidden="true">work</mat-icon>
               Jobs
             </button>
-            <button type="button" class="workspace-menu-item" *ngIf="business.canViewJobRequestCostBreakdowns" [routerLink]="['/workspace', 'insights', business.businessCode]" (click)="closeWorkspaceMenu()" role="menuitem">
-              <mat-icon aria-hidden="true">insights</mat-icon>
-              Financial Insights
+            <button type="button" class="workspace-menu-item" *ngIf="business.canViewJobRequestCostBreakdowns" [routerLink]="['/workspace', 'payments', business.businessCode]" (click)="closeWorkspaceMenu()" role="menuitem">
+              <mat-icon aria-hidden="true">payments</mat-icon>
+              Payments
             </button>
           </div>
         </div>
@@ -81,7 +81,7 @@
             </button>
             <button type="button" class="workspace-tab" (click)="goToMyAvailabilityTab()">Availability</button>
             <button type="button" class="workspace-tab" (click)="goToJobsTab()">Jobs</button>
-            <button type="button" class="workspace-tab" *ngIf="business.canViewJobRequestCostBreakdowns" [routerLink]="['/workspace', 'insights', business.businessCode]">Financial Insights</button>
+            <button type="button" class="workspace-tab" *ngIf="business.canViewJobRequestCostBreakdowns" [routerLink]="['/workspace', 'payments', business.businessCode]">Payments</button>
           </nav>
         </ng-template>
       </div>

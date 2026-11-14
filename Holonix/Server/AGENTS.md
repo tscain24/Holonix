@@ -9,7 +9,7 @@ This is the ASP.NET Core backend for Holonix.
 - Persistence: EF Core PostgreSQL (`UseNpgsql`) with migrations in `Migrations/`.
 - Auth: ASP.NET Core Identity plus JWT bearer tokens.
 - API docs: Swagger is enabled in development.
-- External services: Mapbox geocoding through `IGeocodingService` and `MapboxGeocodingService`; OpenAI embeddings through `OpenAiEmbeddingService` for semantic search.
+- External services: Mapbox geocoding through `IGeocodingService` and `MapboxGeocodingService`; OpenAI embeddings through `OpenAiEmbeddingService` for semantic search; Stripe customer payment setup/destination charging through `IStripeSetupIntentService` and `IBookingPaymentProcessor`; scheduled accepted-booking charges through `ScheduledBookingPaymentWorker`; signed payment/distribution reconciliation through `StripePaymentWebhookController`; and Stripe Connect Accounts v2 onboarding/status through `IStripeConnectService`.
 
 ## Important Files
 

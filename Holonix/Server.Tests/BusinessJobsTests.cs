@@ -113,7 +113,7 @@ public sealed class BusinessJobsTests
         Assert.IsType<OkObjectResult>(await controller.Reassign(business.BusinessCode,inactiveJob.JobId,new JobTeamCommand([]),default));
         var overnight=new Job {BusinessId=business.BusinessId,StartDateTime=future.Date.AddHours(17),EndDateTime=future.Date.AddDays(1).AddHours(9)};
         Assert.All(await validator.Options(business.BusinessId,overnight,default),option=>Assert.False(option.CanAssign));
-        var workspaceController = new BusinessController(db,null!,null!,null!,new BusinessAvailabilityCalculator(),null!,NullLogger<BusinessController>.Instance) {ControllerContext=Context(employee.Id)};
+        var workspaceController = new BusinessController(db,null!,null!,null!,new BusinessAvailabilityCalculator(),null!,null!,NullLogger<BusinessController>.Instance) {ControllerContext=Context(employee.Id)};
         var workspace=Assert.IsType<BusinessWorkspaceResponse>(Assert.IsType<OkObjectResult>(await workspaceController.GetBusinessWorkspace(business.BusinessCode,default)).Value);
         Assert.Null(workspace.TotalRevenue); Assert.All(workspace.Jobs,j=>{ Assert.Null(j.Cost); Assert.Null(j.NetCost); }); Assert.All(workspace.JobRequests,j=>Assert.Null(j.Cost));
         var assignedLocations = Json(await workspaceController.GetMyAssignedJobs(DateOnly.FromDateTime(past),DateOnly.FromDateTime(past),default));

@@ -1,6 +1,20 @@
 <main class="insights">
-  <app-workspace-breadcrumb [businessCode]="code" currentLabel="Financial Insights"></app-workspace-breadcrumb>
-  <header class="page-heading"><div><p class="eyebrow">BUSINESS INTELLIGENCE</p><h1>Financial Insights</h1><p>Understand your performance. Find your next opportunity.</p></div><button type="button" class="primary" (click)="export()" [disabled]="!report || loading || exporting">{{ exporting ? 'Exporting…' : 'Export CSV' }}</button></header>
+  <app-workspace-breadcrumb [businessCode]="code" currentLabel="Payments"></app-workspace-breadcrumb>
+  <header class="page-heading"><div><p class="eyebrow">PAYMENTS &amp; REPORTING</p><h1>Payments</h1><p>Manage your payment account and understand your financial performance.</p></div><button type="button" class="primary" (click)="export()" [disabled]="!report || loading || exporting">{{ exporting ? 'Exporting…' : 'Export CSV' }}</button></header>
+  <section class="surface payment-account" aria-labelledby="payment-account-title">
+    <div class="payment-account-icon" aria-hidden="true"><img src="assets/stripe-wordmark-white.svg" alt=""></div>
+    <div class="payment-account-copy">
+      <div class="payment-account-title-row">
+        <h2 id="payment-account-title">Payment Account</h2>
+        <span class="payment-status" [ngClass]="'payment-status-' + paymentAccountStatus"><span aria-hidden="true"></span>{{ paymentAccountStatuses[paymentAccountStatus] }}</span>
+      </div>
+      <p>{{ paymentAccountLoading ? 'Checking your Stripe account status…' : paymentAccountDescription() }}</p>
+      <p class="payment-account-error" role="alert" *ngIf="paymentAccountError">{{ paymentAccountError }}</p>
+    </div>
+    <button type="button" class="stripe-connect" (click)="openStripeAccount()" [disabled]="paymentAccountLoading || paymentAccountActionLoading">
+      {{ paymentAccountActionLoading ? 'Opening Stripe…' : paymentAccountActionLabel }}
+    </button>
+  </section>
   <p class="error" role="alert" *ngIf="error">{{ error }}</p>
   <p class="error" role="alert" *ngIf="exportError">{{ exportError }}</p>
   <ng-container *ngIf="!denied">

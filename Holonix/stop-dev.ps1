@@ -97,6 +97,14 @@ function Stop-RepoProcesses {
     }
     catch {
     }
+
+
+    Get-Process -Name "Holonix.Server" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Id -ne $PID -and $_.Path -and $_.Path.StartsWith($RepoRoot, [StringComparison]::OrdinalIgnoreCase) } |
+        ForEach-Object {
+            Write-Host "Stopping repo backend process $($_.Id) ($($_.Path))"
+            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        }
 }
 
 Stop-RecordedProcess -PidPath $serverPidFile -Name "backend"

@@ -73,6 +73,9 @@ builder.Services.AddScoped<Holonix.Server.Application.Services.JobTeamValidator>
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IBusinessAvailabilityCalculator, BusinessAvailabilityCalculator>();
 builder.Services.AddScoped<IStripeSetupIntentService, StripeSetupIntentService>();
+builder.Services.AddScoped<IStripeConnectService, StripeConnectService>();
+builder.Services.AddScoped<IBookingPaymentProcessor, BookingPaymentProcessor>();
+builder.Services.AddHostedService<ScheduledBookingPaymentWorker>();
 builder.Services.AddHttpClient<OpenAiEmbeddingService>(client =>
 {
     client.BaseAddress = new Uri("https://api.openai.com/");

@@ -60,7 +60,8 @@ const routes: Routes = [
   { path: 'worker', component: WorkerWorkspaceComponent },
 
   // New workspace URLs
-  { path: 'workspace/insights/:businessCode', component: BusinessInsightsComponent },
+  { path: 'workspace/payments/:businessCode', component: BusinessInsightsComponent },
+  { path: 'workspace/insights/:businessCode', redirectTo: 'workspace/payments/:businessCode', pathMatch: 'full' },
   { path: 'workspace/overview/:businessCode', component: BusinessWorkspaceComponent },
   { path: 'workspace/jobs/:businessCode', component: BusinessJobsComponent },
   { path: 'workspace/employees/:businessCode', component: BusinessEmployeesComponent },

@@ -184,6 +184,15 @@ public sealed class BusinessJobsController(ApplicationDbContext db, JobTeamValid
             if (!ValidWindow(from, until)) return Error("Choose a future schedule lasting up to seven days.");
             job.StartDateTime = from; job.EndDateTime = until;
             var error = await validator.Validate(access.BusinessId, job, team, ct); if (error != null) return Error(error);
+            var unpaidPayment = await db.BookingPayments.SingleOrDefaultAsync(
+                payment => payment.JobId == jobId && payment.PaymentStatus == BookingPaymentStatusNames.ChargePending,
+                ct);
+            if (unpaidPayment is not null)
+            {
+                var timing = BookingPaymentTiming.Decide(from, DateTime.UtcNow);
+                unpaidPayment.ChargeScheduledForUtc = timing.ChargeScheduledForUtc;
+                unpaidPayment.UpdatedDate = DateTime.UtcNow;
+            }
             next = "Scheduled";
         }
         else if (action == "cancel")

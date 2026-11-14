@@ -154,6 +154,18 @@ namespace Holonix.Server.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<string>("StripeApplicationFeeId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("StripeChargeId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("StripeConnectedAccountId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
                     b.Property<string>("StripePaymentIntentId")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
@@ -163,6 +175,10 @@ namespace Holonix.Server.Migrations
                         .HasColumnType("character varying(255)");
 
                     b.Property<string>("StripeSetupIntentId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("StripeTransferId")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
@@ -180,6 +196,14 @@ namespace Holonix.Server.Migrations
                     b.HasIndex("StripeCheckoutSessionId")
                         .IsUnique()
                         .HasFilter("\"StripeCheckoutSessionId\" IS NOT NULL");
+
+                    b.HasIndex("StripePaymentIntentId")
+                        .IsUnique()
+                        .HasFilter("\"StripePaymentIntentId\" IS NOT NULL");
+
+                    b.HasIndex("StripeTransferId")
+                        .IsUnique()
+                        .HasFilter("\"StripeTransferId\" IS NOT NULL");
 
                     b.HasIndex("WorkloadId")
                         .IsUnique();
@@ -341,6 +365,43 @@ namespace Holonix.Server.Migrations
                     b.HasIndex("CountryId");
 
                     b.ToTable("BusinessDetails", "business");
+                });
+
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessPaymentAccount", b =>
+                {
+                    b.Property<int>("BusinessId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PayoutsCapabilityStatus")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("StripeConnectedAccountId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("TransfersCapabilityStatus")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime>("UpdatedDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("BusinessId");
+
+                    b.HasIndex("StripeConnectedAccountId")
+                        .IsUnique();
+
+                    b.ToTable("BusinessPaymentAccount", "business");
                 });
 
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessRole", b =>
@@ -1349,6 +1410,17 @@ namespace Holonix.Server.Migrations
                     b.Navigation("Country");
                 });
 
+            modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessPaymentAccount", b =>
+                {
+                    b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
+                        .WithOne("PaymentAccount")
+                        .HasForeignKey("Holonix.Server.Domain.Entities.BusinessPaymentAccount", "BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Business");
+                });
+
             modelBuilder.Entity("Holonix.Server.Domain.Entities.BusinessService", b =>
                 {
                     b.HasOne("Holonix.Server.Domain.Entities.Business", "Business")
@@ -1740,6 +1812,8 @@ namespace Holonix.Server.Migrations
                     b.Navigation("Addresses");
 
                     b.Navigation("Details");
+
+                    b.Navigation("PaymentAccount");
                 });
 #pragma warning restore 612, 618
         }

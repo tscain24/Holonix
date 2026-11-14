@@ -13,6 +13,7 @@ Use this when a task changes EF entities, model configuration, migrations, seede
 - The provider is PostgreSQL via `UseNpgsql`.
 - `Service` maps to `service.Category`, `BusinessService` maps to `business.BusinessCategory`, and `BusinessSubService` maps to `business.BusinessService`, including the `RequiresServiceLocation` boolean flag on business-specific service offerings.
 - `BusinessAddress` is the operational source of truth for business coordinates; `BusinessDetails` keeps profile metadata but no longer stores duplicate latitude/longitude columns.
+- `business.BusinessPaymentAccount` is one-to-one by `BusinessId` and stores the unique Stripe connected account ID, normalized status, recipient transfer/payout capability statuses, and timestamps. It stores no bank or identity-verification data. Migration: `AddBusinessStripeConnectAccount`.
 - `UserSavedLocation` has one filtered active-primary row per user and soft-deletes via `InactiveDate`.
 - Most domain relationships use `DeleteBehavior.Restrict`.
 - Startup runs `Database.MigrateAsync()` in `Program.cs`.
@@ -37,7 +38,7 @@ Use this when a task changes EF entities, model configuration, migrations, seede
 - `BusinessSubServiceAssignment` is unique per `(BusinessSubServiceId, BusinessUserId)`.
 - `EmployeeInviteWorkload` has unique indexes on both `WorkloadId` and `EmployeeInviteId`.
 - `BookingPayment` has unique indexes on both `JobId` and `WorkloadId`, plus a filtered unique index on non-null `StripeCheckoutSessionId`.
-- `BookingPayment` links a single booking workload to a single job and stores Stripe setup/payment identifiers, setup completion timing, immediate acceptance-time charge timing, and later charge state for customer-booking flows.
+- `BookingPayment` links a single booking workload to a single job and stores Stripe setup/payment identifiers, setup completion timing, `ChargeScheduledForUtc`, charge/failure timestamps, and payment state. `AddBookingPaymentDistributionTracking` adds the destination connected-account, Charge, Transfer, and Application Fee IDs plus filtered unique indexes on non-null PaymentIntent and Transfer IDs for destination-charge reconciliation. Timing still supports immediate acceptance charges and accepted bookings scheduled for start minus 24 hours.
 - Location-required customer bookings snapshot the selected `UserSavedLocation` label, address fields, and coordinates into nullable `Job.Service*` columns so later profile edits do not rewrite historical job locations.
 - `JobServiceLine` stores the selected business sub-service id plus immutable service name, price, and duration for each newly finalized customer booking. Older jobs have no line rows but retain aggregate `NetCost` and `Cost` values.
 - `JobAssignment` stores multiple employee assignments per job and has a unique `(JobId, BusinessUserId)` index. `Job.BusinessUserId` remains populated with the first selected employee for legacy consumers.

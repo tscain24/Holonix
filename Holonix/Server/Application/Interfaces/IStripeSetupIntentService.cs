@@ -59,11 +59,16 @@ public sealed record StripeRetrievedPaymentIntentResult(
     string Status,
     string? CustomerId,
     string? PaymentMethodId,
-    IReadOnlyDictionary<string, string> Metadata);
+    IReadOnlyDictionary<string, string> Metadata,
+    string? ChargeId = null,
+    string? TransferId = null,
+    string? ApplicationFeeId = null);
 
 public sealed record StripeOffSessionChargeRequest(
     string CustomerId,
     string PaymentMethodId,
     decimal Amount,
     string Currency,
-    IReadOnlyDictionary<string, string> Metadata);
+    IReadOnlyDictionary<string, string> Metadata,
+    string DestinationAccountId,
+    decimal ApplicationFeeAmount);

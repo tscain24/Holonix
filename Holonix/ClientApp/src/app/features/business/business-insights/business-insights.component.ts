@@ -1,12 +1,24 @@
 import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, Subscription } from 'rxjs';
 import { MonthlyJobValue, monthlyJobValues } from './monthly-job-values';
-import { BusinessInsightsService, InsightEmployee, InsightGroup, InsightsFilters, InsightsReport } from '../../../core/services/business-insights.service';
+import { BusinessInsightsService, InsightEmployee, InsightGroup, InsightsFilters, InsightsReport, PaymentAccount, PaymentAccountStatus } from '../../../core/services/business-insights.service';
 
 @Component({ selector: 'app-business-insights', templateUrl: './business-insights.component.html', styleUrls: ['./business-insights.component.css'] })
 export class BusinessInsightsComponent implements OnInit, OnDestroy {
   code = '';
+  paymentAccountStatus: PaymentAccountStatus = 'not-connected';
+  paymentAccountActionLabel = 'Connect with Stripe';
+  paymentAccountLoading = true;
+  paymentAccountActionLoading = false;
+  paymentAccountError = '';
+  readonly paymentAccountStatuses: Record<PaymentAccountStatus, string> = {
+    'not-connected': 'Not connected',
+    'setup-incomplete': 'Setup incomplete',
+    'verification-pending': 'Verification pending',
+    ready: 'Ready',
+    'action-required': 'Action required'
+  };
   report: InsightsReport | null = null;
   monthlyValues: MonthlyJobValue[] = [];
   trendStart = '';
@@ -53,9 +65,63 @@ export class BusinessInsightsComponent implements OnInit, OnDestroy {
     { key: 'upcomingValue', title: 'Upcoming scheduled value', money: true, visible: false, definition: 'Non-cancelled, incomplete jobs scheduled after the current UTC clock (business timezone is not recorded).' },
     { key: 'cancelledJobs', title: 'Cancelled jobs', money: false, visible: false, definition: 'Jobs linked to cancelled bookings. Their value is excluded from financial totals.' }
   ];
-  constructor(private api: BusinessInsightsService, private route: ActivatedRoute) {}
-  ngOnInit(): void { this.code = this.route.snapshot.paramMap.get('businessCode') ?? ''; this.run(); }
+  constructor(private api: BusinessInsightsService, private route: ActivatedRoute, private router: Router) {}
+  ngOnInit(): void {
+    this.code = this.route.snapshot.paramMap.get('businessCode') ?? '';
+    this.run();
+    const stripeReturn = this.route.snapshot.queryParamMap.get('stripe');
+    this.loadPaymentAccount(stripeReturn === 'refresh');
+    if (stripeReturn === 'return') {
+      void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+    }
+  }
   ngOnDestroy(): void { this.request?.unsubscribe(); this.exportRequest?.unsubscribe(); }
+  loadPaymentAccount(resumeOnboarding = false): void {
+    this.paymentAccountLoading = true;
+    this.paymentAccountError = '';
+    this.api.paymentAccount(this.code).subscribe({
+      next: account => {
+        this.applyPaymentAccount(account);
+        this.paymentAccountLoading = false;
+        if (resumeOnboarding) {
+          void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+          this.openStripeAccount();
+        }
+      },
+      error: err => {
+        this.paymentAccountLoading = false;
+        this.paymentAccountError = err?.error?.errors?.[0] ?? 'Could not load the Stripe account status. Please try again.';
+      }
+    });
+  }
+  openStripeAccount(): void {
+    if (this.paymentAccountActionLoading) return;
+    this.paymentAccountActionLoading = true;
+    this.paymentAccountError = '';
+    this.api.createPaymentAccountLink(this.code).subscribe({
+      next: response => {
+        this.paymentAccountActionLoading = false;
+        window.location.assign(response.url);
+      },
+      error: err => {
+        this.paymentAccountActionLoading = false;
+        this.paymentAccountError = err?.error?.errors?.[0] ?? 'Could not open Stripe onboarding. Please try again.';
+      }
+    });
+  }
+  paymentAccountDescription(): string {
+    switch (this.paymentAccountStatus) {
+      case 'setup-incomplete': return 'Finish your Stripe setup to prepare your business to receive Holonix payments and payouts.';
+      case 'verification-pending': return 'Stripe is reviewing your account. You can return to Stripe to review your information.';
+      case 'ready': return 'Your Stripe account is ready to receive Holonix payments and payouts.';
+      case 'action-required': return 'Stripe needs more information before your account can receive payments and payouts.';
+      default: return 'Connect a Stripe account to prepare your business to receive payments from Holonix bookings.';
+    }
+  }
+  private applyPaymentAccount(account: PaymentAccount): void {
+    this.paymentAccountStatus = account.status;
+    this.paymentAccountActionLabel = account.actionLabel;
+  }
   private date(d: Date): string { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
   run(page = 1): void {
     this.hideMonthTooltip();

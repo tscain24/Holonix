@@ -6,12 +6,8 @@ $clientDir = Join-Path $repoRoot "ClientApp"
 $runtimeDir = Join-Path $repoRoot ".dev-runtime"
 $logDir = Join-Path $runtimeDir "logs"
 $clientCertDir = Join-Path $runtimeDir "certs"
-$serverBuildDir = Join-Path $serverDir "bin\Debug\net10.0"
-$serverRuntimeDir = Join-Path $runtimeDir "server-run"
 $serverPidFile = Join-Path $runtimeDir "server.pid"
 $clientPidFile = Join-Path $runtimeDir "client.pid"
-$serverExecutable = Join-Path $serverBuildDir "Holonix.Server.exe"
-$serverRuntimeExecutable = Join-Path $serverRuntimeDir "Holonix.Server.exe"
 $latestLogsFile = Join-Path $runtimeDir "latest-logs.txt"
 $clientSslCertPath = Join-Path $clientCertDir "localhost.crt"
 $clientSslKeyPath = Join-Path $clientCertDir "localhost.key"
@@ -137,6 +133,16 @@ function Stop-RepoProcesses {
     }
     catch {
     }
+
+    # CIM process inspection can be denied on locked-down Windows environments.
+    # The executable path is sufficient to find orphaned backend processes that
+    # were launched from this repository, including the former staged runtime.
+    Get-Process -Name "Holonix.Server" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Id -ne $PID -and $_.Path -and $_.Path.StartsWith($RepoRoot, [StringComparison]::OrdinalIgnoreCase) } |
+        ForEach-Object {
+            Write-Host "Stopping repo backend process $($_.Id) ($($_.Path))"
+            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        }
 }
 
 function Start-BackgroundShell {
@@ -264,45 +270,17 @@ function Show-RecentLogs {
     Get-Content $Path -Tail 40
 }
 
-function Stage-ServerBuildOutput {
-    param(
-        [string]$SourceDirectory,
-        [string]$DestinationDirectory
-    )
-
-    if (-not (Test-Path $SourceDirectory)) {
-        throw "Backend build output directory was not found at $SourceDirectory"
-    }
-
-    if (Test-Path $DestinationDirectory) {
-        Remove-Item $DestinationDirectory -Recurse -Force
-    }
-
-    New-Item -ItemType Directory -Path $DestinationDirectory -Force | Out-Null
-
-    Get-ChildItem -Path $SourceDirectory -File | ForEach-Object {
-        Copy-Item -Path $_.FullName -Destination (Join-Path $DestinationDirectory $_.Name) -Force
-    }
-
-    foreach ($directoryName in @("wwwroot", "runtimes")) {
-        $sourcePath = Join-Path $SourceDirectory $directoryName
-        if (Test-Path $sourcePath) {
-            Copy-Item -Path $sourcePath -Destination (Join-Path $DestinationDirectory $directoryName) -Recurse -Force
-        }
-    }
-}
-
 function Should-BuildBackend {
     param(
         [string]$ProjectDirectory,
-        [string]$ExecutablePath
+        [string]$AssemblyPath
     )
 
-    if (-not (Test-Path $ExecutablePath)) {
+    if (-not (Test-Path $AssemblyPath)) {
         return $true
     }
 
-    $exeTime = (Get-Item $ExecutablePath).LastWriteTimeUtc
+    $assemblyTime = (Get-Item $AssemblyPath).LastWriteTimeUtc
     $newestSource = Get-ChildItem -Path $ProjectDirectory -Recurse -File `
         -Include *.cs, *.csproj, *.json `
         -ErrorAction SilentlyContinue |
@@ -316,7 +294,40 @@ function Should-BuildBackend {
         return $false
     }
 
-    return $newestSource.LastWriteTimeUtc -gt $exeTime
+    return $newestSource.LastWriteTimeUtc -gt $assemblyTime
+}
+
+function Get-BackendListenerProcess {
+    param([int[]]$Ports)
+
+    $listeners = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
+        Where-Object { $_.LocalPort -in $Ports }
+    $processIds = @($listeners | Select-Object -ExpandProperty OwningProcess -Unique)
+
+    if ($processIds.Count -eq 0) {
+        # Some restricted Windows sessions can query the healthy endpoint but
+        # cannot enumerate TCP ownership. Fall back to the single repo backend.
+        $repoBackendProcesses = @(Get-Process -Name "Holonix.Server" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Path -and $_.Path.StartsWith($serverDir, [StringComparison]::OrdinalIgnoreCase) })
+        if ($repoBackendProcesses.Count -eq 1) {
+            return $repoBackendProcesses[0]
+        }
+    }
+
+    if ($processIds.Count -ne 1) {
+        throw "Expected one backend process to own ports $($Ports -join ', '), but found $($processIds.Count)."
+    }
+
+    $ownedPorts = @($listeners |
+        Where-Object { $_.OwningProcess -eq $processIds[0] } |
+        Select-Object -ExpandProperty LocalPort -Unique)
+    foreach ($port in $Ports) {
+        if ($port -notin $ownedPorts) {
+            throw "Backend process $($processIds[0]) does not own expected port $port."
+        }
+    }
+
+    return Get-Process -Id $processIds[0] -ErrorAction Stop
 }
 
 function Get-PostgresConnectionString {
@@ -422,24 +433,24 @@ Stop-RecordedProcess -PidPath $serverPidFile -Name "backend"
 Stop-RecordedProcess -PidPath $clientPidFile -Name "frontend"
 Stop-PortListeners -Ports @(4200, 5237, 7241)
 Stop-RepoProcesses -RepoRoot $repoRoot
+if (Test-Path (Join-Path $runtimeDir "server-run")) {
+    Remove-Item (Join-Path $runtimeDir "server-run") -Recurse -Force
+}
 Remove-LogFiles
 
 Assert-AspNetCoreRuntimeInstalled -RequiredMajorMinor "10.0"
 
-if (-not (Test-Path $serverExecutable)) {
-    # Legacy fallback: handled by Should-BuildBackend.
-}
+$serverAssembly = Join-Path $serverDir "bin\Debug\net10.0\Holonix.Server.dll"
 
-if (Should-BuildBackend -ProjectDirectory $serverDir -ExecutablePath $serverExecutable) {
+if (Should-BuildBackend -ProjectDirectory $serverDir -AssemblyPath $serverAssembly) {
     Write-Host "Building backend (source is newer than executable)"
     dotnet build $serverDir\Holonix.Server.csproj
 
-    if (-not (Test-Path $serverExecutable)) {
-        throw "Backend executable was not produced at $serverExecutable"
+    if (-not (Test-Path $serverAssembly)) {
+        throw "Backend assembly was not produced at $serverAssembly"
     }
 }
 
-Stage-ServerBuildOutput -SourceDirectory $serverBuildDir -DestinationDirectory $serverRuntimeDir
 Export-ClientHttpsCertificateFiles -CertificatePath $clientSslCertPath -KeyPath $clientSslKeyPath
 
 $postgresConnectionString = Get-PostgresConnectionString
@@ -447,10 +458,9 @@ $escapedConnectionString = $postgresConnectionString.Replace("'", "''")
 
 $serverCommand = @"
 `$env:ASPNETCORE_ENVIRONMENT = 'Development'
-`$env:ASPNETCORE_URLS = '$serverHttpsUrl;$serverHttpUrl'
 `$env:ConnectionStrings__DefaultConnection = '$escapedConnectionString'
-Set-Location '$serverRuntimeDir'
-& '$serverRuntimeExecutable'
+Set-Location '$repoRoot'
+dotnet run --project '$serverDir\Holonix.Server.csproj' --no-build --launch-profile https
 "@
 
 $clientCommand = @"
@@ -464,7 +474,6 @@ $serverProcess = Start-BackgroundShell `
     -StdOutPath $serverOut `
     -StdErrPath $serverErr
 
-$serverProcess.Id | Set-Content $serverPidFile
 "server stdout: $serverOut" | Set-Content $latestLogsFile
 "server stderr: $serverErr" | Add-Content $latestLogsFile
 "client stdout: $clientOut" | Add-Content $latestLogsFile
@@ -483,6 +492,9 @@ catch {
     Show-RecentLogs -Title "Recent backend stderr:" -Path $serverErr
     throw
 }
+
+$backendProcess = Get-BackendListenerProcess -Ports @(5237, 7241)
+$backendProcess.Id | Set-Content $serverPidFile
 
 $clientProcess = Start-BackgroundShell `
     -WorkingDirectory $clientDir `
@@ -507,7 +519,7 @@ catch {
 }
 
 Write-Host ""
-Write-Host "Backend PID: $($serverProcess.Id)"
+Write-Host "Backend PID: $($backendProcess.Id)"
 Write-Host "Frontend PID: $($clientProcess.Id)"
 Write-Host "Swagger: $serverSwaggerUrl"
 Write-Host "Backend HTTP: $serverHttpUrl"

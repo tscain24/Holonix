@@ -12,7 +12,7 @@
 .create-business-page {
   min-height: 100vh;
   display: grid;
-  gap: 18px;
+  gap: 0;
 }
 
 .top-nav {
@@ -170,12 +170,17 @@
 }
 
 .create-business-header {
+  margin-bottom: 18px;
   padding: 0 clamp(16px, 2.8vw, 32px);
   display: flex;
   justify-content: flex-start;
 }
 
-.back-btn {
+.create-business-layout {
+  padding-top: 28px;
+}
+
+.wizard-back-btn {
   height: 38px;
   padding: 0 14px;
   border-radius: 999px;
@@ -194,7 +199,7 @@
 .create-business-shell {
   padding: 0 clamp(16px, 2.8vw, 32px) 120px;
   display: grid;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(420px, 1.2fr);
+  grid-template-columns: minmax(280px, 0.68fr) minmax(520px, 1.32fr);
   gap: 20px;
   align-items: stretch;
 }
@@ -217,12 +222,13 @@
   grid-template-rows: auto 1fr;
   gap: 24px;
   min-height: 100%;
+  align-self: stretch;
   align-content: start;
 }
 
 .intro-main {
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 
 .step-rail {
@@ -408,7 +414,7 @@
   backdrop-filter: blur(6px);
   display: grid;
   grid-template-rows: auto auto 1fr auto;
-  gap: 22px;
+  gap: 20px;
   height: 100%;
 }
 
@@ -749,7 +755,8 @@
 }
 
 .upload-btn,
-.ghost-btn {
+.ghost-btn,
+.wizard-back-btn {
   height: 42px;
   border-radius: 12px;
   border: 1px solid #c8d6ec;
@@ -802,7 +809,8 @@
 
 .choice-card:hover,
 .ghost-btn:hover,
-.upload-btn:hover {
+.upload-btn:hover,
+.wizard-back-btn:hover {
   transform: translateY(-1px);
 }
 
@@ -1054,8 +1062,15 @@
 }
 
 .submit-btn:hover,
-.back-btn:hover {
+.wizard-back-btn:hover {
   transform: translateY(-1px);
+}
+
+.submit-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+  box-shadow: none;
 }
 
 .leave-modal-overlay {
@@ -1143,14 +1158,65 @@
     grid-template-columns: 1fr;
   }
 
-  .create-business-intro h1 {
-    max-width: none;
+  .create-business-intro {
+    min-height: 0;
+    padding: 16px;
+    border-radius: 20px;
   }
+
+  .intro-main {
+    gap: 18px;
+  }
+
+  .step-rail {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .step-rail-item {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 7px;
+    padding: 10px 6px;
+    text-align: center;
+  }
+
+  .step-rail-item strong {
+    font-size: 12px;
+  }
+
+  .step-rail-item div > span {
+    display: none;
+  }
+
 }
 
 @media (max-width: 640px) {
+  .create-business-layout {
+    padding-top: 24px;
+  }
+
+  .create-business-header {
+    margin-bottom: 16px;
+  }
+
   .intro-feature-grid {
     grid-template-columns: 1fr;
+  }
+
+  .step-rail {
+    grid-template-columns: 1fr;
+  }
+
+  .step-rail-item {
+    grid-template-columns: auto 1fr;
+    justify-items: start;
+    text-align: left;
+    padding: 12px 14px;
+  }
+
+  .step-rail-item div > span {
+    display: block;
   }
 
   .choice-grid {
@@ -1183,7 +1249,8 @@
   }
 
   .ghost-btn,
-  .upload-btn {
+  .upload-btn,
+  .wizard-back-btn {
     width: 100%;
   }
 

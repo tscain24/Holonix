@@ -30,21 +30,20 @@
     </div>
   </header>
 
-  <header class="create-business-header">
-    <button type="button" class="back-btn" (click)="goBack()">
-      <span aria-hidden="true">&larr;</span>
-      {{ currentStep === 1 ? 'Back to Business' : 'Back' }}
-    </button>
-  </header>
+  <div class="create-business-layout">
+    <header class="create-business-header" *ngIf="currentStep === 1">
+      <button type="button" class="wizard-back-btn" (click)="goBack()">
+        <span aria-hidden="true">&larr;</span>
+        Back to Business
+      </button>
+    </header>
 
-  <div class="create-business-shell">
+    <div class="create-business-shell">
     <aside class="create-business-intro">
       <div class="intro-main">
         <p class="intro-kicker">Holonix Business</p>
-        <h1>Turn your skills into a local business customers can find, trust, and book.</h1>
-        <p class="intro-copy">
-          Build a strong presence in your community with a business profile that showcases what you offer and helps nearby customers discover you with confidence.
-        </p>
+        <h1>Let's get your business set up.</h1>
+        <p class="intro-copy">Create your business profile and get ready to connect with local customers.</p>
 
         <div class="step-rail" aria-label="Business profile steps">
           <div class="step-rail-item" [class.step-rail-item-active]="currentStep === 1" [class.step-rail-item-complete]="currentStep > 1">
@@ -65,7 +64,7 @@
             <span class="step-rail-number">3</span>
             <div>
               <strong>Review and Launch</strong>
-              <span>Confirm before save is wired in</span>
+              <span>Confirm your profile before creating it</span>
             </div>
           </div>
         </div>
@@ -93,6 +92,7 @@
             </div>
           </div>
         </div>
+
       </div>
 
       <div class="intro-bottom">
@@ -555,9 +555,9 @@
       </div>
 
       <div class="form-footer" *ngIf="currentStep === 2">
-        <p>These settings shape how the business will operate once the backend create flow is connected.</p>
+        <p>These settings shape how the business will operate and appear to customers.</p>
         <div class="footer-actions">
-          <button type="button" class="ghost-btn" (click)="editStep(1)">Back to Details</button>
+          <button type="button" class="wizard-back-btn" (click)="goBack()"><span aria-hidden="true">&larr;</span> Back to Details</button>
           <button type="button" class="submit-btn" (click)="goToStepThree()">Continue to Review</button>
         </div>
       </div>
@@ -565,17 +565,18 @@
       <div class="form-footer" *ngIf="currentStep === 3">
         <p>Review everything before creating the business profile and setting the current user as the business owner.</p>
         <div class="footer-actions">
-          <button type="button" class="ghost-btn" (click)="editStep(2)">Back to Setup</button>
+          <button type="button" class="wizard-back-btn" (click)="goBack()"><span aria-hidden="true">&larr;</span> Back to Setup</button>
           <button type="submit" class="submit-btn" [disabled]="launchingBusiness || resolvingLaunchAddress">
             {{
               resolvingLaunchAddress
                 ? 'Finding location...'
-                : (launchingBusiness ? 'Launching...' : 'Launch Business')
+                : (launchingBusiness ? 'Creating...' : 'Create Business')
             }}
           </button>
         </div>
       </div>
     </form>
+    </div>
   </div>
 </section>
 

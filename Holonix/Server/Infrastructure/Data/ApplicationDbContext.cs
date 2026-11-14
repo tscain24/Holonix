@@ -16,6 +16,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Business> Businesses => Set<Business>();
     public DbSet<BusinessAddress> BusinessAddresses => Set<BusinessAddress>();
     public DbSet<BusinessDetails> BusinessDetails => Set<BusinessDetails>();
+    public DbSet<BusinessPaymentAccount> BusinessPaymentAccounts => Set<BusinessPaymentAccount>();
     public DbSet<Country> Countries => Set<Country>();
     public DbSet<BusinessRole> BusinessRoles => Set<BusinessRole>();
     public DbSet<BusinessUser> BusinessUsers => Set<BusinessUser>();
@@ -149,6 +150,21 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .WithOne(x => x.Business)
                 .HasForeignKey<BusinessDetails>(x => x.BusinessId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.PaymentAccount)
+                .WithOne(x => x.Business)
+                .HasForeignKey<BusinessPaymentAccount>(x => x.BusinessId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<BusinessPaymentAccount>(entity =>
+        {
+            entity.ToTable("BusinessPaymentAccount", "business");
+            entity.HasKey(x => x.BusinessId);
+            entity.Property(x => x.StripeConnectedAccountId).IsRequired().HasMaxLength(255);
+            entity.Property(x => x.Status).IsRequired().HasMaxLength(40);
+            entity.Property(x => x.TransfersCapabilityStatus).HasMaxLength(40);
+            entity.Property(x => x.PayoutsCapabilityStatus).HasMaxLength(40);
+            entity.HasIndex(x => x.StripeConnectedAccountId).IsUnique();
         });
 
         builder.Entity<BusinessAddress>(entity =>
@@ -423,10 +439,16 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(x => x.StripeSetupIntentId).HasMaxLength(255);
             entity.Property(x => x.StripePaymentMethodId).HasMaxLength(255);
             entity.Property(x => x.StripePaymentIntentId).HasMaxLength(255);
+            entity.Property(x => x.StripeConnectedAccountId).HasMaxLength(255);
+            entity.Property(x => x.StripeChargeId).HasMaxLength(255);
+            entity.Property(x => x.StripeTransferId).HasMaxLength(255);
+            entity.Property(x => x.StripeApplicationFeeId).HasMaxLength(255);
             entity.Property(x => x.LastPaymentFailureCode).HasMaxLength(120);
             entity.Property(x => x.LastPaymentFailureMessage).HasMaxLength(1000);
             entity.HasIndex(x => x.JobId).IsUnique();
             entity.HasIndex(x => x.WorkloadId).IsUnique();
+            entity.HasIndex(x => x.StripePaymentIntentId).IsUnique().HasFilter("\"StripePaymentIntentId\" IS NOT NULL");
+            entity.HasIndex(x => x.StripeTransferId).IsUnique().HasFilter("\"StripeTransferId\" IS NOT NULL");
             entity.HasIndex(x => x.StripeCheckoutSessionId)
                 .IsUnique()
                 .HasFilter("\"StripeCheckoutSessionId\" IS NOT NULL");

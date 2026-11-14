@@ -19,7 +19,30 @@ public class Business
     public bool IsRecurring { get; set; }
 
     public BusinessDetails? Details { get; set; }
+    public BusinessPaymentAccount? PaymentAccount { get; set; }
     public List<BusinessAddress> Addresses { get; set; } = new();
+}
+
+public class BusinessPaymentAccount
+{
+    public int BusinessId { get; set; }
+    public string StripeConnectedAccountId { get; set; } = string.Empty;
+    public string Status { get; set; } = BusinessPaymentAccountStatuses.SetupIncomplete;
+    public string? TransfersCapabilityStatus { get; set; }
+    public string? PayoutsCapabilityStatus { get; set; }
+    public DateTime CreatedDateTime { get; set; }
+    public DateTime UpdatedDateTime { get; set; }
+
+    public Business Business { get; set; } = null!;
+}
+
+public static class BusinessPaymentAccountStatuses
+{
+    public const string NotConnected = "not-connected";
+    public const string SetupIncomplete = "setup-incomplete";
+    public const string VerificationPending = "verification-pending";
+    public const string Ready = "ready";
+    public const string ActionRequired = "action-required";
 }
 
 public class BusinessDetails
@@ -256,6 +279,10 @@ public class BookingPayment
     public string? StripeSetupIntentId { get; set; }
     public string? StripePaymentMethodId { get; set; }
     public string? StripePaymentIntentId { get; set; }
+    public string? StripeConnectedAccountId { get; set; }
+    public string? StripeChargeId { get; set; }
+    public string? StripeTransferId { get; set; }
+    public string? StripeApplicationFeeId { get; set; }
     public DateTime? SetupCompletedUtc { get; set; }
     public DateTime? ChargeScheduledForUtc { get; set; }
     public DateTime? ChargedAtUtc { get; set; }
@@ -375,4 +402,6 @@ public static class BookingPaymentStatusNames
     public const string ChargePending = "Charge Pending";
     public const string ChargeSucceeded = "Charge Succeeded";
     public const string ChargeFailed = "Charge Failed";
+    public const string DistributionPending = "Distribution Pending";
+    public const string DistributionFailed = "Distribution Failed";
 }

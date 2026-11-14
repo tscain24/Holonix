@@ -35,6 +35,7 @@ public class BusinessController : ControllerBase
     private readonly IGeocodingService _geocodingService;
     private readonly IBusinessAvailabilityCalculator _businessAvailabilityCalculator;
     private readonly IStripeSetupIntentService _stripeSetupIntentService;
+    private readonly IBookingPaymentProcessor _bookingPaymentProcessor;
     private readonly ILogger<BusinessController> _logger;
 
     public BusinessController(
@@ -44,6 +45,7 @@ public class BusinessController : ControllerBase
         IGeocodingService geocodingService,
         IBusinessAvailabilityCalculator businessAvailabilityCalculator,
         IStripeSetupIntentService stripeSetupIntentService,
+        IBookingPaymentProcessor bookingPaymentProcessor,
         ILogger<BusinessController> logger)
     {
         _dbContext = dbContext;
@@ -52,6 +54,7 @@ public class BusinessController : ControllerBase
         _geocodingService = geocodingService;
         _businessAvailabilityCalculator = businessAvailabilityCalculator;
         _stripeSetupIntentService = stripeSetupIntentService;
+        _bookingPaymentProcessor = bookingPaymentProcessor;
         _logger = logger;
     }
 
@@ -821,6 +824,14 @@ public class BusinessController : ControllerBase
             return BadRequest(new { errors = new[] { "Selected date is outside the allowed booking window." } });
         }
 
+        var requestedStartUtc = DateTime.SpecifyKind(
+            request.SelectedDate.ToDateTime(new TimeOnly(selectedStartMinutes.Value / 60, selectedStartMinutes.Value % 60)),
+            DateTimeKind.Utc);
+        if (requestedStartUtc <= DateTime.UtcNow)
+        {
+            return BadRequest(new { errors = new[] { "Choose a service start time that has not passed." } });
+        }
+
         var business = await _dbContext.Businesses
             .AsNoTracking()
             .Where(item => item.BusinessCode == businessCode && item.InactiveDate == null)
@@ -1139,6 +1150,10 @@ public class BusinessController : ControllerBase
         var startDateTime = DateTime.SpecifyKind(
             selectedDate.ToDateTime(new TimeOnly(selectedStartMinutes.Value / 60, selectedStartMinutes.Value % 60)),
             DateTimeKind.Utc);
+        if (startDateTime <= DateTime.UtcNow)
+        {
+            return BadRequest(new { errors = new[] { "The selected service start time has passed. Choose another time." } });
+        }
         var endDateTime = startDateTime.AddMinutes(selectedSubServices.Sum(item => item.DurationMinutes));
         var serviceNames = metadata.TryGetValue("serviceNames", out var metadataServiceNames) && !string.IsNullOrWhiteSpace(metadataServiceNames)
             ? metadataServiceNames.Trim()
@@ -4710,26 +4725,13 @@ public class BusinessController : ControllerBase
                 if (validation != null) return BadRequest(new { errors = new[] { validation } });
             }
 
-            if (jobWorkload.Job.StartDateTime < DateTime.UtcNow.AddHours(2))
+            var nowUtc = DateTime.UtcNow;
+            var paymentTiming = Holonix.Server.Application.Services.BookingPaymentTiming.Decide(
+                jobWorkload.Job.StartDateTime,
+                nowUtc);
+            if (!paymentTiming.CanAccept)
             {
-                var cancelledStatusId = await _dbContext.WorkloadStatuses
-                    .AsNoTracking()
-                    .Where(item =>
-                        item.WorkloadType.Type == WorkloadTypeNames.CustomerBooking &&
-                        item.Status == WorkloadStatusNames.Cancelled)
-                    .Select(item => (long?)item.WorkloadStatusId)
-                    .SingleOrDefaultAsync(cancellationToken);
-
-                if (!cancelledStatusId.HasValue)
-                {
-                    return StatusCode(StatusCodes.Status500InternalServerError, new { errors = new[] { "Job request cancellation status configuration is missing." } });
-                }
-
-                workload.WorkloadStatusId = cancelledStatusId.Value;
-                await _dbContext.SaveChangesAsync(cancellationToken);
-                return Ok(new JobRequestActionResponse(
-                    WorkloadStatusNames.Cancelled,
-                    "This request was cancelled because it is less than two hours before the scheduled start time. The customer was not charged."));
+                return Conflict(new { errors = new[] { "This job request cannot be accepted because its scheduled start has passed. The customer was not charged." } });
             }
 
             bookingPayment = await _dbContext.BookingPayments
@@ -4740,67 +4742,64 @@ public class BusinessController : ControllerBase
                 return NotFound(new { errors = new[] { "Booking payment record not found." } });
             }
 
-            var needsImmediateCharge = !string.Equals(bookingPayment.PaymentStatus, BookingPaymentStatusNames.ChargeSucceeded, StringComparison.OrdinalIgnoreCase);
+            var chargeAlreadySucceeded = string.Equals(
+                bookingPayment.PaymentStatus,
+                BookingPaymentStatusNames.ChargeSucceeded,
+                StringComparison.OrdinalIgnoreCase);
 
-            if (needsImmediateCharge)
+            if (!chargeAlreadySucceeded && !paymentTiming.ChargeImmediately)
             {
-                if (string.IsNullOrWhiteSpace(bookingPayment.StripeCustomerId) || string.IsNullOrWhiteSpace(bookingPayment.StripePaymentMethodId))
-                {
-                    return BadRequest(new { errors = new[] { "This booking does not have a saved payment method available for charging." } });
-                }
+                bookingPayment.PaymentStatus = BookingPaymentStatusNames.ChargePending;
+                bookingPayment.ChargeScheduledForUtc = paymentTiming.ChargeScheduledForUtc;
+                bookingPayment.UpdatedDate = nowUtc;
+            }
+            else if (!chargeAlreadySucceeded)
+            {
+                bookingPayment.PaymentStatus = BookingPaymentStatusNames.ChargePending;
+                bookingPayment.ChargeScheduledForUtc = nowUtc;
+                bookingPayment.UpdatedDate = nowUtc;
+                await _dbContext.SaveChangesAsync(cancellationToken);
 
-                try
+                var chargeResult = await _bookingPaymentProcessor.ProcessAsync(workloadId, cancellationToken);
+                if (!chargeResult.Succeeded)
                 {
-                    var charge = await _stripeSetupIntentService.ChargeSavedPaymentMethodAsync(
-                        new StripeOffSessionChargeRequest(
-                            bookingPayment.StripeCustomerId,
-                            bookingPayment.StripePaymentMethodId,
-                            jobWorkload.Job.Cost,
-                            "usd",
-                            new Dictionary<string, string>(StringComparer.Ordinal)
-                            {
-                                ["businessCode"] = businessCode,
-                                ["jobId"] = jobWorkload.JobId.ToString(CultureInfo.InvariantCulture),
-                                ["workloadId"] = workloadId.ToString(CultureInfo.InvariantCulture),
-                            ["chargeReason"] = chargeOnly ? "accepted_booking_payment_retry" : "accepted_booking",
-                            ["chargeAttempt"] = chargeOnly ? DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture) : "initial",
-                            }),
-                        cancellationToken);
-
-                    if (!string.Equals(charge.Status, "succeeded", StringComparison.OrdinalIgnoreCase))
+                    var paymentFailedStatusId = await _dbContext.WorkloadStatuses
+                        .AsNoTracking()
+                        .Where(item =>
+                            item.WorkloadType.Type == WorkloadTypeNames.CustomerBooking &&
+                            item.Status == WorkloadStatusNames.PaymentFailed)
+                        .Select(item => (long?)item.WorkloadStatusId)
+                        .SingleOrDefaultAsync(cancellationToken);
+                    if (paymentFailedStatusId.HasValue)
                     {
-                        bookingPayment.StripePaymentIntentId = charge.PaymentIntentId;
-                        bookingPayment.PaymentStatus = BookingPaymentStatusNames.ChargeFailed;
-                        bookingPayment.LastPaymentFailureUtc = DateTime.UtcNow;
-                        bookingPayment.LastPaymentFailureCode = charge.Status;
-                        bookingPayment.LastPaymentFailureMessage = "The saved payment method requires additional customer action.";
-                        bookingPayment.UpdatedDate = DateTime.UtcNow;
+                        workload.WorkloadStatusId = paymentFailedStatusId.Value;
                         await _dbContext.SaveChangesAsync(cancellationToken);
-                        return StatusCode(StatusCodes.Status502BadGateway, new { errors = new[] { "The customer payment requires additional action and the job was not accepted." } });
                     }
 
-                    bookingPayment.StripePaymentIntentId = charge.PaymentIntentId;
-                    bookingPayment.PaymentStatus = BookingPaymentStatusNames.ChargeSucceeded;
-                    bookingPayment.ChargedAtUtc = DateTime.UtcNow;
-                    bookingPayment.ChargeScheduledForUtc = DateTime.UtcNow;
-                    bookingPayment.UpdatedDate = DateTime.UtcNow;
-                }
-                catch (StripeException ex)
-                {
-                    _logger.LogError(ex, "Immediate accepted-booking charge failed for workload {WorkloadId}.", workloadId);
-                    bookingPayment.PaymentStatus = BookingPaymentStatusNames.ChargeFailed;
-                    bookingPayment.LastPaymentFailureUtc = DateTime.UtcNow;
-                    bookingPayment.LastPaymentFailureCode = ex.StripeError?.Code;
-                    bookingPayment.LastPaymentFailureMessage = ex.StripeError?.Message ?? ex.Message;
-                    bookingPayment.UpdatedDate = DateTime.UtcNow;
-                    await _dbContext.SaveChangesAsync(cancellationToken);
-                    return StatusCode(StatusCodes.Status502BadGateway, new { errors = new[] { "The customer payment could not be charged after acceptance." } });
+                    return StatusCode(StatusCodes.Status502BadGateway, new { errors = new[] { chargeResult.FailureMessage ?? "The customer payment could not be charged, so the job was not accepted." } });
                 }
             }
 
             if (chargeOnly)
             {
                 await _dbContext.SaveChangesAsync(cancellationToken);
+                if (bookingPayment.PaymentStatus == BookingPaymentStatusNames.ChargePending &&
+                    bookingPayment.ChargeScheduledForUtc > nowUtc)
+                {
+                    return Ok(new JobRequestActionResponse(
+                        WorkloadStatusNames.PaymentFailed,
+                        "Payment is scheduled for 24 hours before service."));
+                }
+                if (string.Equals(workload.WorkloadStatus.Status, WorkloadStatusNames.PaymentFailed, StringComparison.OrdinalIgnoreCase))
+                {
+                    var awaitingStatusId = await _dbContext.WorkloadStatuses
+                        .AsNoTracking()
+                        .Where(item => item.WorkloadType.Type == WorkloadTypeNames.CustomerBooking && item.Status == WorkloadStatusNames.AwaitingAcceptance)
+                        .Select(item => item.WorkloadStatusId)
+                        .SingleAsync(cancellationToken);
+                    workload.WorkloadStatusId = awaitingStatusId;
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                }
                 return Ok(new JobRequestActionResponse(
                     WorkloadStatusNames.AwaitingAcceptance,
                     "Payment succeeded. Assign the team to finish accepting this job request."));
@@ -4818,7 +4817,11 @@ public class BusinessController : ControllerBase
         workload.WorkloadStatusId = targetStatusId.Value;
         await _dbContext.SaveChangesAsync(cancellationToken);
         return string.Equals(targetStatus, WorkloadStatusNames.Accepted, StringComparison.OrdinalIgnoreCase)
-            ? Ok(new JobRequestActionResponse(WorkloadStatusNames.Accepted, "Job request accepted and customer payment charged."))
+            ? Ok(new JobRequestActionResponse(
+                WorkloadStatusNames.Accepted,
+                bookingPayment?.PaymentStatus == BookingPaymentStatusNames.ChargePending
+                    ? "Job request accepted. Payment is scheduled for 24 hours before service."
+                    : "Job request accepted and customer payment charged."))
             : NoContent();
     }
 

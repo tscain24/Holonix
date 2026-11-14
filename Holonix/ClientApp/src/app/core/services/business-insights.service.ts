@@ -6,6 +6,9 @@ export interface InsightGroup { employeeId?: number | null; key: string; jobs: n
 export interface InsightJob { jobId: number; name: string; customer: string; start: string; end: string; completedAt: string | null; status: string; value: number; paymentStatus: string; employees: string[]; services: string[]; }
 export interface InsightsReport { employees: InsightEmployee[]; summary: InsightSummary; groups: InsightGroup[]; jobs: InsightJob[]; totalJobs: number; page: number; pageSize: number; }
 export interface InsightsFilters { start: string; end: string; groupBy: string; status: string; customer: string; exactCustomer: boolean; service: string; employeeId: number | null; minValue: number | null; maxValue: number | null; }
+export type PaymentAccountStatus = 'not-connected' | 'setup-incomplete' | 'verification-pending' | 'ready' | 'action-required';
+export interface PaymentAccount { status: PaymentAccountStatus; transfersCapabilityStatus: string | null; payoutsCapabilityStatus: string | null; canManage: boolean; actionLabel: string; }
+export interface PaymentAccountLink { url: string; }
 @Injectable({ providedIn: 'root' })
 export class BusinessInsightsService {
   constructor(private http: HttpClient) {}
@@ -19,5 +22,11 @@ export class BusinessInsightsService {
   }
   export(code: string, filters: InsightsFilters) {
     return this.http.get(`/api/business/${encodeURIComponent(code)}/insights/export`, { params: this.params(filters, 1), responseType: 'blob' });
+  }
+  paymentAccount(code: string) {
+    return this.http.get<PaymentAccount>(`/api/business/${encodeURIComponent(code)}/payment-account`);
+  }
+  createPaymentAccountLink(code: string) {
+    return this.http.post<PaymentAccountLink>(`/api/business/${encodeURIComponent(code)}/payment-account/link`, {});
   }
 }

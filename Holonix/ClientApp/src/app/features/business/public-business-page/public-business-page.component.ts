@@ -639,6 +639,11 @@ export class PublicBusinessPageComponent implements OnInit, OnDestroy {
     return `data:image/png;base64,${raw}`;
   }
 
+  get businessInitials(): string {
+    const words = (this.business?.name ?? '').trim().split(/\s+/).filter(Boolean);
+    return words.slice(0, 2).map(word => word.charAt(0)).join('').toUpperCase() || 'H';
+  }
+
   get categoryPipeLabel(): string {
     const categories = this.business?.services ?? [];
     if (!Array.isArray(categories) || categories.length === 0) {

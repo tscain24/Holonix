@@ -141,16 +141,14 @@ public sealed class StripeSetupIntentService : IStripeSetupIntentService
         var paymentIntentService = new PaymentIntentService(_stripeClient);
         var paymentIntent = await paymentIntentService.GetAsync(
             paymentIntentId,
-            new PaymentIntentGetOptions(),
+            new PaymentIntentGetOptions
+            {
+                Expand = ["latest_charge"],
+            },
             requestOptions: null,
             cancellationToken: cancellationToken);
 
-        return new StripeRetrievedPaymentIntentResult(
-            paymentIntent.Id,
-            paymentIntent.Status ?? string.Empty,
-            paymentIntent.CustomerId,
-            paymentIntent.PaymentMethodId,
-            paymentIntent.Metadata ?? new Dictionary<string, string>(StringComparer.Ordinal));
+        return await BuildPaymentIntentResultAsync(paymentIntent, cancellationToken);
     }
 
     public async Task<StripeRetrievedPaymentIntentResult> ChargeSavedPaymentMethodAsync(
@@ -167,35 +165,101 @@ public sealed class StripeSetupIntentService : IStripeSetupIntentService
             throw new ArgumentException("Payment method id is required.", nameof(request));
         }
 
+        if (string.IsNullOrWhiteSpace(request.DestinationAccountId))
+        {
+            throw new ArgumentException("Destination connected account id is required.", nameof(request));
+        }
+
         var metadata = request.Metadata.ToDictionary(pair => pair.Key, pair => pair.Value);
+        var workloadId = request.Metadata.TryGetValue("workloadId", out var value) ? value : null;
+        var operationKey = string.IsNullOrWhiteSpace(workloadId)
+            ? null
+            : BookingPaymentIdempotencyKeys.ForWorkload(workloadId);
         var paymentIntentService = new PaymentIntentService(_stripeClient);
-        var paymentIntent = await paymentIntentService.CreateAsync(new PaymentIntentCreateOptions
+        var createOptions = StripeDestinationChargeOptionsFactory.Create(request, metadata);
+
+        PaymentIntent paymentIntent;
+        try
         {
-            Amount = ConvertToStripeAmount(request.Amount),
-            Currency = string.IsNullOrWhiteSpace(request.Currency) ? "usd" : request.Currency.Trim().ToLowerInvariant(),
-            Customer = request.CustomerId,
-            PaymentMethod = request.PaymentMethodId,
-            Confirm = true,
-            OffSession = true,
-            Metadata = metadata,
-            Description = "Holonix accepted booking charge",
-        }, new RequestOptions
+            paymentIntent = await paymentIntentService.CreateAsync(
+                createOptions,
+                new RequestOptions { IdempotencyKey = operationKey is null ? null : $"{operationKey}-create" },
+                cancellationToken);
+        }
+        catch (StripeException) when (operationKey is not null)
         {
-            IdempotencyKey = request.Metadata.TryGetValue("workloadId", out var workloadId)
-                ? $"holonix-accepted-booking-{workloadId}-{(request.Metadata.TryGetValue("chargeAttempt", out var attempt) ? attempt : "initial")}"
-                : null,
-        }, cancellationToken: cancellationToken);
+            // A network failure can hide a successful Stripe create. Repeating the same
+            // idempotent request returns that PaymentIntent rather than creating a second one.
+            paymentIntent = await paymentIntentService.CreateAsync(
+                createOptions,
+                new RequestOptions { IdempotencyKey = $"{operationKey}-create" },
+                cancellationToken);
+        }
+
+        if (!string.Equals(paymentIntent.Status, "succeeded", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                paymentIntent = await paymentIntentService.ConfirmAsync(
+                    paymentIntent.Id,
+                    new PaymentIntentConfirmOptions
+                    {
+                        PaymentMethod = request.PaymentMethodId,
+                        OffSession = true,
+                    },
+                    new RequestOptions { IdempotencyKey = operationKey is null ? null : $"{operationKey}-confirm" },
+                    cancellationToken);
+            }
+            catch (StripeException)
+            {
+                // Confirmation may have succeeded even when its response was lost. Always
+                // reconcile the known PaymentIntent before allowing a caller to retry.
+                var reconciled = await paymentIntentService.GetAsync(
+                    paymentIntent.Id,
+                    new PaymentIntentGetOptions(),
+                    requestOptions: null,
+                    cancellationToken: cancellationToken);
+                // Returning the reconciled non-success state also lets Holonix persist the
+                // PaymentIntent id for webhook correlation and safe operator retries.
+                paymentIntent = reconciled;
+            }
+        }
+
+        return await BuildPaymentIntentResultAsync(paymentIntent, cancellationToken);
+    }
+
+    private async Task<StripeRetrievedPaymentIntentResult> BuildPaymentIntentResultAsync(
+        PaymentIntent paymentIntent,
+        CancellationToken cancellationToken)
+    {
+        Charge? charge = paymentIntent.LatestCharge;
+        if (charge is null && !string.IsNullOrWhiteSpace(paymentIntent.LatestChargeId))
+        {
+            charge = await new ChargeService(_stripeClient).GetAsync(
+                paymentIntent.LatestChargeId,
+                new ChargeGetOptions(),
+                requestOptions: null,
+                cancellationToken: cancellationToken);
+        }
 
         return new StripeRetrievedPaymentIntentResult(
             paymentIntent.Id,
             paymentIntent.Status ?? string.Empty,
             paymentIntent.CustomerId,
             paymentIntent.PaymentMethodId,
-            paymentIntent.Metadata ?? new Dictionary<string, string>(StringComparer.Ordinal));
+            paymentIntent.Metadata ?? new Dictionary<string, string>(StringComparer.Ordinal),
+            charge?.Id ?? paymentIntent.LatestChargeId,
+            charge?.TransferId,
+            charge?.ApplicationFeeId);
     }
 
     private static long ConvertToStripeAmount(decimal amount)
     {
         return (long)Math.Round(amount * 100m, 0, MidpointRounding.AwayFromZero);
     }
+}
+
+public static class BookingPaymentIdempotencyKeys
+{
+    public static string ForWorkload(string workloadId) => $"holonix-booking-charge-{workloadId}-v1";
 }

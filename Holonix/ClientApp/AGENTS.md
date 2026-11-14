@@ -17,7 +17,7 @@ This is the Angular frontend for Holonix.
 - Production build: `npm run build`
 - Unit tests: `npm test`
 
-The app expects the backend at `/api` via `proxy.conf.json`, targeting `http://localhost:5237`.
+The app expects the backend at `/api` via `proxy.conf.json`, targeting `https://localhost:7241` with local certificate verification disabled by the development proxy.
 Local frontend development runs over `https://localhost:4200` so secure-origin Stripe features work during local testing. `npm start` expects the repo-level runtime cert files under `.dev-runtime/certs/`, which `.\start-dev.ps1` now exports from the current localhost dev certificate before launching Angular.
 
 ## App Structure
@@ -49,6 +49,7 @@ Local frontend development runs over `https://localhost:4200` so secure-origin S
 - `/workspace/employees/:businessCode`
 - `/workspace/services/:businessCode`
 - `/workspace/availability/:businessCode`
+- `/workspace/payments/:businessCode`
 - `/search`
 - `/:businessCode` for the public business page
 - `/:businessCode/cart` for the public business cart screen
@@ -77,4 +78,4 @@ Legacy `/business/:businessCode*` routes still redirect to the workspace URLs.
 - When checking live behavior, use the repo root `.\start-dev.ps1` so backend and frontend ports are coordinated and the Angular dev server is started over HTTPS.
 - For UI changes, verify the affected page layout at mobile and desktop breakpoints before closing the task.
 
-- Financial reporting route: /workspace/insights/:businessCode (Owner/Administrator only, enforced by the API).
+- Payments and financial reporting route: `/workspace/payments/:businessCode` (Owner/Administrator only, enforced by the API). The legacy `/workspace/insights/:businessCode` URL redirects here.

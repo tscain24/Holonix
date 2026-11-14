@@ -9,6 +9,14 @@ server-dev.log
 server-dev.err.log
 
 # .NET generated output
-Server/bin/
-Server/obj/
+**/bin/
+**/obj/
+**/TestResults/
 Server/tmp*/
+Server/tmp-*.log
+
+# Frontend generated output (also covered by ClientApp/.gitignore)
+ClientApp/node_modules/
+ClientApp/dist/
+ClientApp/.angular/cache/
+ClientApp/coverage/

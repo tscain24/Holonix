@@ -15,7 +15,7 @@
           <div class="hero-media" aria-label="Business identity">
             <img *ngIf="businessIconSrc; else businessMonogram" [src]="businessIconSrc" [alt]="b.name + ' logo'" class="hero-logo" />
             <ng-template #businessMonogram>
-              <span class="hero-monogram" aria-hidden="true">{{ b.name.charAt(0) }}</span>
+              <span class="hero-monogram" aria-hidden="true">{{ businessInitials }}</span>
             </ng-template>
           </div>
 
@@ -24,22 +24,19 @@
               <h1 class="hero-title">{{ b.name }}</h1>
             </div>
 
+            <div class="hero-location" *ngIf="locationLabel">
+              <mat-icon aria-hidden="true">place</mat-icon>
+              <span>{{ locationLabel }}</span>
+            </div>
+
             <div class="hero-subtitle" *ngIf="categoryPipeLabel">{{ categoryPipeLabel }}</div>
             <div class="hero-subtitle" *ngIf="!categoryPipeLabel && b.categoryName">{{ b.categoryName }}</div>
             <div class="hero-subtitle" *ngIf="!categoryPipeLabel && !b.categoryName">Services available for booking</div>
 
             <div class="hero-stats">
-              <div class="stat" *ngIf="locationLabel">
-                <mat-icon aria-hidden="true">place</mat-icon>
-                <span>{{ locationLabel }}</span>
-              </div>
               <div class="stat open-now" [ngClass]="currentBusinessStatusClass">
                 <span class="dot" aria-hidden="true"></span>
                 <span><span class="stat-context">Operating hours:</span> {{ currentBusinessStatusLabel }}</span>
-              </div>
-              <div class="stat appointment-status">
-                <mat-icon aria-hidden="true">event_available</mat-icon>
-                <span>Booking times shown after service selection</span>
               </div>
             </div>
 
@@ -84,8 +81,7 @@
         <section id="services" class="panel" *ngIf="activeSection === 'services'">
           <div class="panel-heading-row">
             <div>
-              <div class="panel-eyebrow">Book online</div>
-              <div class="panel-title">Choose your services</div>
+              <div class="panel-title">Services</div>
               <div class="panel-subtitle">Build your appointment, then choose an available date and time.</div>
             </div>
             <div class="selection-count" *ngIf="cartItemCount > 0">{{ cartItemCount }} selected</div>
@@ -112,11 +108,11 @@
                     type="button"
                     class="primary-btn"
                     [class.added-btn]="isSubServiceSelected(sub)"
-                    [disabled]="isSubServiceSelected(sub)"
-                    (click)="selectSubService(sub)"
+                    (click)="isSubServiceSelected(sub) ? removeSubService(sub) : selectSubService(sub)"
                   >
                     <mat-icon *ngIf="isSubServiceSelected(sub)" aria-hidden="true">check</mat-icon>
-                    {{ isSubServiceSelected(sub) ? 'Added' : 'Add to cart' }}
+                    <span class="added-label">{{ isSubServiceSelected(sub) ? 'Added' : 'Add service' }}</span>
+                    <span class="remove-label" *ngIf="isSubServiceSelected(sub)">Remove</span>
                   </button>
                 </div>
               </article>
@@ -238,7 +234,7 @@
               class="cart-screen-logo"
             />
             <ng-template #cartBusinessMonogram>
-              <span class="cart-screen-logo cart-screen-monogram" aria-hidden="true">{{ b.name.charAt(0) }}</span>
+              <span class="cart-screen-logo cart-screen-monogram" aria-hidden="true">{{ businessInitials }}</span>
             </ng-template>
           </div>
         </div>
@@ -263,7 +259,7 @@
           <span aria-hidden="true">←</span>
           Back to date &amp; time
         </button>
-        <div class="card-title">{{ currentCheckoutStep === 2 ? 'Choose a date and time' : 'Book services' }}</div>
+        <div class="card-title">{{ currentCheckoutStep === 2 ? 'Choose a date and time' : 'Your booking' }}</div>
         <div class="booking-card-subtitle">
           {{ currentCheckoutStep === 2 ? 'Select an available appointment for your services.' : 'Your appointment summary' }}
         </div>
@@ -296,14 +292,11 @@
 
     <div class="booking-cart-shell">
       <ng-container *ngIf="currentCheckoutStep === 1; else checkoutLaterStep">
-        <div class="booking-cart-label">Selected services</div>
+        <div class="booking-cart-label">Services</div>
 
         <div class="booking-summary" *ngIf="selectedSubServices.length > 0; else emptyBookingCart" aria-live="polite">
           <div class="booking-selected" *ngFor="let sub of selectedSubServices">
             <div class="booking-selected-content">
-              <div class="booking-selected-topline">
-                <div class="booking-selected-label">Service</div>
-              </div>
               <div class="booking-selected-name">{{ sub.name }}</div>
               <div class="booking-selected-description" *ngIf="sub.description">{{ sub.description }}</div>
               <div class="booking-selected-meta">

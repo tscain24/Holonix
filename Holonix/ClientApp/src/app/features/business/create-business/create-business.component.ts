@@ -35,6 +35,7 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
   private pendingIconPreviewRender: File | null = null;
   private businessIconPreviewFile: File | null = null;
   private openHoursTimePicker: { dayOfWeek: number; field: 'open' | 'close' } | null = null;
+  private canReturnToOrigin = false;
   readonly timeOptions = CreateBusinessComponent.buildTimeOptions(30);
 
   @ViewChildren('iconPreviewCanvas')
@@ -112,6 +113,10 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
       this.router.navigate(['/login']);
       return;
     }
+
+    const currentNavigationId = Number(window.history.state?.navigationId ?? 0);
+    this.canReturnToOrigin = currentNavigationId > 1 && window.history.length > 1;
+    window.history.replaceState({ ...window.history.state, createBusinessStep: 1 }, '', this.router.url);
 
     this.displayName = (localStorage.getItem('holonix_display_name') ?? '').trim() || 'User';
     const parts = this.displayName.split(' ').filter(Boolean);
@@ -277,8 +282,7 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
 
   goBack(): void {
     if (this.currentStep > 1) {
-      this.currentStep = (this.currentStep - 1) as 1 | 2 | 3;
-      this.queueBusinessIconPreviewRender();
+      window.history.back();
       return;
     }
 
@@ -287,7 +291,7 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
       return;
     }
 
-    this.router.navigate(['/business']);
+    this.leaveCreateBusiness();
   }
 
   cancelLeaveConfirmation(): void {
@@ -296,6 +300,15 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
 
   confirmLeave(): void {
     this.showLeaveConfirmation = false;
+    this.leaveCreateBusiness();
+  }
+
+  private leaveCreateBusiness(): void {
+    if (this.canReturnToOrigin) {
+      window.history.back();
+      return;
+    }
+
     this.router.navigate(['/business']);
   }
 
@@ -317,7 +330,7 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
       case 2:
         return 'Set up how your business operates and choose the identity details customers will see first.';
       case 3:
-        return 'Review your business profile before the backend save flow is wired in.';
+        return 'Review your business profile before creating it.';
     }
   }
 
@@ -719,15 +732,13 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
 
     if (this.requiresLocationSuggestionSelection && !this.hasConfirmedLocationSelection) {
       this.resolveTypedLocation(() => {
-        this.currentStep = 2;
-        this.queueBusinessIconPreviewRender();
+        this.setCurrentStep(2, true);
         this.submitAttempted = false;
       });
       return;
     }
 
-    this.currentStep = 2;
-    this.queueBusinessIconPreviewRender();
+    this.setCurrentStep(2, true);
     this.submitAttempted = false;
   }
 
@@ -738,13 +749,33 @@ export class CreateBusinessComponent implements OnInit, AfterViewChecked {
       return;
     }
 
-    this.currentStep = 3;
-    this.queueBusinessIconPreviewRender();
+    this.setCurrentStep(3, true);
     this.submitAttempted = false;
   }
 
   editStep(step: 1 | 2): void {
     this.currentStep = step;
+    window.history.replaceState({ ...window.history.state, createBusinessStep: step }, '', this.router.url);
+    this.queueBusinessIconPreviewRender();
+  }
+
+  @HostListener('window:popstate', ['$event'])
+  onBrowserBack(event: PopStateEvent): void {
+    const step = (event.state as { createBusinessStep?: unknown } | null)?.createBusinessStep;
+    if (step === 1 || step === 2 || step === 3) {
+      this.currentStep = step;
+      this.submitAttempted = false;
+      this.queueBusinessIconPreviewRender();
+    }
+  }
+
+  private setCurrentStep(step: 1 | 2 | 3, addHistoryEntry: boolean): void {
+    this.currentStep = step;
+    if (addHistoryEntry) {
+      window.history.pushState({ ...window.history.state, createBusinessStep: step }, '', this.router.url);
+    } else {
+      window.history.replaceState({ ...window.history.state, createBusinessStep: step }, '', this.router.url);
+    }
     this.queueBusinessIconPreviewRender();
   }
 
